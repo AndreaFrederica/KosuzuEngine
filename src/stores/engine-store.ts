@@ -3,17 +3,20 @@ import { reactive } from 'vue';
 import { defaultRuntime } from '../engine/core/Runtime';
 import { initialEngineState, selectors, type EngineState } from '../engine/core/EngineContext';
 import type { ActionType } from '../engine/core/ActorAction';
-import { enablePersistence, loadPersistedState } from '../engine/core/Persistence';
+import { enablePersistence, loadPersistedProgress, loadPersistedState } from '../engine/core/Persistence';
 import type { TransformState, PoseState } from '../engine/core/BaseActor';
 
 export const useEngineStore = defineStore('engine', () => {
   const runtime = defaultRuntime;
   const state = reactive<EngineState>({ ...initialEngineState });
   enablePersistence(runtime);
-  const restored = loadPersistedState();
-  if (restored) {
-    runtime.hydrate(restored);
-    Object.assign(state, restored);
+  const progress = loadPersistedProgress();
+  if (!progress) {
+    const restored = loadPersistedState();
+    if (restored) {
+      runtime.hydrate(restored);
+      Object.assign(state, restored);
+    }
   }
   let prevActors: Record<string, { name: string; kind: string; transform?: TransformState; pose?: PoseState }> = {};
   let prevBgName: string | undefined = undefined;

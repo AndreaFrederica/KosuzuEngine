@@ -2,6 +2,7 @@ import type { EngineState } from './EngineContext';
 import type { Runtime } from './Runtime';
 
 const KEY = 'kosuzu_engine_state';
+const PROGRESS_KEY = 'kosuzu_engine_progress';
 
 export function enablePersistence(runtime: Runtime) {
   runtime.addListener((s: EngineState) => {
@@ -14,4 +15,24 @@ export function loadPersistedState(): EngineState | null {
   const raw = localStorage.getItem(KEY);
   if (!raw) return null;
   return JSON.parse(raw) as EngineState;
+}
+
+export type PersistedProgress = { scene: string; frame: number; time: number };
+
+export function loadPersistedProgress(): PersistedProgress | null {
+  const raw = localStorage.getItem(PROGRESS_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as Partial<PersistedProgress>;
+    if (typeof parsed.scene !== 'string') return null;
+    if (typeof parsed.frame !== 'number') return null;
+    if (typeof parsed.time !== 'number') return null;
+    return { scene: parsed.scene, frame: parsed.frame, time: parsed.time };
+  } catch {
+    return null;
+  }
+}
+
+export function clearPersistedProgress() {
+  localStorage.removeItem(PROGRESS_KEY);
 }

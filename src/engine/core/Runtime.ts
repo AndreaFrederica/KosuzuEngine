@@ -12,6 +12,8 @@ export class Runtime {
   private future: EngineState[];
   private readonly maxPast: number;
   private actionLog: ActorAction<unknown>[];
+  private replayTargetFrame: number | null;
+  private readonly progressKey: string;
 
   constructor() {
     this.state = { ...initialEngineState };
@@ -23,6 +25,24 @@ export class Runtime {
     this.future = [];
     this.maxPast = 10;
     this.actionLog = [];
+    this.replayTargetFrame = null;
+    this.progressKey = 'kosuzu_engine_progress';
+  }
+
+  reset() {
+    this.state = { ...initialEngineState };
+    this.pendingChoice = null;
+    this.pendingSay = null;
+    this.past = [];
+    this.future = [];
+    this.actionLog = [];
+    this.replayTargetFrame = null;
+    this.emit();
+    this.persistProgress(0);
+  }
+
+  replayToFrame(frame: number) {
+    this.replayTargetFrame = Math.max(0, Math.floor(frame));
   }
 
   dispatch<T = unknown>(action: ActorAction<T>): Promise<ActionResult<T>> {
@@ -47,6 +67,14 @@ export class Runtime {
     if (action.type === 'say') {
       this.state = reducer(this.state, { type: action.type, payload: action.payload });
       this.emit();
+      const frame = this.currentFrame();
+      this.persistProgress(frame);
+      if (this.replayTargetFrame !== null && frame < this.replayTargetFrame) {
+        return Promise.resolve({ ok: true } as ActionResult<T>);
+      }
+      if (this.replayTargetFrame !== null && frame >= this.replayTargetFrame) {
+        this.replayTargetFrame = null;
+      }
       return new Promise<ActionResult<T>>((resolve) => {
         this.pendingSay = { resolve: resolve as unknown as (value: ActionResult<void>) => void };
       });
@@ -138,6 +166,7 @@ export class Runtime {
   hydrate(state: EngineState) {
     this.state = { ...state };
     this.emit();
+    this.persistProgress(this.currentFrame());
   }
 
   back() {
@@ -147,6 +176,7 @@ export class Runtime {
       this.future.push(curr);
       this.state = prev;
       this.emit();
+      this.persistProgress(this.currentFrame());
       return;
     }
     if (this.actionLog.length > 0) {
@@ -156,6 +186,7 @@ export class Runtime {
       this.state = rebuilt;
       this.actionLog.pop();
       this.emit();
+      this.persistProgress(this.currentFrame());
     }
   }
 
@@ -195,6 +226,7 @@ export class Runtime {
     } else {
       this.hydrate(parsed as EngineState);
     }
+    this.persistProgress(this.currentFrame());
     return { ok: true } as ActionResult<void>;
   }
 
@@ -219,6 +251,17 @@ export class Runtime {
         }
       })
       .sort((a, b) => (b.time || 0) - (a.time || 0));
+  }
+
+  private currentFrame() {
+    return this.state.history?.length ?? 0;
+  }
+
+  private persistProgress(frame: number) {
+    const scene = this.state.scene;
+    if (!scene) return;
+    const payload = JSON.stringify({ scene, frame, time: Date.now() });
+    localStorage.setItem(this.progressKey, payload);
   }
 }
 

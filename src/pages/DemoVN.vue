@@ -6,6 +6,7 @@
           <DialogBox
             v-if="showDialog"
             @back="store.back?.()"
+            @restart="restartScene"
             @open-context="showContext = !showContext"
             @open-debug="showDebug = !showDebug"
             @open-history="showHistory = !showHistory"
@@ -42,7 +43,9 @@ import HistoryPanel from '../engine/render/HistoryPanel.vue';
 import SaveLoadPanel from '../engine/render/SaveLoadPanel.vue';
 import { onMounted, ref } from 'vue';
 import { useEngineStore } from 'stores/engine-store';
+import { loadPersistedProgress, clearPersistedProgress } from '../engine/core/Persistence';
 import { scene1 } from '../scripts/scene1';
+import { defaultRuntime } from '../engine/core/Runtime';
 const showDebug = ref(false);
 const showContext = ref(false);
 const showHistory = ref(false);
@@ -50,12 +53,27 @@ const showDialog = ref(true);
 const showSL = ref(false);
 const slMode = ref<'save' | 'load'>('save');
 const store = useEngineStore();
-onMounted(() => {
-  void store.dispatch('scene', 'scene1');
+
+async function startSceneFromFrame(frame: number) {
+  defaultRuntime.reset();
+  if (frame > 0) defaultRuntime.replayToFrame(frame);
+  await store.dispatch('scene', 'scene1');
   void scene1();
+}
+
+onMounted(() => {
+  const progress = loadPersistedProgress();
+  const frame = progress?.scene === 'scene1' ? progress.frame : 0;
+  void startSceneFromFrame(frame);
 });
 function onStageClick() {
   if (!showDialog.value) showDialog.value = true;
+}
+
+function restartScene() {
+  clearPersistedProgress();
+  showDialog.value = true;
+  void startSceneFromFrame(0);
 }
 </script>
 

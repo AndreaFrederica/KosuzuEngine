@@ -3,7 +3,10 @@
     <!-- 顶部工具栏 -->
     <div class="dialog-toolbar row items-center justify-between q-px-md">
       <!-- 左侧返回按钮 -->
-      <div class="text-white cursor-pointer hover-opacity" @click="$emit('back')">返回</div>
+      <div class="row items-center q-gutter-sm">
+        <div class="text-white cursor-pointer hover-opacity" @click="$emit('back')">返回</div>
+        <q-btn flat dense color="white" label="回到开头" @click="$emit('restart')" />
+      </div>
 
       <!-- 右侧功能按钮 -->
       <div class="row q-gutter-sm">
@@ -44,6 +47,7 @@ const text = computed(() => dialog.value.text ?? '');
 // 定义事件，方便父组件（如 DemoVN.vue）监听处理
 defineEmits([
   'back',
+  'restart',
   'open-context',
   'open-debug',
   'open-history',
