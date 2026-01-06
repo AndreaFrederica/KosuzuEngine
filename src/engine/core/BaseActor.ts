@@ -70,23 +70,23 @@ export class CharacterActor extends BaseActor {
   }
 
   show(opts?: TransformState) {
-    return this.action({ type: 'show', payload: opts });
+    return this.action({ type: 'show', payload: { actorId: this.id, name: this.name, kind: this.kind, transform: opts } });
   }
 
   hide() {
-    return this.action({ type: 'hide' });
+    return this.action({ type: 'hide', payload: { actorId: this.id } });
   }
 
   move(to: TransformState) {
-    return this.action({ type: 'move', payload: to });
+    return this.action({ type: 'move', payload: { actorId: this.id, transform: to } });
   }
 
   emote(key: string) {
-    return this.action({ type: 'emote', payload: { key } });
+    return this.action({ type: 'emote', payload: { actorId: this.id, key } });
   }
 
   pose(diffKey: string) {
-    return this.action({ type: 'pose', payload: { key: diffKey } });
+    return this.action({ type: 'pose', payload: { actorId: this.id, key: diffKey } });
   }
 
   motion(id: string) {

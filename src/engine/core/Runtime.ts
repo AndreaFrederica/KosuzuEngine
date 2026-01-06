@@ -18,6 +18,10 @@ export class Runtime {
   }
 
   dispatch<T = unknown>(action: ActorAction<T>): Promise<ActionResult<T>> {
+    if (import.meta.env?.DEV) {
+
+      console.log('dispatch', action.type, action.payload);
+    }
     if (action.type === 'choice') {
       this.state = reducer(this.state, { type: action.type, payload: action.payload });
       this.emit();
@@ -48,20 +52,43 @@ export class Runtime {
   bindVoiceBank(binding: VoiceBankBinding) {
     if (!this.bindings.voiceBanks) this.bindings.voiceBanks = {};
     this.bindings.voiceBanks[binding.actorId] = binding;
+    const next = { ...this.state };
+    next.bindings = next.bindings || {};
+    next.bindings.voiceBanks = next.bindings.voiceBanks || {};
+    next.bindings.voiceBanks[binding.actorId] = binding;
+    this.state = next;
+    this.emit();
   }
 
   bindSpriteAtlas(binding: SpriteAtlasBinding) {
     if (!this.bindings.spriteAtlases) this.bindings.spriteAtlases = {};
     this.bindings.spriteAtlases[binding.actorId] = binding;
+    const next = { ...this.state };
+    next.bindings = next.bindings || {};
+    next.bindings.spriteAtlases = next.bindings.spriteAtlases || {};
+    next.bindings.spriteAtlases[binding.actorId] = binding;
+    this.state = next;
+    this.emit();
   }
 
   bindLive2D(binding: Live2DBinding) {
     if (!this.bindings.live2d) this.bindings.live2d = {};
     this.bindings.live2d[binding.actorId] = binding;
+    const next = { ...this.state };
+    next.bindings = next.bindings || {};
+    next.bindings.live2d = next.bindings.live2d || {};
+    next.bindings.live2d[binding.actorId] = binding;
+    this.state = next;
+    this.emit();
   }
 
   bindAudioMixer(binding: AudioMixerBinding) {
     this.bindings.audioMixer = binding;
+    const next = { ...this.state };
+    next.bindings = next.bindings || {};
+    next.bindings.audioMixer = binding;
+    this.state = next;
+    this.emit();
   }
 
   addListener(fn: (state: EngineState) => void) {
@@ -91,6 +118,11 @@ export class Runtime {
       this.pendingSay.resolve({ ok: true });
       this.pendingSay = null;
     }
+  }
+
+  hydrate(state: EngineState) {
+    this.state = { ...state };
+    this.emit();
   }
 }
 

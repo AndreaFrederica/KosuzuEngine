@@ -1,5 +1,6 @@
 export type ActionType =
   | 'say'
+  | 'back'
   | 'show'
   | 'hide'
   | 'move'
@@ -8,6 +9,7 @@ export type ActionType =
   | 'motion'
   | 'bg'
   | 'bgm'
+  | 'overlay'
   | 'choice'
   | 'group'
   | 'end';
@@ -25,4 +27,3 @@ export interface ActionResult<T = unknown> {
   ok: boolean;
   value?: T;
 }
-

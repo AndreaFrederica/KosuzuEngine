@@ -13,7 +13,13 @@ export interface ChoiceState {
   visible: boolean;
 }
 
+export interface HistoryEntry {
+  speaker?: string;
+  text?: string;
+}
+
 import type { TransformState, PoseState } from './BaseActor';
+import type { BindingsRegistry } from './bindings';
 
 export interface EngineState {
   dialog: DialogState;
@@ -21,14 +27,18 @@ export interface EngineState {
   bg?: { name?: string };
   bgm?: { name?: string; volume?: number };
   actors: Record<string, { name: string; kind: string; transform?: TransformState; pose?: PoseState }>;
-  history: unknown[];
-  bindings: Record<string, unknown>;
+  actorIds?: string[];
+  overlay?: { layer?: number };
+  history: HistoryEntry[];
+  bindings: BindingsRegistry;
 }
 
 export const initialEngineState: EngineState = {
   dialog: {},
   choice: { items: [], visible: false },
   actors: {},
+  actorIds: [],
+  overlay: { layer: 100 },
   history: [],
   bindings: {},
 };
@@ -38,10 +48,32 @@ export type Reducer = (state: EngineState, action: { type: string; payload?: unk
 export const reducer: Reducer = (state, action) => {
   if (action.type === 'say') {
     const payload = action.payload as { text: string; speaker?: string };
-    const nextDialog: DialogState = { text: payload.text };
+    const nextDialog: DialogState = {};
+    if (payload.text !== undefined) nextDialog.text = payload.text;
     if (payload.speaker !== undefined) nextDialog.speaker = payload.speaker;
     const nextChoice: ChoiceState = { items: state.choice.items, visible: false };
-    return { ...state, dialog: nextDialog, choice: nextChoice };
+    const entry: HistoryEntry = {};
+    if (payload.text !== undefined) entry.text = payload.text;
+    if (payload.speaker !== undefined) entry.speaker = payload.speaker;
+    const nextHistory = [...state.history, entry];
+    return { ...state, dialog: nextDialog, choice: nextChoice, history: nextHistory };
+  }
+  if (action.type === 'back') {
+    const next = { ...state };
+    if (next.history.length > 0) {
+      const trimmed = next.history.slice(0, -1);
+      next.history = trimmed;
+      const last = trimmed[trimmed.length - 1];
+      if (last) {
+        const nd: DialogState = {};
+        if (last.text !== undefined) nd.text = last.text;
+        if (last.speaker !== undefined) nd.speaker = last.speaker;
+        next.dialog = nd;
+      } else {
+        next.dialog = {};
+      }
+    }
+    return next;
   }
   if (action.type === 'choice') {
     const items = (action.payload as ChoiceItem[]) || [];
@@ -77,8 +109,51 @@ export const reducer: Reducer = (state, action) => {
     }
     return nextState as EngineState;
   }
+  if (action.type === 'overlay') {
+    const payload = action.payload as { layer?: number };
+    const next = { ...state };
+    next.overlay = next.overlay || {};
+    if (payload?.layer !== undefined) next.overlay.layer = payload.layer;
+    return next;
+  }
   if (action.type === 'show' || action.type === 'move' || action.type === 'hide' || action.type === 'pose' || action.type === 'motion') {
-    return state;
+    const next = { ...state };
+    if (action.type === 'show') {
+      const p = action.payload as { actorId: string; name: string; kind: string; transform?: TransformState };
+      const a = next.actors[p.actorId] ?? { name: p.name, kind: p.kind };
+      if (p.transform !== undefined) {
+        a.transform = p.transform;
+      } else {
+        if ('transform' in a) delete (a as { transform?: TransformState }).transform;
+      }
+      next.actors[p.actorId] = a;
+      const ids = (next.actorIds ?? []).slice();
+      if (!ids.includes(p.actorId)) ids.push(p.actorId);
+      next.actorIds = ids;
+    } else if (action.type === 'move') {
+      const p = action.payload as { actorId: string; transform?: TransformState };
+      const a = next.actors[p.actorId];
+      if (a) {
+        if (p.transform !== undefined) {
+          a.transform = p.transform;
+        } else {
+          if ('transform' in a) delete (a as { transform?: TransformState }).transform;
+        }
+      }
+    } else if (action.type === 'hide') {
+      const p = action.payload as { actorId: string };
+      const rest = { ...next.actors };
+      delete (rest as Record<string, unknown>)[p.actorId];
+      next.actors = rest as typeof next.actors;
+      const ids = (next.actorIds ?? []).filter((x) => x !== p.actorId);
+      next.actorIds = ids;
+    } else if (action.type === 'pose') {
+      const p = action.payload as { actorId: string; key: string };
+      const a = next.actors[p.actorId] ?? { name: '', kind: 'character' };
+      a.pose = { emote: p.key };
+      next.actors[p.actorId] = a;
+    }
+    return next;
   }
   return state;
 };
