@@ -24,6 +24,7 @@ import type { BindingsRegistry } from './bindings';
 export interface EngineState {
   dialog: DialogState;
   choice: ChoiceState;
+  scene?: string;
   bg?: { name?: string };
   bgm?: { name?: string; volume?: number };
   actors: Record<string, { name: string; kind: string; transform?: TransformState; pose?: PoseState }>;
@@ -72,6 +73,16 @@ export const reducer: Reducer = (state, action) => {
       } else {
         next.dialog = {};
       }
+    }
+    return next;
+  }
+  if (action.type === 'scene') {
+    const payload = action.payload as { name?: string } | string | undefined;
+    const next = { ...state };
+    if (typeof payload === 'string') {
+      next.scene = payload;
+    } else if (payload && typeof payload === 'object') {
+      if (payload.name !== undefined) next.scene = payload.name;
     }
     return next;
   }

@@ -10,6 +10,8 @@
         <q-btn flat dense color="white" label="上下文" @click="$emit('open-context')" />
         <q-btn flat dense color="white" label="调试" @click="$emit('open-debug')" />
         <q-btn flat dense color="white" label="历史" @click="$emit('open-history')" />
+        <q-btn flat dense color="white" label="存档" @click="$emit('open-save')" />
+        <q-btn flat dense color="white" label="读档" @click="$emit('open-load')" />
         <q-btn flat dense color="white" label="隐藏" @click.stop="$emit('hide')" />
       </div>
     </div>
@@ -40,7 +42,15 @@ const speaker = computed(() => dialog.value.speaker ?? '');
 const text = computed(() => dialog.value.text ?? '');
 
 // 定义事件，方便父组件（如 DemoVN.vue）监听处理
-defineEmits(['back', 'open-context', 'open-debug', 'open-history', 'hide']);
+defineEmits([
+  'back',
+  'open-context',
+  'open-debug',
+  'open-history',
+  'open-save',
+  'open-load',
+  'hide',
+]);
 
 function onNext() {
   store.advance();

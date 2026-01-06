@@ -1,5 +1,6 @@
 export type ActionType =
   | 'say'
+  | 'scene'
   | 'back'
   | 'show'
   | 'hide'

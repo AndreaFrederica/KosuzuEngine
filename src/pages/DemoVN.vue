@@ -9,10 +9,19 @@
             @open-context="showContext = !showContext"
             @open-debug="showDebug = !showDebug"
             @open-history="showHistory = !showHistory"
+            @open-save="
+              slMode = 'save';
+              showSL = true;
+            "
+            @open-load="
+              slMode = 'load';
+              showSL = true;
+            "
             @hide="showDialog = false"
           />
           <ChoicePanel />
           <ContextViewer :visible="showContext" />
+          <SaveLoadPanel :visible="showSL" :mode="slMode" @close="showSL = false" />
           <HistoryPanel
             :visible="showHistory"
             @close="showHistory = false"
@@ -30,6 +39,7 @@ import DialogBox from '../engine/render/DialogBox.vue';
 import ChoicePanel from '../engine/render/ChoicePanel.vue';
 import ContextViewer from '../engine/debug/ContextViewer.vue';
 import HistoryPanel from '../engine/render/HistoryPanel.vue';
+import SaveLoadPanel from '../engine/render/SaveLoadPanel.vue';
 import { onMounted, ref } from 'vue';
 import { useEngineStore } from 'stores/engine-store';
 import { scene1 } from '../scripts/scene1';
@@ -37,8 +47,11 @@ const showDebug = ref(false);
 const showContext = ref(false);
 const showHistory = ref(false);
 const showDialog = ref(true);
+const showSL = ref(false);
+const slMode = ref<'save' | 'load'>('save');
 const store = useEngineStore();
 onMounted(() => {
+  void store.dispatch('scene', 'scene1');
   void scene1();
 });
 function onStageClick() {

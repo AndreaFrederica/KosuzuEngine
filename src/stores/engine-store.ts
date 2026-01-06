@@ -90,7 +90,16 @@ export const useEngineStore = defineStore('engine', () => {
     choose,
     advance,
     back() {
-      void dispatch('back', {});
+      runtime.back();
+    },
+    save(slot: string) {
+      return runtime.save(slot);
+    },
+    load(slot: string) {
+      return runtime.load(slot);
+    },
+    listSaves(): Array<{ slot: string; scene?: string; text?: string; time?: number }> {
+      return runtime.listSaves();
     },
   };
 });
