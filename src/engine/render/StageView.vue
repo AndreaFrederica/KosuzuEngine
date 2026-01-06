@@ -1,5 +1,5 @@
 <template>
-  <div class="engine-stage" ref="stageRef">
+  <div class="engine-stage" ref="stageRef" @click="emitStageClick">
     <div class="engine-background">
       <img v-if="bgName" class="bg-img" :src="bgSrc" />
     </div>
@@ -33,6 +33,7 @@ import { computed, ref, onMounted, onBeforeUnmount, watchEffect, type CSSPropert
 // no-op
 import { useEngineStore } from 'stores/engine-store';
 const props = defineProps<{ debug?: boolean }>();
+const emit = defineEmits<{ (e: 'stage-click'): void }>();
 const store = useEngineStore();
 const bgName = computed(() => store.background()?.name);
 const bgSrc = computed(() => (bgName.value ? `/assets/bg/${bgName.value}` : ''));
@@ -80,6 +81,10 @@ watchEffect(() => {
   });
 });
 
+function emitStageClick() {
+  emit('stage-click');
+}
+
 function actorStyleById(id: string): CSSProperties {
   const a = store.state.actors[id];
   const t = a?.transform || {};
@@ -121,8 +126,9 @@ function onImgErrorById(id: string) {
 .engine-stage {
   position: relative;
   width: 100%;
-  height: 100%;
-  min-height: 60vh;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
 }
 .engine-background {
   position: absolute;
@@ -145,9 +151,7 @@ function onImgErrorById(id: string) {
 }
 .overlay {
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   pointer-events: none;
 }
 .overlay > * {

@@ -12,9 +12,6 @@
     </div>
   </div>
   <div v-else class="history-placeholder"></div>
-  <div class="history-controls">
-    <button class="ctrl-btn" @click="$emit('back')">返回</button>
-  </div>
 </template>
 
 <script setup lang="ts">
@@ -70,19 +67,5 @@ const history = computed(() => store.history());
 }
 .history-placeholder {
   display: none;
-}
-.history-controls {
-  position: absolute;
-  left: 12px;
-  bottom: 160px;
-  z-index: 1002;
-}
-.ctrl-btn {
-  background: rgba(0, 0, 0, 0.6);
-  color: #fff;
-  border: none;
-  border-radius: 4px;
-  padding: 6px 12px;
-  cursor: pointer;
 }
 </style>

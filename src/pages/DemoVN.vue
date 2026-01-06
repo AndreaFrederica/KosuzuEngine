@@ -1,14 +1,16 @@
 <template>
-  <q-page class="column items-stretch">
+  <q-page class="column items-stretch q-pa-none">
     <div class="col stage-container">
-      <StageView :debug="showDebug">
+      <StageView :debug="showDebug" @stage-click="onStageClick">
         <template #overlay>
-          <div class="overlay-toolbar">
-            <button class="ov-btn" @click="showContext = !showContext">上下文</button>
-            <button class="ov-btn" @click="showDebug = !showDebug">调试</button>
-            <button class="ov-btn" @click="showHistory = !showHistory">历史</button>
-          </div>
-          <DialogBox />
+          <DialogBox
+            v-if="showDialog"
+            @back="store.back?.()"
+            @open-context="showContext = !showContext"
+            @open-debug="showDebug = !showDebug"
+            @open-history="showHistory = !showHistory"
+            @hide="showDialog = false"
+          />
           <ChoicePanel />
           <ContextViewer :visible="showContext" />
           <HistoryPanel
@@ -34,31 +36,21 @@ import { scene1 } from '../scripts/scene1';
 const showDebug = ref(false);
 const showContext = ref(false);
 const showHistory = ref(false);
+const showDialog = ref(true);
 const store = useEngineStore();
 onMounted(() => {
   void scene1();
 });
+function onStageClick() {
+  if (!showDialog.value) showDialog.value = true;
+}
 </script>
 
 <style scoped>
 .stage-container {
   flex: 1 1 auto;
   min-height: 0;
-}
-.overlay-toolbar {
-  position: absolute;
-  right: 12px;
-  bottom: 160px;
   display: flex;
-  gap: 8px;
-  z-index: 1001;
-}
-.ov-btn {
-  background: rgba(0, 0, 0, 0.6);
-  color: #fff;
-  border: none;
-  border-radius: 4px;
-  padding: 6px 12px;
-  cursor: pointer;
+  flex-direction: column;
 }
 </style>
