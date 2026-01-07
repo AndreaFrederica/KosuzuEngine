@@ -11,6 +11,8 @@ export type ActionType =
   | 'bg'
   | 'bgm'
   | 'overlay'
+  | 'stage'
+  | 'var'
   | 'choice'
   | 'group'
   | 'end';

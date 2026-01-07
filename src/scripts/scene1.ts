@@ -35,8 +35,9 @@ export async function scene1() {
   await sailorB.pose('f');
   await sailorA.say('风有点大，别让帽子飞了。');
   await sailorB.say('好险，差点就掉了。');
+  await sailorA.say(`喂……你现在看见的系统时间是：${new Date().toLocaleString()}。`);
 
-  await neko.show({ x: 0.12, y: 0.42, layer: 3, scale: 0.5, opacity: 0.9 });
+  await neko.show({ x: 0.02, y: 1.22, layer: 3, scale: 0.5, opacity: 0.9 });
   await neko.pose('g');
   await sailorA.say('呀，小猫咪也出来散步。');
   await sailorB.say('好可爱，想摸摸它。');

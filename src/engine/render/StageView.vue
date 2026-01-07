@@ -46,9 +46,13 @@ onMounted(() => {
   if (!el) return;
   const rect = el.getBoundingClientRect();
   stageSize.value = { width: rect.width, height: rect.height };
+  void store.dispatch('stage', { width: rect.width, height: rect.height });
   ro = new ResizeObserver(() => {
     const r = el.getBoundingClientRect();
-    stageSize.value = { width: r.width, height: r.height };
+    if (stageSize.value.width !== r.width || stageSize.value.height !== r.height) {
+      stageSize.value = { width: r.width, height: r.height };
+      void store.dispatch('stage', { width: r.width, height: r.height });
+    }
   });
   ro.observe(el);
 });

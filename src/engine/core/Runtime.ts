@@ -45,7 +45,7 @@ export class Runtime {
     this.replayTargetFrame = Math.max(0, Math.floor(frame));
   }
 
-  dispatch<T = unknown>(action: ActorAction<T>): Promise<ActionResult<T>> {
+  dispatch<TResult = unknown>(action: ActorAction<unknown>): Promise<ActionResult<TResult>> {
     if (import.meta.env?.DEV) {
 
       console.log('dispatch', action.type, action.payload);
@@ -60,7 +60,7 @@ export class Runtime {
     if (action.type === 'choice') {
       this.state = reducer(this.state, { type: action.type, payload: action.payload });
       this.emit();
-      return new Promise<ActionResult<T>>((resolve) => {
+      return new Promise<ActionResult<TResult>>((resolve) => {
         this.pendingChoice = { resolve: resolve as unknown as (value: ActionResult<string>) => void };
       });
     }
@@ -70,18 +70,18 @@ export class Runtime {
       const frame = this.currentFrame();
       this.persistProgress(frame);
       if (this.replayTargetFrame !== null && frame < this.replayTargetFrame) {
-        return Promise.resolve({ ok: true } as ActionResult<T>);
+        return Promise.resolve({ ok: true } as ActionResult<TResult>);
       }
       if (this.replayTargetFrame !== null && frame >= this.replayTargetFrame) {
         this.replayTargetFrame = null;
       }
-      return new Promise<ActionResult<T>>((resolve) => {
+      return new Promise<ActionResult<TResult>>((resolve) => {
         this.pendingSay = { resolve: resolve as unknown as (value: ActionResult<void>) => void };
       });
     }
     this.state = reducer(this.state, { type: action.type, payload: action.payload });
     this.emit();
-    return Promise.resolve({ ok: true } as ActionResult<T>);
+    return Promise.resolve({ ok: true } as ActionResult<TResult>);
   }
 
   parallel(actions: ActorAction[]) {

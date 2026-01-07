@@ -25,22 +25,26 @@ export interface EngineState {
   dialog: DialogState;
   choice: ChoiceState;
   scene?: string;
+  stage?: { width?: number; height?: number };
   bg?: { name?: string };
   bgm?: { name?: string; volume?: number };
   actors: Record<string, { name: string; kind: string; transform?: TransformState; pose?: PoseState }>;
   actorIds?: string[];
   overlay?: { layer?: number };
   history: HistoryEntry[];
+  vars?: Record<string, unknown>;
   bindings: BindingsRegistry;
 }
 
 export const initialEngineState: EngineState = {
   dialog: {},
   choice: { items: [], visible: false },
+  stage: {},
   actors: {},
   actorIds: [],
   overlay: { layer: 100 },
   history: [],
+  vars: {},
   bindings: {},
 };
 
@@ -125,6 +129,28 @@ export const reducer: Reducer = (state, action) => {
     const next = { ...state };
     next.overlay = next.overlay || {};
     if (payload?.layer !== undefined) next.overlay.layer = payload.layer;
+    return next;
+  }
+  if (action.type === 'stage') {
+    const payload = action.payload as { width?: number; height?: number };
+    const next = { ...state };
+    next.stage = next.stage || {};
+    if (payload?.width !== undefined) next.stage.width = payload.width;
+    if (payload?.height !== undefined) next.stage.height = payload.height;
+    return next;
+  }
+  if (action.type === 'var') {
+    const payload = action.payload as { key?: string; value?: unknown; remove?: boolean };
+    const key = payload?.key;
+    if (!key) return state;
+    const next = { ...state };
+    const vars = { ...(next.vars || {}) };
+    if (payload?.remove) {
+      delete (vars as Record<string, unknown>)[key];
+    } else {
+      vars[key] = payload.value;
+    }
+    next.vars = vars;
     return next;
   }
   if (action.type === 'show' || action.type === 'move' || action.type === 'hide' || action.type === 'pose' || action.type === 'motion') {

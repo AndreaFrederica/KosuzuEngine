@@ -1,6 +1,7 @@
 import type { ActorAction, ActionResult } from './ActorAction';
 import type { Runtime } from './Runtime';
 import { defaultRuntime } from './Runtime';
+import type { ChoiceItem, EngineState } from './EngineContext';
 
 export type ActorKind = 'character' | 'background' | 'audio' | 'overlay';
 
@@ -139,5 +140,69 @@ export class AudioActor extends BaseActor {
 
   fadeTo(volume: number, ms: number) {
     return this.action({ type: 'bgm', payload: { volume }, options: { duration: ms } });
+  }
+}
+
+export class ContextOps {
+  protected runtime: Runtime;
+  constructor(runtime?: Runtime) {
+    this.runtime = runtime ?? defaultRuntime;
+  }
+
+  state(): EngineState {
+    return this.runtime.state;
+  }
+
+  sceneName() {
+    return this.runtime.state.scene;
+  }
+
+  stageSize() {
+    return this.runtime.state.stage;
+  }
+
+  var<T = unknown>(key: string, fallback?: T) {
+    const vars = this.runtime.state.vars || {};
+    const v = vars[key] as T | undefined;
+    return v !== undefined ? v : (fallback as T);
+  }
+
+  setVar(key: string, value: unknown) {
+    return this.runtime.dispatch({ type: 'var', payload: { key, value } });
+  }
+
+  delVar(key: string) {
+    return this.runtime.dispatch({ type: 'var', payload: { key, remove: true } });
+  }
+
+  choice(items: ChoiceItem[]) {
+    return this.runtime.dispatch<string>({ type: 'choice', payload: items });
+  }
+
+  back() {
+    this.runtime.back();
+  }
+
+  restart() {
+    this.runtime.reset();
+  }
+}
+
+export class StageOps {
+  protected runtime: Runtime;
+  constructor(runtime?: Runtime) {
+    this.runtime = runtime ?? defaultRuntime;
+  }
+
+  size() {
+    return this.runtime.state.stage;
+  }
+
+  width() {
+    return this.runtime.state.stage?.width ?? 0;
+  }
+
+  height() {
+    return this.runtime.state.stage?.height ?? 0;
   }
 }
