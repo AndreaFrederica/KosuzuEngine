@@ -1,23 +1,36 @@
 <template>
   <div class="engine-stage" ref="stageRef" @click="emitStageClick">
     <div class="engine-background">
-      <img v-if="bgName" class="bg-img" :src="bgSrc" />
+      <img
+        v-if="bgPrevSrc"
+        class="bg-img bg-prev"
+        :class="bgClassPrev"
+        :src="bgPrevSrc"
+        :style="bgStylePrev"
+      />
+      <img
+        v-if="bgCurrSrc"
+        class="bg-img bg-curr"
+        :class="bgClassCurr"
+        :src="bgCurrSrc"
+        :style="bgStyleCurr"
+      />
     </div>
     <div class="engine-layers">
-      <img
-        v-for="id in actorIds"
-        :key="id"
-        class="actor-img"
-        :src="spriteSrcById(id)"
-        :style="actorStyleById(id)"
-        @error="onImgErrorById(id)"
-      />
+      <div v-for="id in actorIds" :key="id" class="actor-node" :style="actorNodeStyleById(id)">
+        <img
+          class="actor-img"
+          :src="spriteSrcById(id)"
+          :style="actorImgStyleById(id)"
+          @error="onImgErrorById(id)"
+        />
+      </div>
       <div class="overlay" :style="{ zIndex: overlayLayer }">
         <slot name="overlay"></slot>
       </div>
     </div>
     <div v-if="debug" class="engine-debug">
-      <div>BG: {{ bgName }} → {{ bgSrc }}</div>
+      <div>BG: {{ bgName }} → {{ bgCurrSrc }}</div>
       <div v-for="d in debugInfo" :key="d.id">
         [{{ d.id }}] {{ d.name }} pose={{ d.pose }} x={{ d.t?.x }} y={{ d.t?.y }} scale={{
           d.t?.scale
@@ -35,8 +48,16 @@ import { useEngineStore } from 'stores/engine-store';
 const props = defineProps<{ debug?: boolean }>();
 const emit = defineEmits<{ (e: 'stage-click'): void }>();
 const store = useEngineStore();
-const bgName = computed(() => store.background()?.name);
-const bgSrc = computed(() => (bgName.value ? `/assets/bg/${bgName.value}` : ''));
+const bg = computed(() => store.background());
+const bgName = computed(() => bg.value?.name);
+const bgEffect = computed(() => bg.value?.effect ?? 'cut');
+const bgDuration = computed(() => bg.value?.duration ?? 0);
+const bgCurrSrc = computed(() => (bgName.value ? `/assets/bg/${bgName.value}` : ''));
+const bgPrevSrc = ref<string>('');
+const bgClassPrev = ref<Record<string, boolean>>({});
+const bgClassCurr = ref<Record<string, boolean>>({});
+const bgStylePrev = ref<CSSProperties>({});
+const bgStyleCurr = ref<CSSProperties>({});
 const stageRef = ref<HTMLElement | null>(null);
 const overlayLayer = computed(() => store.overlayLayer());
 const stageSize = ref({ width: 0, height: 0 });
@@ -76,7 +97,7 @@ const debugInfo = computed(() =>
 watchEffect(() => {
   if (!props.debug) return;
 
-  console.log('BG', bgName.value, bgSrc.value);
+  console.log('BG', bgName.value, bgCurrSrc.value);
   actorIds.value.forEach((id) => {
     const a = store.state.actors[id];
     const src = store.spriteForActor(id) || spriteSrcById(id);
@@ -89,21 +110,75 @@ function emitStageClick() {
   emit('stage-click');
 }
 
-function actorStyleById(id: string): CSSProperties {
+function actorNodeStyleById(id: string): CSSProperties {
   const a = store.state.actors[id];
   const t = a?.transform || {};
   const opacity = t.opacity ?? 1;
   const scale = t.scale ?? 1;
+  const scaleX = t.scaleX ?? 1;
+  const scaleY = t.scaleY ?? 1;
+  const rotate = t.rotate ?? 0;
   const z = t.layer ?? 1;
+  const duration = a?.transition?.duration;
+  const trans = typeof duration === 'number' && duration > 0 ? `${Math.floor(duration)}ms` : '0ms';
   return {
     position: 'absolute',
-    transform: `translate(-50%, -50%) scale(${scale})`,
+    transform: `translate(-50%, -50%) rotate(${rotate}deg) scale(${scale * scaleX}, ${scale * scaleY})`,
     left: `${(t.x ?? 0) * 100}%`,
     top: `${(1 - (t.y ?? 0)) * 100}%`,
     opacity,
     zIndex: z,
     maxWidth: '40%',
+    transition: `transform ${trans} ease, left ${trans} ease, top ${trans} ease, opacity ${trans} ease`,
   };
+}
+
+function actorImgStyleById(id: string): CSSProperties {
+  const a = store.state.actors[id];
+  const t = a?.transform || {};
+  const duration = a?.transition?.duration;
+  const trans = typeof duration === 'number' && duration > 0 ? `${Math.floor(duration)}ms` : '0ms';
+  const filters: string[] = [];
+  if (typeof t.blur === 'number') filters.push(`blur(${t.blur}px)`);
+  if (typeof t.brightness === 'number') filters.push(`brightness(${t.brightness})`);
+  if (typeof t.grayscale === 'number') filters.push(`grayscale(${t.grayscale})`);
+  if (typeof t.saturate === 'number') filters.push(`saturate(${t.saturate})`);
+  if (typeof t.contrast === 'number') filters.push(`contrast(${t.contrast})`);
+  if (typeof t.hueRotate === 'number') filters.push(`hue-rotate(${t.hueRotate}deg)`);
+
+  const fx = a?.fx;
+  const fxName = fx?.name;
+  const fxDuration = typeof fx?.duration === 'number' && fx.duration > 0 ? fx.duration : 0;
+  const token = typeof fx?.token === 'number' ? fx.token : 0;
+
+  const styles: CSSProperties = {
+    pointerEvents: 'none',
+    filter: filters.length ? filters.join(' ') : undefined,
+    transition: `filter ${trans} ease`,
+  };
+
+  if (fxName === 'shake' && fxDuration > 0) {
+    const p = fx?.params || {};
+    const strengthX = Number(p.strengthX ?? 0.01);
+    const strengthY = Number(p.strengthY ?? 0);
+    const xPx = Math.max(0, strengthX) * (stageSize.value.width || 800);
+    const yPx = Math.max(0, strengthY) * (stageSize.value.height || 450);
+    (styles as Record<string, unknown>)['--shake-x'] = `${Math.round(xPx)}px`;
+    (styles as Record<string, unknown>)['--shake-y'] = `${Math.round(yPx)}px`;
+    styles.animation = `${token % 2 === 0 ? 'actor-shake' : 'actor-shake2'} ${Math.floor(fxDuration)}ms linear`;
+    styles.animationIterationCount = 1;
+    styles.animationFillMode = 'both';
+  }
+  if (fxName === 'jump' && fxDuration > 0) {
+    const p = fx?.params || {};
+    const height = Number(p.height ?? 0.06);
+    const yPx = Math.max(0, height) * (stageSize.value.height || 450);
+    (styles as Record<string, unknown>)['--jump-y'] = `${Math.round(yPx)}px`;
+    styles.animation = `${token % 2 === 0 ? 'actor-jump' : 'actor-jump2'} ${Math.floor(fxDuration)}ms cubic-bezier(.2,.8,.2,1)`;
+    styles.animationIterationCount = 1;
+    styles.animationFillMode = 'both';
+  }
+  return styles;
 }
 
 function spriteSrcById(id: string) {
@@ -124,6 +199,105 @@ function onImgErrorById(id: string) {
 
   console.error('Image failed', id, store.state.actors[id]?.name, src);
 }
+
+let bgPrevName: string | undefined = undefined;
+let bgTransTimer: number | null = null;
+watchEffect(() => {
+  const next = bgName.value;
+  const prev = bgPrevName;
+  if (next === prev) return;
+  bgPrevName = next;
+  if (!next) {
+    bgPrevSrc.value = '';
+    bgStylePrev.value = {};
+    bgStyleCurr.value = {};
+    bgClassPrev.value = {};
+    bgClassCurr.value = {};
+    return;
+  }
+  const prevSrc = prev ? `/assets/bg/${prev}` : '';
+  const effect = bgEffect.value;
+  const duration = Math.max(0, Math.floor(bgDuration.value));
+  if (!prevSrc || effect === 'cut' || duration <= 0) {
+    bgPrevSrc.value = '';
+    bgStylePrev.value = {};
+    bgStyleCurr.value = {};
+    bgClassPrev.value = {};
+    bgClassCurr.value = {};
+    return;
+  }
+  bgPrevSrc.value = prevSrc;
+  if (bgTransTimer) window.clearTimeout(bgTransTimer);
+  const d = `${duration}ms`;
+
+  bgStylePrev.value = { transition: `opacity ${d} ease`, opacity: 1 };
+  bgStyleCurr.value = { transition: `opacity ${d} ease`, opacity: 0 };
+  bgClassPrev.value = {};
+  bgClassCurr.value = {};
+
+  if (effect === 'fade') {
+    bgStylePrev.value = { transition: `opacity ${d} ease`, opacity: 1 };
+    bgStyleCurr.value = { transition: `opacity ${d} ease`, opacity: 0 };
+  } else if (effect === 'wipeLeft') {
+    bgStyleCurr.value = {
+      transition: `clip-path ${d} ease`,
+      clipPath: 'inset(0 100% 0 0)',
+    } as CSSProperties;
+  } else if (effect === 'wipeRight') {
+    bgStyleCurr.value = {
+      transition: `clip-path ${d} ease`,
+      clipPath: 'inset(0 0 0 100%)',
+    } as CSSProperties;
+  } else if (effect === 'zoom') {
+    bgStyleCurr.value = {
+      transition: `transform ${d} ease, opacity ${d} ease`,
+      transform: 'scale(1.08)',
+      opacity: 0,
+    };
+  } else if (effect === 'blurFade') {
+    bgStyleCurr.value = {
+      transition: `filter ${d} ease, opacity ${d} ease`,
+      filter: 'blur(14px)',
+      opacity: 0,
+    };
+  }
+
+  requestAnimationFrame(() => {
+    if (effect === 'fade') {
+      bgStylePrev.value = { transition: `opacity ${d} ease`, opacity: 0 };
+      bgStyleCurr.value = { transition: `opacity ${d} ease`, opacity: 1 };
+    } else if (effect === 'wipeLeft' || effect === 'wipeRight') {
+      bgStyleCurr.value = {
+        transition: `clip-path ${d} ease`,
+        clipPath: 'inset(0 0 0 0)',
+      } as CSSProperties;
+      bgStylePrev.value = { transition: `opacity ${d} ease`, opacity: 0 };
+    } else if (effect === 'zoom') {
+      bgStylePrev.value = { transition: `opacity ${d} ease`, opacity: 0 };
+      bgStyleCurr.value = {
+        transition: `transform ${d} ease, opacity ${d} ease`,
+        transform: 'scale(1)',
+        opacity: 1,
+      };
+    } else if (effect === 'blurFade') {
+      bgStylePrev.value = { transition: `opacity ${d} ease`, opacity: 0 };
+      bgStyleCurr.value = {
+        transition: `filter ${d} ease, opacity ${d} ease`,
+        filter: 'blur(0px)',
+        opacity: 1,
+      };
+    }
+  });
+
+  bgTransTimer = window.setTimeout(() => {
+    bgPrevSrc.value = '';
+    bgStylePrev.value = {};
+    bgStyleCurr.value = {};
+    bgClassPrev.value = {};
+    bgClassCurr.value = {};
+    bgTransTimer = null;
+  }, duration + 30);
+});
 </script>
 
 <style scoped>
@@ -151,7 +325,13 @@ function onImgErrorById(id: string) {
   inset: 0;
 }
 .actor-img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.actor-node {
   pointer-events: none;
+  will-change: transform, left, top, opacity;
 }
 .overlay {
   position: absolute;
@@ -171,5 +351,100 @@ function onImgErrorById(id: string) {
   color: #fff;
   font-size: 12px;
   z-index: 99;
+}
+</style>
+
+<style>
+@keyframes actor-shake {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  10% {
+    transform: translate3d(var(--shake-x, 10px), calc(var(--shake-y, 0px) * -1), 0);
+  }
+  20% {
+    transform: translate3d(calc(var(--shake-x, 10px) * -1), var(--shake-y, 0px), 0);
+  }
+  30% {
+    transform: translate3d(var(--shake-x, 10px), var(--shake-y, 0px), 0);
+  }
+  40% {
+    transform: translate3d(calc(var(--shake-x, 10px) * -1), calc(var(--shake-y, 0px) * -1), 0);
+  }
+  50% {
+    transform: translate3d(var(--shake-x, 10px), 0, 0);
+  }
+  60% {
+    transform: translate3d(calc(var(--shake-x, 10px) * -1), 0, 0);
+  }
+  70% {
+    transform: translate3d(var(--shake-x, 10px), 0, 0);
+  }
+  80% {
+    transform: translate3d(calc(var(--shake-x, 10px) * -1), 0, 0);
+  }
+  90% {
+    transform: translate3d(var(--shake-x, 10px), 0, 0);
+  }
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+}
+@keyframes actor-shake2 {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  10% {
+    transform: translate3d(var(--shake-x, 10px), calc(var(--shake-y, 0px) * -1), 0);
+  }
+  20% {
+    transform: translate3d(calc(var(--shake-x, 10px) * -1), var(--shake-y, 0px), 0);
+  }
+  30% {
+    transform: translate3d(var(--shake-x, 10px), var(--shake-y, 0px), 0);
+  }
+  40% {
+    transform: translate3d(calc(var(--shake-x, 10px) * -1), calc(var(--shake-y, 0px) * -1), 0);
+  }
+  50% {
+    transform: translate3d(var(--shake-x, 10px), 0, 0);
+  }
+  60% {
+    transform: translate3d(calc(var(--shake-x, 10px) * -1), 0, 0);
+  }
+  70% {
+    transform: translate3d(var(--shake-x, 10px), 0, 0);
+  }
+  80% {
+    transform: translate3d(calc(var(--shake-x, 10px) * -1), 0, 0);
+  }
+  90% {
+    transform: translate3d(var(--shake-x, 10px), 0, 0);
+  }
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+}
+@keyframes actor-jump {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  35% {
+    transform: translate3d(0, calc(var(--jump-y, 20px) * -1), 0);
+  }
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+}
+@keyframes actor-jump2 {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  35% {
+    transform: translate3d(0, calc(var(--jump-y, 20px) * -1), 0);
+  }
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
 }
 </style>

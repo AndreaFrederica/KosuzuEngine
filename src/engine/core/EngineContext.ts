@@ -1,6 +1,7 @@
 export interface DialogState {
   speaker?: string;
   text?: string;
+  html?: boolean;
 }
 
 export interface ChoiceItem {
@@ -16,6 +17,7 @@ export interface ChoiceState {
 export interface HistoryEntry {
   speaker?: string;
   text?: string;
+  html?: boolean;
 }
 
 import type { TransformState, PoseState } from './BaseActor';
@@ -26,9 +28,19 @@ export interface EngineState {
   choice: ChoiceState;
   scene?: string;
   stage?: { width?: number; height?: number };
-  bg?: { name?: string };
+  bg?: { name?: string; effect?: string; duration?: number };
   bgm?: { name?: string; volume?: number };
-  actors: Record<string, { name: string; kind: string; transform?: TransformState; pose?: PoseState }>;
+  actors: Record<
+    string,
+    {
+      name: string;
+      kind: string;
+      transform?: TransformState;
+      pose?: PoseState;
+      transition?: { duration?: number; easing?: string };
+      fx?: { name?: string; duration?: number; token?: number; params?: Record<string, unknown> };
+    }
+  >;
   actorIds?: string[];
   overlay?: { layer?: number };
   history: HistoryEntry[];
@@ -48,18 +60,29 @@ export const initialEngineState: EngineState = {
   bindings: {},
 };
 
-export type Reducer = (state: EngineState, action: { type: string; payload?: unknown }) => EngineState;
+export type Reducer = (
+  state: EngineState,
+  action: { type: string; payload?: unknown; options?: { duration?: number; async?: boolean } },
+) => EngineState;
 
 export const reducer: Reducer = (state, action) => {
+  if (action.type === 'choose') {
+    const next: EngineState = { ...state };
+    next.choice = { items: [], visible: false };
+    next.dialog = { text: '', speaker: '' };
+    return next;
+  }
   if (action.type === 'say') {
-    const payload = action.payload as { text: string; speaker?: string };
+    const payload = action.payload as { text: string; speaker?: string; html?: boolean };
     const nextDialog: DialogState = {};
     if (payload.text !== undefined) nextDialog.text = payload.text;
     if (payload.speaker !== undefined) nextDialog.speaker = payload.speaker;
+    if (payload.html !== undefined) nextDialog.html = payload.html;
     const nextChoice: ChoiceState = { items: state.choice.items, visible: false };
     const entry: HistoryEntry = {};
     if (payload.text !== undefined) entry.text = payload.text;
     if (payload.speaker !== undefined) entry.speaker = payload.speaker;
+    if (payload.html !== undefined) entry.html = payload.html;
     const nextHistory = [...state.history, entry];
     return { ...state, dialog: nextDialog, choice: nextChoice, history: nextHistory };
   }
@@ -73,6 +96,7 @@ export const reducer: Reducer = (state, action) => {
         const nd: DialogState = {};
         if (last.text !== undefined) nd.text = last.text;
         if (last.speaker !== undefined) nd.speaker = last.speaker;
+        if (last.html !== undefined) nd.html = last.html;
         next.dialog = nd;
       } else {
         next.dialog = {};
@@ -95,10 +119,13 @@ export const reducer: Reducer = (state, action) => {
     return { ...state, choice: { items, visible: true } };
   }
   if (action.type === 'bg') {
-    const payload = action.payload as { name?: string };
-    const nextBg = payload?.name !== undefined ? { name: payload.name } : undefined;
+    const payload = action.payload as { name?: string; effect?: string; duration?: number };
+    const nextBg: { name?: string; effect?: string; duration?: number } = {};
+    if (payload?.name !== undefined) nextBg.name = payload.name;
+    if (payload?.effect !== undefined) nextBg.effect = payload.effect;
+    if (payload?.duration !== undefined) nextBg.duration = payload.duration;
     const nextState = { ...state };
-    if (nextBg !== undefined) {
+    if (Object.keys(nextBg).length > 0) {
       nextState.bg = nextBg;
     } else {
       delete (nextState as Partial<EngineState>).bg;
@@ -153,43 +180,87 @@ export const reducer: Reducer = (state, action) => {
     next.vars = vars;
     return next;
   }
-  if (action.type === 'show' || action.type === 'move' || action.type === 'hide' || action.type === 'pose' || action.type === 'motion') {
+  if (
+    action.type === 'show' ||
+    action.type === 'move' ||
+    action.type === 'hide' ||
+    action.type === 'pose' ||
+    action.type === 'motion' ||
+    action.type === 'fx'
+  ) {
     const next = { ...state };
+    const nextActors = { ...(state.actors || {}) } as EngineState['actors'];
+    const nextActorIds = (state.actorIds ?? []).slice();
+    const transitionDuration = action.options?.duration;
+
     if (action.type === 'show') {
-      const p = action.payload as { actorId: string; name: string; kind: string; transform?: TransformState };
-      const a = next.actors[p.actorId] ?? { name: p.name, kind: p.kind };
+      const p = action.payload as {
+        actorId: string;
+        name: string;
+        kind: string;
+        transform?: TransformState;
+      };
+      const prevA = nextActors[p.actorId];
+      const a = prevA ? { ...prevA } : { name: p.name, kind: p.kind };
       if (p.transform !== undefined) {
-        a.transform = p.transform;
-      } else {
-        if ('transform' in a) delete (a as { transform?: TransformState }).transform;
+        a.transform = { ...p.transform };
+      } else if (a.transform !== undefined) {
+        delete (a as { transform?: TransformState }).transform;
       }
-      next.actors[p.actorId] = a;
-      const ids = (next.actorIds ?? []).slice();
-      if (!ids.includes(p.actorId)) ids.push(p.actorId);
-      next.actorIds = ids;
+      if (transitionDuration !== undefined) {
+        a.transition = { ...(a.transition || {}), duration: transitionDuration };
+      } else if (a.transition !== undefined) {
+        delete (a as { transition?: unknown }).transition;
+      }
+      nextActors[p.actorId] = a;
+      if (!nextActorIds.includes(p.actorId)) nextActorIds.push(p.actorId);
     } else if (action.type === 'move') {
       const p = action.payload as { actorId: string; transform?: TransformState };
-      const a = next.actors[p.actorId];
-      if (a) {
+      const prevA = nextActors[p.actorId];
+      if (prevA) {
+        const a = { ...prevA };
         if (p.transform !== undefined) {
-          a.transform = p.transform;
-        } else {
-          if ('transform' in a) delete (a as { transform?: TransformState }).transform;
+          a.transform = { ...p.transform };
+        } else if (a.transform !== undefined) {
+          delete (a as { transform?: TransformState }).transform;
         }
+        if (transitionDuration !== undefined) {
+          a.transition = { ...(a.transition || {}), duration: transitionDuration };
+        } else if (a.transition !== undefined) {
+          delete (a as { transition?: unknown }).transition;
+        }
+        nextActors[p.actorId] = a;
       }
     } else if (action.type === 'hide') {
       const p = action.payload as { actorId: string };
-      const rest = { ...next.actors };
-      delete (rest as Record<string, unknown>)[p.actorId];
-      next.actors = rest as typeof next.actors;
-      const ids = (next.actorIds ?? []).filter((x) => x !== p.actorId);
-      next.actorIds = ids;
+      delete (nextActors as Record<string, unknown>)[p.actorId];
+      const idx = nextActorIds.indexOf(p.actorId);
+      if (idx >= 0) nextActorIds.splice(idx, 1);
     } else if (action.type === 'pose') {
       const p = action.payload as { actorId: string; key: string };
-      const a = next.actors[p.actorId] ?? { name: '', kind: 'character' };
+      const prevA = nextActors[p.actorId];
+      const a = prevA ? { ...prevA } : { name: '', kind: 'character' };
       a.pose = { emote: p.key };
-      next.actors[p.actorId] = a;
+      nextActors[p.actorId] = a;
+      if (!nextActorIds.includes(p.actorId)) nextActorIds.push(p.actorId);
+    } else if (action.type === 'fx') {
+      const p = action.payload as { actorId: string; name: string; duration?: number; params?: Record<string, unknown> };
+      const prevA = nextActors[p.actorId];
+      if (prevA) {
+        const a = { ...prevA };
+        const prevFx = a.fx ?? {};
+        const token = typeof prevFx.token === 'number' ? prevFx.token + 1 : 1;
+        const nextFx: NonNullable<typeof a.fx> = { name: p.name, token };
+        const d = p.duration ?? transitionDuration;
+        if (d !== undefined) nextFx.duration = d;
+        if (p.params !== undefined) nextFx.params = p.params;
+        a.fx = nextFx;
+        nextActors[p.actorId] = a;
+      }
     }
+
+    next.actors = nextActors;
+    next.actorIds = nextActorIds;
     return next;
   }
   return state;

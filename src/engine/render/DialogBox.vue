@@ -26,7 +26,8 @@
       <div class="text-bold q-mb-sm text-subtitle1">{{ speaker }}</div>
 
       <!-- 对话文本 -->
-      <div class="dialog-text">{{ text }}</div>
+      <div v-if="isHtml" class="dialog-text" v-html="text"></div>
+      <div v-else class="dialog-text">{{ text }}</div>
 
       <!-- 继续按钮 (右下角) -->
       <div class="absolute-bottom-right q-pa-md">
@@ -44,6 +45,7 @@ const store = useEngineStore();
 const dialog = computed(() => store.dialog());
 const speaker = computed(() => dialog.value.speaker ?? '');
 const text = computed(() => dialog.value.text ?? '');
+const isHtml = computed(() => dialog.value.html === true);
 const canBack = computed(() => store.canBack());
 
 // 定义事件，方便父组件（如 DemoVN.vue）监听处理

@@ -18,9 +18,12 @@
             <div class="scene">{{ s.scene || s.slot }}</div>
             <div class="text">{{ truncate(s.text || '') }}</div>
           </div>
-          <button class="mini-btn" @click.stop="onItem(s.slot)">
-            {{ mode === 'save' ? '覆盖' : '读取' }}
-          </button>
+          <div class="btns">
+            <button class="mini-btn" @click.stop="onItem(s.slot)">
+              {{ mode === 'save' ? '覆盖' : '读取' }}
+            </button>
+            <button class="mini-btn danger" @click.stop="onDelete(s.slot)">删除</button>
+          </div>
         </div>
         <div v-if="saves.length === 0" class="empty">暂无存档</div>
       </div>
@@ -53,6 +56,11 @@ function onPrimary() {
 function onItem(s: string) {
   slot.value = s;
   onPrimary();
+}
+function onDelete(s: string) {
+  store.deleteSave?.(s);
+  if (slot.value === s) slot.value = '';
+  refresh();
 }
 function defaultSlot() {
   const scene = store.state.scene || '无名剧本';
@@ -166,6 +174,14 @@ function truncate(t: string) {
   border-radius: 4px;
   padding: 4px 8px;
   cursor: pointer;
+}
+.btns {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.danger {
+  background: rgba(255, 80, 80, 0.35);
 }
 .empty {
   text-align: center;

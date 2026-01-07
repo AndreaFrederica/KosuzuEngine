@@ -7,7 +7,8 @@
     <div class="history-body">
       <div v-for="(h, idx) in history" :key="idx" class="line">
         <span class="speaker">{{ h.speaker || '——' }}</span>
-        <span class="text">{{ h.text }}</span>
+        <span v-if="h.html" class="text" v-html="h.text"></span>
+        <span v-else class="text">{{ h.text }}</span>
       </div>
     </div>
   </div>

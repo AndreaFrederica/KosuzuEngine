@@ -1,5 +1,5 @@
 import type { ActorAction, ActionResult } from './ActorAction';
-import { initialEngineState, reducer, type EngineState } from './EngineContext';
+import { initialEngineState, reducer, type EngineState, type HistoryEntry } from './EngineContext';
 import type { BindingsRegistry, Live2DBinding, SpriteAtlasBinding, VoiceBankBinding, AudioMixerBinding, SayTargetBinding } from './bindings';
 
 export class Runtime {
@@ -13,6 +13,16 @@ export class Runtime {
   private readonly maxPast: number;
   private actionLog: ActorAction<unknown>[];
   private replayTargetFrame: number | null;
+  private replayHistory: HistoryEntry[] | null;
+  private choiceTrail: string[];
+  private replayPlan:
+    | {
+      actions: ActorAction<unknown>[];
+      cursor: number;
+      choices: string[];
+      choiceCursor: number;
+    }
+    | null;
   private readonly progressKey: string;
 
   constructor() {
@@ -26,6 +36,9 @@ export class Runtime {
     this.maxPast = 10;
     this.actionLog = [];
     this.replayTargetFrame = null;
+    this.replayHistory = null;
+    this.choiceTrail = [];
+    this.replayPlan = null;
     this.progressKey = 'kosuzu_engine_progress';
   }
 
@@ -37,6 +50,9 @@ export class Runtime {
     this.future = [];
     this.actionLog = [];
     this.replayTargetFrame = null;
+    this.replayPlan = null;
+    this.replayHistory = null;
+    this.choiceTrail = [];
     this.emit();
     this.persistProgress(0);
   }
@@ -45,42 +61,145 @@ export class Runtime {
     this.replayTargetFrame = Math.max(0, Math.floor(frame));
   }
 
+  beginReplay(plan: { actions: ActorAction<unknown>[]; choices?: string[] }) {
+    const filtered = plan.actions.filter((a) => this.shouldRecordAction(a.type));
+    this.replayPlan = {
+      actions: filtered,
+      cursor: 0,
+      choices: plan.choices || [],
+      choiceCursor: 0,
+    };
+    this.actionLog = filtered.slice();
+    this.choiceTrail = (plan.choices || []).slice();
+  }
+
+  private shouldRecordAction(type: string) {
+    return type !== 'stage';
+  }
+
+  setReplayHistory(history: HistoryEntry[] | null | undefined) {
+    if (!history || history.length === 0) {
+      this.replayHistory = null;
+      return;
+    }
+    this.replayHistory = history.map((h) => {
+      const entry: HistoryEntry = {};
+      if (h.speaker !== undefined) entry.speaker = h.speaker;
+      if (h.text !== undefined) entry.text = h.text;
+      if (h.html !== undefined) entry.html = h.html;
+      return entry;
+    });
+  }
+
   dispatch<TResult = unknown>(action: ActorAction<unknown>): Promise<ActionResult<TResult>> {
+    const isRecordable = this.shouldRecordAction(action.type);
+    let effectiveAction = action;
+    let replayIsLast = false;
+    const plan = this.replayPlan;
+    if (plan && isRecordable) {
+      const expected = plan.actions[plan.cursor];
+      if (expected) {
+        effectiveAction = expected;
+        replayIsLast = plan.cursor >= plan.actions.length - 1;
+        plan.cursor += 1;
+      } else {
+        this.replayPlan = null;
+      }
+    }
     if (import.meta.env?.DEV) {
 
-      console.log('dispatch', action.type, action.payload);
+      console.log('dispatch', effectiveAction.type, effectiveAction.payload);
     }
-    if (action.type !== 'back') {
+    if (isRecordable && effectiveAction.type !== 'back') {
       const snapshot = JSON.parse(JSON.stringify(this.state)) as EngineState;
       this.past.push(snapshot);
       if (this.past.length > this.maxPast) this.past.shift();
       this.future = [];
-      this.actionLog.push({ type: action.type, payload: action.payload } as ActorAction<unknown>);
+      if (!this.replayPlan) {
+        this.actionLog.push({
+          type: effectiveAction.type,
+          payload: effectiveAction.payload,
+          options: effectiveAction.options,
+        } as ActorAction<unknown>);
+      }
     }
-    if (action.type === 'choice') {
-      this.state = reducer(this.state, { type: action.type, payload: action.payload });
+    if (effectiveAction.type === 'wait') {
+      if (this.replayPlan && !replayIsLast) {
+        return Promise.resolve({ ok: true } as ActionResult<TResult>);
+      }
+      if (isRecordable) this.persistProgress(this.currentFrame());
+      const msPayload = effectiveAction.payload as number | { ms?: number } | undefined;
+      const ms =
+        typeof msPayload === 'number'
+          ? msPayload
+          : typeof (msPayload as { ms?: number } | undefined)?.ms === 'number'
+            ? (msPayload as { ms?: number }).ms!
+            : effectiveAction.options?.duration ?? 0;
+      const waitMs = Math.max(0, Math.floor(ms));
+      return new Promise<ActionResult<TResult>>((resolve) => {
+        setTimeout(() => resolve({ ok: true } as ActionResult<TResult>), waitMs);
+      });
+    }
+    if (effectiveAction.type === 'choice') {
+      this.state = reducer(this.state, {
+        type: effectiveAction.type,
+        payload: effectiveAction.payload,
+        ...(effectiveAction.options ? { options: effectiveAction.options } : {}),
+      });
       this.emit();
+      if (isRecordable) this.persistProgress(this.currentFrame());
+      if (this.replayPlan && !replayIsLast) {
+        const picked = this.choiceTrail[this.replayPlan.choiceCursor] ?? '';
+        this.replayPlan.choiceCursor += 1;
+        this.state = reducer(this.state, { type: 'choose' });
+        this.emit();
+        return Promise.resolve({ ok: true, value: picked } as ActionResult<TResult>);
+      }
       return new Promise<ActionResult<TResult>>((resolve) => {
         this.pendingChoice = { resolve: resolve as unknown as (value: ActionResult<string>) => void };
       });
     }
-    if (action.type === 'say') {
-      this.state = reducer(this.state, { type: action.type, payload: action.payload });
+    if (effectiveAction.type === 'say') {
+      const sayIndex = this.state.history?.length ?? 0;
+      let payload = effectiveAction.payload as { text: string; speaker?: string; html?: boolean };
+      if (this.replayTargetFrame !== null && this.replayHistory && sayIndex < this.replayHistory.length) {
+        const h = this.replayHistory[sayIndex] || {};
+        const nextPayload: { text: string; speaker?: string; html?: boolean } = { text: h.text ?? payload.text };
+        const speaker = h.speaker ?? payload.speaker;
+        const html = h.html ?? payload.html;
+        if (speaker !== undefined) nextPayload.speaker = speaker;
+        if (html !== undefined) nextPayload.html = html;
+        payload = nextPayload;
+      }
+      this.state = reducer(this.state, {
+        type: effectiveAction.type,
+        payload,
+        ...(effectiveAction.options ? { options: effectiveAction.options } : {}),
+      });
       this.emit();
       const frame = this.currentFrame();
       this.persistProgress(frame);
+      if (this.replayPlan && !replayIsLast) {
+        return Promise.resolve({ ok: true } as ActionResult<TResult>);
+      }
       if (this.replayTargetFrame !== null && frame < this.replayTargetFrame) {
         return Promise.resolve({ ok: true } as ActionResult<TResult>);
       }
       if (this.replayTargetFrame !== null && frame >= this.replayTargetFrame) {
         this.replayTargetFrame = null;
+        this.replayHistory = null;
       }
       return new Promise<ActionResult<TResult>>((resolve) => {
         this.pendingSay = { resolve: resolve as unknown as (value: ActionResult<void>) => void };
       });
     }
-    this.state = reducer(this.state, { type: action.type, payload: action.payload });
+    this.state = reducer(this.state, {
+      type: effectiveAction.type,
+      payload: effectiveAction.payload,
+      ...(effectiveAction.options ? { options: effectiveAction.options } : {}),
+    });
     this.emit();
+    if (isRecordable) this.persistProgress(this.currentFrame());
     return Promise.resolve({ ok: true } as ActionResult<TResult>);
   }
 
@@ -147,12 +266,13 @@ export class Runtime {
   }
 
   choose(goto: string = '') {
-    this.state = reducer(this.state, { type: 'say', payload: { text: '', speaker: '' } });
-    this.state.choice = { items: [], visible: false };
+    this.state = reducer(this.state, { type: 'choose' });
     this.emit();
     if (this.pendingChoice !== null) {
+      this.choiceTrail.push(goto);
       this.pendingChoice.resolve({ ok: true, value: goto });
       this.pendingChoice = null;
+      this.persistProgress(this.currentFrame());
     }
   }
 
@@ -165,6 +285,15 @@ export class Runtime {
 
   hydrate(state: EngineState) {
     this.state = { ...state };
+    this.pendingChoice = null;
+    this.pendingSay = null;
+    this.past = [];
+    this.future = [];
+    this.actionLog = [];
+    this.replayTargetFrame = null;
+    this.replayPlan = null;
+    this.replayHistory = null;
+    this.choiceTrail = [];
     this.emit();
     this.persistProgress(this.currentFrame());
   }
@@ -196,7 +325,11 @@ export class Runtime {
     for (let i = 0; i < len; i++) {
       const a = this.actionLog[i];
       if (!a) continue;
-      next = reducer(next, { type: a.type, payload: a.payload });
+      next = reducer(next, {
+        type: a.type,
+        payload: a.payload,
+        ...(a.options ? { options: a.options } : {}),
+      });
     }
     return next;
   }
@@ -207,10 +340,12 @@ export class Runtime {
     const time = Date.now();
     const defaultSlot = `${scene}_${new Date(time).toLocaleString()}`;
     const useSlot = slot && slot.trim().length > 0 ? slot : defaultSlot;
-    const key = `save:${slot}`;
+    const key = `save:${useSlot}`;
     const snapshot = JSON.stringify({
-      meta: { scene, text, time, slot: useSlot },
+      meta: { scene, text, time, slot: useSlot, frame: this.currentFrame() },
       state: this.state,
+      actions: this.actionLog,
+      choices: this.choiceTrail,
     });
     localStorage.setItem(key, snapshot);
     return { ok: true } as ActionResult<void>;
@@ -220,13 +355,17 @@ export class Runtime {
     const key = `save:${slot}`;
     const raw = localStorage.getItem(key);
     if (!raw) return { ok: false, error: 'missing_save' } as ActionResult<void>;
-    const parsed = JSON.parse(raw) as { meta?: unknown; state?: EngineState } | EngineState;
-    if ('state' in parsed && parsed.state) {
+    const parsed = JSON.parse(raw) as
+      | { meta?: unknown; state?: EngineState; actions?: ActorAction<unknown>[]; choices?: string[] }
+      | EngineState;
+    if (parsed && typeof parsed === 'object' && 'state' in parsed && parsed.state) {
       this.hydrate(parsed.state);
+      if (Array.isArray(parsed.actions)) this.actionLog = parsed.actions.slice();
+      if (Array.isArray(parsed.choices)) this.choiceTrail = parsed.choices.slice();
+      this.persistProgress(this.currentFrame());
     } else {
       this.hydrate(parsed as EngineState);
     }
-    this.persistProgress(this.currentFrame());
     return { ok: true } as ActionResult<void>;
   }
 
@@ -253,6 +392,12 @@ export class Runtime {
       .sort((a, b) => (b.time || 0) - (a.time || 0));
   }
 
+  deleteSave(slot: string) {
+    const key = `save:${slot}`;
+    localStorage.removeItem(key);
+    return { ok: true } as ActionResult<void>;
+  }
+
   private currentFrame() {
     return this.state.history?.length ?? 0;
   }
@@ -260,7 +405,13 @@ export class Runtime {
   private persistProgress(frame: number) {
     const scene = this.state.scene;
     if (!scene) return;
-    const payload = JSON.stringify({ scene, frame, time: Date.now() });
+    const payload = JSON.stringify({
+      scene,
+      frame,
+      time: Date.now(),
+      actions: this.actionLog,
+      choices: this.choiceTrail,
+    });
     localStorage.setItem(this.progressKey, payload);
   }
 }

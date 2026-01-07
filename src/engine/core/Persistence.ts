@@ -1,4 +1,5 @@
 import type { EngineState } from './EngineContext';
+import type { ActorAction } from './ActorAction';
 import type { Runtime } from './Runtime';
 
 const KEY = 'kosuzu_engine_state';
@@ -17,7 +18,13 @@ export function loadPersistedState(): EngineState | null {
   return JSON.parse(raw) as EngineState;
 }
 
-export type PersistedProgress = { scene: string; frame: number; time: number };
+export type PersistedProgress = {
+  scene: string;
+  frame: number;
+  time: number;
+  actions?: ActorAction<unknown>[];
+  choices?: string[];
+};
 
 export function loadPersistedProgress(): PersistedProgress | null {
   const raw = localStorage.getItem(PROGRESS_KEY);
@@ -27,7 +34,14 @@ export function loadPersistedProgress(): PersistedProgress | null {
     if (typeof parsed.scene !== 'string') return null;
     if (typeof parsed.frame !== 'number') return null;
     if (typeof parsed.time !== 'number') return null;
-    return { scene: parsed.scene, frame: parsed.frame, time: parsed.time };
+    const out: PersistedProgress = {
+      scene: parsed.scene,
+      frame: parsed.frame,
+      time: parsed.time,
+    };
+    if (Array.isArray(parsed.actions)) out.actions = parsed.actions;
+    if (Array.isArray(parsed.choices)) out.choices = parsed.choices;
+    return out;
   } catch {
     return null;
   }

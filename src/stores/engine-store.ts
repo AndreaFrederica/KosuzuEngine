@@ -2,13 +2,23 @@ import { defineStore } from 'pinia';
 import { reactive } from 'vue';
 import { defaultRuntime } from '../engine/core/Runtime';
 import { initialEngineState, selectors, type EngineState } from '../engine/core/EngineContext';
-import type { ActionType } from '../engine/core/ActorAction';
-import { enablePersistence, loadPersistedProgress, loadPersistedState } from '../engine/core/Persistence';
-import type { TransformState, PoseState } from '../engine/core/BaseActor';
+import type { ActionResult, ActionType, ActorAction } from '../engine/core/ActorAction';
+import {
+  enablePersistence,
+  loadPersistedProgress,
+  loadPersistedState,
+  type PersistedProgress,
+} from '../engine/core/Persistence';
 
 export const useEngineStore = defineStore('engine', () => {
   const runtime = defaultRuntime;
   const state = reactive<EngineState>({ ...initialEngineState });
+  const loadToken = reactive<{ value: number }>({ value: 0 });
+  const loadProgress = reactive<{ scene: string | undefined; frame: number | undefined }>({
+    scene: undefined,
+    frame: undefined,
+  });
+  const loadReplay = reactive<{ value: PersistedProgress | null }>({ value: null });
   enablePersistence(runtime);
   const progress = loadPersistedProgress();
   if (!progress) {
@@ -18,7 +28,7 @@ export const useEngineStore = defineStore('engine', () => {
       Object.assign(state, restored);
     }
   }
-  let prevActors: Record<string, { name: string; kind: string; transform?: TransformState; pose?: PoseState }> = {};
+  let prevActors: EngineState['actors'] = {};
   let prevBgName: string | undefined = undefined;
 
   runtime.addListener((s: EngineState) => {
@@ -103,10 +113,55 @@ export const useEngineStore = defineStore('engine', () => {
       return runtime.save(slot);
     },
     load(slot: string) {
-      return runtime.load(slot);
+      const key = `save:${slot}`;
+      const raw = localStorage.getItem(key);
+      if (!raw) return { ok: false } as ActionResult<void>;
+      const parsed = JSON.parse(raw) as
+        | { meta?: { scene?: string; frame?: number; time?: number }; state?: EngineState; actions?: unknown; choices?: unknown }
+        | EngineState;
+      const savedState: EngineState | null =
+        parsed && typeof parsed === 'object' && 'state' in parsed && parsed.state ? (parsed.state) : null;
+      const scene =
+        (parsed && typeof parsed === 'object' && 'meta' in parsed && parsed.meta && typeof parsed.meta.scene === 'string'
+          ? parsed.meta.scene
+          : savedState?.scene) ?? 'scene1';
+      const frame =
+        parsed && typeof parsed === 'object' && 'meta' in parsed && parsed.meta && typeof parsed.meta.frame === 'number'
+          ? parsed.meta.frame
+          : (savedState?.history?.length ?? 0);
+
+      loadProgress.scene = scene;
+      loadProgress.frame = frame;
+
+      if (
+        parsed &&
+        typeof parsed === 'object' &&
+        'actions' in parsed &&
+        Array.isArray(parsed.actions) &&
+        parsed.actions.length > 0
+      ) {
+        const time =
+          'meta' in parsed && parsed.meta && typeof parsed.meta.time === 'number' ? parsed.meta.time : Date.now();
+        const out: PersistedProgress = { scene, frame, time, actions: parsed.actions as ActorAction<unknown>[] };
+        if ('choices' in parsed && Array.isArray(parsed.choices)) out.choices = parsed.choices as string[];
+        loadReplay.value = out;
+      } else {
+        loadReplay.value = null;
+        if (savedState) {
+          runtime.hydrate(savedState);
+        }
+      }
+      loadToken.value += 1;
+      return { ok: true } as ActionResult<void>;
     },
     listSaves(): Array<{ slot: string; scene?: string; text?: string; time?: number }> {
       return runtime.listSaves();
     },
+    deleteSave(slot: string) {
+      return runtime.deleteSave(slot);
+    },
+    loadToken: () => loadToken.value,
+    loadProgress: () => ({ scene: loadProgress.scene, frame: loadProgress.frame }),
+    loadReplay: () => loadReplay.value,
   };
 });

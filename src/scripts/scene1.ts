@@ -11,7 +11,7 @@ export async function scene1(): Promise<void | string> {
   const neko = new NekoAnimal('neko');
   const ctx = new ContextOps();
 
-  await bg.switch('haikei_01_sora/jpg/sora_01.jpg', { fadeIn: 500 });
+  await bg.switch('haikei_01_sora/jpg/sora_01.jpg', { effect: 'fade', duration: 500 });
   await bgm.play('daytime', { fadeIn: 800 });
 
   await sailorA.show({ x: 0.75, y: 0.30, layer: 2, scale: 0.6 });
@@ -30,7 +30,7 @@ export async function scene1(): Promise<void | string> {
   await sailorA.say('我想试试那家新开的店。');
   await sailorB.say('听说草莓蛋糕很受欢迎。');
 
-  await bg.switch('haikei_01_sora/jpg/sora_02.jpg', { fadeIn: 400 });
+  await bg.switch('haikei_01_sora/jpg/sora_02.jpg', { effect: 'fade', duration: 400 });
   await sailorA.move({ x: 0.55, y: 0.45, scale: 0.6 });
   await sailorB.move({ x: 0.25, y: 0.55, scale: 0.6 });
   await sailorA.pose('e');
@@ -62,7 +62,7 @@ export async function scene1(): Promise<void | string> {
   await sailorA.pose('h');
   await sailorA.say('太好了，那就出发吧。');
 
-  await bg.switch('haikei_01_sora/jpg/sora_03.jpg', { fadeIn: 400 });
+  await bg.switch('haikei_01_sora/jpg/sora_03.jpg', { effect: 'fade', duration: 400 });
   await sailorA.move({ x: 0.80, y: 0.32, scale: 0.6 });
   await sailorB.move({ x: 0.18, y: 0.42, scale: 0.6 });
   await akamafu.move({ x: 0.48, y: 0.38, scale: 0.6 });
@@ -75,7 +75,7 @@ export async function scene1(): Promise<void | string> {
   await sailorB.say('我要抹茶拿铁。');
   await akamafu.say('我选焦糖布丁。');
 
-  await bg.switch('haikei_01_sora/jpg/sora_04.jpg', { fadeIn: 400 });
+  await bg.switch('haikei_01_sora/jpg/sora_04.jpg', { effect: 'fade', duration: 400 });
   await sailorA.move({ x: 0.70, y: 0.46, scale: 0.6 });
   await sailorB.move({ x: 0.12, y: 0.50, scale: 0.6 });
   await akamafu.move({ x: 0.45, y: 0.40, scale: 0.6 });
@@ -95,9 +95,11 @@ export async function scene1(): Promise<void | string> {
   await sailorB.say('那就这么说定了。');
   const picked = await ctx.choice([
     { text: '立刻切到另一幕（scene2）', goto: 'scene2' },
+    { text: '进入特效测试场景（sceneEffects）', goto: 'sceneEffects' },
     { text: '留在当前幕结束', goto: 'stay' },
   ]);
   if (picked.ok && picked.value === 'scene2') return 'scene2';
+  if (picked.ok && picked.value === 'sceneEffects') return 'sceneEffects';
   await akamafu.say('走吧。');
 }
 
@@ -105,14 +107,16 @@ export async function scene2(): Promise<void | string> {
   const bg = new BackgroundActor('haikei_01_sora/jpg/sora_04.jpg');
   const sailorA = new Josei06Sailor('sailorA');
   const ctx = new ContextOps();
-  await bg.switch('haikei_01_sora/jpg/sora_04.jpg', { fadeIn: 300 });
+  await bg.switch('haikei_01_sora/jpg/sora_04.jpg', { effect: 'fade', duration: 300 });
   await sailorA.show({ x: 0.5, y: 0.2, layer: 2, scale: 0.6 });
   await sailorA.pose('a');
   await sailorA.say(`欢迎来到 scene2。现在时间仍然是：${new Date().toLocaleString()}。`);
   const picked = await ctx.choice([
     { text: '回到 scene1', goto: 'scene1' },
+    { text: '进入特效测试场景（sceneEffects）', goto: 'sceneEffects' },
     { text: '结束演示', goto: 'end' },
   ]);
   if (picked.ok && picked.value === 'scene1') return 'scene1';
+  if (picked.ok && picked.value === 'sceneEffects') return 'sceneEffects';
   await sailorA.say('演示结束。');
 }
