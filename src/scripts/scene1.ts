@@ -1,13 +1,15 @@
 import { BackgroundActor, AudioActor } from '../engine/core/BaseActor';
+import { ContextOps } from '../engine/core/BaseActor';
 import { Josei06Sailor, Josei07Sailor, AkamafuGirl, NekoAnimal } from '../roles/josei';
 
-export async function scene1() {
+export async function scene1(): Promise<void | string> {
   const bg = new BackgroundActor('haikei_01_sora/jpg/sora_01.jpg');
   const bgm = new AudioActor('daytime');
   const sailorA = new Josei06Sailor('sailorA');
   const sailorB = new Josei07Sailor('sailorB');
   const akamafu = new AkamafuGirl('akamafu');
   const neko = new NekoAnimal('neko');
+  const ctx = new ContextOps();
 
   await bg.switch('haikei_01_sora/jpg/sora_01.jpg', { fadeIn: 500 });
   await bgm.play('daytime', { fadeIn: 800 });
@@ -91,5 +93,26 @@ export async function scene1() {
   await akamafu.pose('a');
   await sailorA.say('成交。');
   await sailorB.say('那就这么说定了。');
+  const picked = await ctx.choice([
+    { text: '立刻切到另一幕（scene2）', goto: 'scene2' },
+    { text: '留在当前幕结束', goto: 'stay' },
+  ]);
+  if (picked.ok && picked.value === 'scene2') return 'scene2';
   await akamafu.say('走吧。');
+}
+
+export async function scene2(): Promise<void | string> {
+  const bg = new BackgroundActor('haikei_01_sora/jpg/sora_04.jpg');
+  const sailorA = new Josei06Sailor('sailorA');
+  const ctx = new ContextOps();
+  await bg.switch('haikei_01_sora/jpg/sora_04.jpg', { fadeIn: 300 });
+  await sailorA.show({ x: 0.5, y: 0.2, layer: 2, scale: 0.6 });
+  await sailorA.pose('a');
+  await sailorA.say(`欢迎来到 scene2。现在时间仍然是：${new Date().toLocaleString()}。`);
+  const picked = await ctx.choice([
+    { text: '回到 scene1', goto: 'scene1' },
+    { text: '结束演示', goto: 'end' },
+  ]);
+  if (picked.ok && picked.value === 'scene1') return 'scene1';
+  await sailorA.say('演示结束。');
 }

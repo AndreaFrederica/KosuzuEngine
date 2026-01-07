@@ -44,7 +44,7 @@ import SaveLoadPanel from '../engine/render/SaveLoadPanel.vue';
 import { onMounted, ref } from 'vue';
 import { useEngineStore } from 'stores/engine-store';
 import { loadPersistedProgress, clearPersistedProgress } from '../engine/core/Persistence';
-import { scene1 } from '../scripts/scene1';
+import { scene1, scene2 } from '../scripts/scene1';
 import { defaultRuntime } from '../engine/core/Runtime';
 const showDebug = ref(false);
 const showContext = ref(false);
@@ -54,17 +54,40 @@ const showSL = ref(false);
 const slMode = ref<'save' | 'load'>('save');
 const store = useEngineStore();
 
-async function startSceneFromFrame(frame: number) {
+const scenes = {
+  scene1,
+  scene2,
+} as const;
+type SceneName = keyof typeof scenes;
+
+async function runSceneLoop(initialScene: SceneName, initialFrame: number) {
+  let nextScene: SceneName | null = initialScene;
+  let nextFrame = initialFrame;
+  while (nextScene) {
+    const name = nextScene;
+    nextScene = null;
+    const result = await startSceneFromFrame(name, nextFrame);
+    nextFrame = 0;
+    const maybeNext = (result || '').trim();
+    if (maybeNext && maybeNext in scenes) {
+      nextScene = maybeNext as SceneName;
+    }
+  }
+}
+
+async function startSceneFromFrame(sceneName: SceneName, frame: number) {
   defaultRuntime.reset();
   if (frame > 0) defaultRuntime.replayToFrame(frame);
-  await store.dispatch('scene', 'scene1');
-  void scene1();
+  await store.dispatch('scene', sceneName);
+  return scenes[sceneName]();
 }
 
 onMounted(() => {
   const progress = loadPersistedProgress();
-  const frame = progress?.scene === 'scene1' ? progress.frame : 0;
-  void startSceneFromFrame(frame);
+  const sceneName: SceneName =
+    progress?.scene && progress.scene in scenes ? (progress.scene as SceneName) : 'scene1';
+  const frame = progress?.scene === sceneName ? progress.frame : 0;
+  void runSceneLoop(sceneName, frame);
 });
 function onStageClick() {
   if (!showDialog.value) showDialog.value = true;
@@ -73,7 +96,7 @@ function onStageClick() {
 function restartScene() {
   clearPersistedProgress();
   showDialog.value = true;
-  void startSceneFromFrame(0);
+  void runSceneLoop('scene1', 0);
 }
 </script>
 

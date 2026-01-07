@@ -1,5 +1,5 @@
 <template>
-  <div class="choice-panel q-pa-md">
+  <div v-if="visible" class="choice-panel q-pa-md">
     <q-card>
       <q-card-section>
         <div class="column">
@@ -22,6 +22,7 @@ import { useEngineStore } from 'stores/engine-store';
 const store = useEngineStore();
 const choice = computed(() => store.choice());
 const items = computed(() => choice.value.items);
+const visible = computed(() => choice.value.visible);
 function onClick(goto?: string) {
   store.choose(goto);
 }
@@ -31,7 +32,9 @@ function onClick(goto?: string) {
 .choice-panel {
   position: absolute;
   left: 50%;
-  bottom: 10%;
+  bottom: 240px;
   transform: translateX(-50%);
+  z-index: 2000;
+  width: min(520px, 92vw);
 }
 </style>
