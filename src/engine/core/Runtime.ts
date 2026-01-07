@@ -327,6 +327,10 @@ export class Runtime {
     this.persistProgress(this.currentFrame());
   }
 
+  isRestoring() {
+    return this.replayTargetFrame !== null;
+  }
+
   back() {
     const curr = JSON.parse(JSON.stringify(this.state)) as EngineState;
     if (this.past.length > 0) {

@@ -119,7 +119,9 @@ function actorNodeStyleById(id: string): CSSProperties {
   const scaleY = t.scaleY ?? 1;
   const rotate = t.rotate ?? 0;
   const z = t.layer ?? 1;
-  const duration = a?.transition?.duration;
+  // Dev 模式下恢复位置时禁用 CSS 动画
+  const isRestoring = store.isRestoring?.() ?? false;
+  const duration = isRestoring ? 0 : (a?.transition?.duration ?? 0);
   const trans = typeof duration === 'number' && duration > 0 ? `${Math.floor(duration)}ms` : '0ms';
   return {
     position: 'absolute',
@@ -136,7 +138,9 @@ function actorNodeStyleById(id: string): CSSProperties {
 function actorImgStyleById(id: string): CSSProperties {
   const a = store.state.actors[id];
   const t = a?.transform || {};
-  const duration = a?.transition?.duration;
+  // Dev 模式下恢复位置时禁用 CSS 动画
+  const isRestoring = store.isRestoring?.() ?? false;
+  const duration = isRestoring ? 0 : (a?.transition?.duration ?? 0);
   const trans = typeof duration === 'number' && duration > 0 ? `${Math.floor(duration)}ms` : '0ms';
   const filters: string[] = [];
   if (typeof t.blur === 'number') filters.push(`blur(${t.blur}px)`);

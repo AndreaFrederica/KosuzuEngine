@@ -184,5 +184,7 @@ export const useEngineStore = defineStore('engine', () => {
     setDevMode(enabled: boolean) {
       devMode.value = enabled;
     },
+    // 检查是否正在恢复位置（Dev 模式下快速重放时禁用 CSS 动画）
+    isRestoring: () => runtime.isRestoring(),
   };
 });

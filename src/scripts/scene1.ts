@@ -58,7 +58,7 @@ export async function scene1(): Promise<void | string> {
   await sailorA.focus(200);
   await sailorB.dim(0.75, 200);
   await ctx.wait(200);
-  await sailorA.say('风有点大，别让帽子飞了。');
+  await sailorA.say('风有点大，别让帽子飞了。11');
   await sailorB.shake(420, { strengthX: 0.012, strengthY: 0.005 });
   await sailorB.say('好险，差点就掉了。');
   await sailorA.say(`喂……你现在看见的系统时间是：${new Date().toLocaleString()}。`);
