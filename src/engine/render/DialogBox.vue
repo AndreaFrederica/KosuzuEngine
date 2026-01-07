@@ -10,6 +10,7 @@
 
       <!-- 右侧功能按钮 -->
       <div class="row q-gutter-sm">
+        <q-btn flat dense color="white" label="设置" @click="$emit('open-settings')" />
         <q-btn flat dense color="white" label="上下文" @click="$emit('open-context')" />
         <q-btn flat dense color="white" label="调试" @click="$emit('open-debug')" />
         <q-btn flat dense color="white" label="控制台" @click="$emit('open-console')" />
@@ -49,17 +50,18 @@ const isHtml = computed(() => dialog.value.html === true);
 const canBack = computed(() => store.canBack());
 
 // 定义事件，方便父组件（如 DemoVN.vue）监听处理
-defineEmits([
-  'back',
-  'restart',
-  'open-context',
-  'open-debug',
-  'open-console',
-  'open-history',
-  'open-save',
-  'open-load',
-  'hide',
-]);
+defineEmits<{
+  (e: 'back'): void;
+  (e: 'restart'): void;
+  (e: 'open-settings'): void;
+  (e: 'open-context'): void;
+  (e: 'open-debug'): void;
+  (e: 'open-console'): void;
+  (e: 'open-history'): void;
+  (e: 'open-save'): void;
+  (e: 'open-load'): void;
+  (e: 'hide'): void;
+}>();
 
 function onNext() {
   store.advance();

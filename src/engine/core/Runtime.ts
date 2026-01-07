@@ -21,6 +21,7 @@ export class Runtime {
       cursor: number;
       choices: string[];
       choiceCursor: number;
+      targetFrame: number;
     }
     | null;
   private readonly progressKey: string;
@@ -61,13 +62,14 @@ export class Runtime {
     this.replayTargetFrame = Math.max(0, Math.floor(frame));
   }
 
-  beginReplay(plan: { actions: ActorAction<unknown>[]; choices?: string[] }) {
+  beginReplay(plan: { actions: ActorAction<unknown>[]; choices?: string[]; targetFrame?: number }) {
     const filtered = plan.actions.filter((a) => this.shouldRecordAction(a.type));
     this.replayPlan = {
       actions: filtered,
       cursor: 0,
       choices: plan.choices || [],
       choiceCursor: 0,
+      targetFrame: plan.targetFrame ?? 0,
     };
     this.actionLog = filtered.slice();
     this.choiceTrail = (plan.choices || []).slice();
@@ -96,10 +98,21 @@ export class Runtime {
     let effectiveAction = action;
     let replayIsLast = false;
     const plan = this.replayPlan;
+
+    // Dev 模式下重放时跳过动画，加快恢复速度
+    const isSkipping = import.meta.env?.DEV && this.replayTargetFrame !== null;
+    if (isSkipping && effectiveAction.options?.duration !== undefined) {
+      // 移除 duration 选项以跳过动画
+      effectiveAction = {
+        ...effectiveAction,
+        options: { ...effectiveAction.options, duration: 0 },
+      };
+    }
     if (plan && isRecordable) {
       const expected = plan.actions[plan.cursor];
       if (expected) {
-        effectiveAction = expected;
+        // 只用于判断是否还在重放范围内，不替换 payload
+        // 这样热重载时可以使用新脚本的最新内容
         replayIsLast = plan.cursor >= plan.actions.length - 1;
         plan.cursor += 1;
       } else {
@@ -115,19 +128,21 @@ export class Runtime {
       this.past.push(snapshot);
       if (this.past.length > this.maxPast) this.past.shift();
       this.future = [];
-      if (!this.replayPlan) {
-        this.actionLog.push({
-          type: effectiveAction.type,
-          payload: effectiveAction.payload,
-          options: effectiveAction.options,
-        } as ActorAction<unknown>);
-      }
+      // 暂时禁用 actions 的保存，以便调试热重载问题
+      // if (!this.replayPlan) {
+      //   this.actionLog.push({
+      //     type: effectiveAction.type,
+      //     payload: effectiveAction.payload,
+      //     options: effectiveAction.options,
+      //   } as ActorAction<unknown>);
+      // }
     }
     if (effectiveAction.type === 'wait') {
       if (this.replayPlan && !replayIsLast) {
         return Promise.resolve({ ok: true } as ActionResult<TResult>);
       }
       if (isRecordable) this.persistProgress(this.currentFrame());
+
       const msPayload = effectiveAction.payload as number | { ms?: number } | undefined;
       const ms =
         typeof msPayload === 'number'
@@ -135,7 +150,8 @@ export class Runtime {
           : typeof (msPayload as { ms?: number } | undefined)?.ms === 'number'
             ? (msPayload as { ms?: number }).ms!
             : effectiveAction.options?.duration ?? 0;
-      const waitMs = Math.max(0, Math.floor(ms));
+      // Dev 模式下重放时跳过等待，加快恢复速度
+      const waitMs = isSkipping ? 0 : Math.max(0, Math.floor(ms));
       return new Promise<ActionResult<TResult>>((resolve) => {
         setTimeout(() => resolve({ ok: true } as ActionResult<TResult>), waitMs);
       });
@@ -179,7 +195,20 @@ export class Runtime {
       this.emit();
       const frame = this.currentFrame();
       this.persistProgress(frame);
+
+      // 检查是否在重放模式且未到达目标帧
+      let shouldSkip = false;
       if (this.replayPlan && !replayIsLast) {
+        // 检查当前 frame 是否还未达到目标帧
+        if (this.replayPlan.targetFrame === 0 || frame < this.replayPlan.targetFrame) {
+          shouldSkip = true;
+        } else {
+          // 已达到或超过目标帧，停止重放
+          this.replayPlan = null;
+        }
+      }
+
+      if (shouldSkip) {
         return Promise.resolve({ ok: true } as ActionResult<TResult>);
       }
       if (this.replayTargetFrame !== null && frame < this.replayTargetFrame) {
@@ -405,12 +434,13 @@ export class Runtime {
   private persistProgress(frame: number) {
     const scene = this.state.scene;
     if (!scene) return;
+    // 暂时禁用 actions 的保存，以便调试热重载问题
     const payload = JSON.stringify({
       scene,
       frame,
       time: Date.now(),
-      actions: this.actionLog,
-      choices: this.choiceTrail,
+      // actions: this.actionLog,
+      // choices: this.choiceTrail,
     });
     localStorage.setItem(this.progressKey, payload);
   }

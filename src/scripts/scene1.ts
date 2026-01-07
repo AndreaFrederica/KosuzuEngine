@@ -32,7 +32,7 @@ export async function scene1(): Promise<void | string> {
   await sailorA.dim(0.75, 220);
   await sailorB.focus(220);
   await ctx.wait(220);
-  await sailorB.say('嗯，放学一起去买甜点吧？');
+  await sailorB.say('嗯，放学一起去买甜点吧？11');
 
   await sailorA.move({ x: 0.65, y: 0.38, scale: 0.6 }, { duration: 280 });
   await sailorB.move({ x: 0.18, y: 0.5, scale: 0.6 }, { duration: 280 });
@@ -210,4 +210,19 @@ export async function scene2(): Promise<void | string> {
   if (picked.ok && picked.value === 'scene1') return 'scene1';
   if (picked.ok && picked.value === 'sceneEffects') return 'sceneEffects';
   await sailorA.say('演示结束。');
+}
+
+// 热重载支持
+if (import.meta.hot) {
+  import.meta.hot.accept(() => {
+    console.log('[HMR] scene1.ts accept 回调被触发！');
+    const reloadScene = (window as unknown as { __reloadScene?: () => void }).__reloadScene;
+    console.log('[HMR] reloadScene 函数存在?', !!reloadScene);
+    if (reloadScene) {
+      console.log('[HMR] 调用 reloadScene()');
+      reloadScene();
+    } else {
+      console.error('[HMR] reloadScene 函数不存在！请确保 DemoVN.vue 已注册');
+    }
+  });
 }

@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { reactive } from 'vue';
+import { reactive, watch } from 'vue';
 import { defaultRuntime } from '../engine/core/Runtime';
 import { initialEngineState, selectors, type EngineState } from '../engine/core/EngineContext';
 import type { ActionResult, ActionType, ActorAction } from '../engine/core/ActorAction';
@@ -10,6 +10,8 @@ import {
   type PersistedProgress,
 } from '../engine/core/Persistence';
 
+const DEV_MODE_KEY = 'engine:devMode';
+
 export const useEngineStore = defineStore('engine', () => {
   const runtime = defaultRuntime;
   const state = reactive<EngineState>({ ...initialEngineState });
@@ -19,6 +21,20 @@ export const useEngineStore = defineStore('engine', () => {
     frame: undefined,
   });
   const loadReplay = reactive<{ value: PersistedProgress | null }>({ value: null });
+
+  // 开发模式状态（暂无特殊功能）
+  const devMode = reactive<{ value: boolean }>({
+    value: localStorage.getItem(DEV_MODE_KEY) === 'true',
+  });
+
+  // 监听开发模式变化，持久化到 localStorage
+  watch(
+    () => devMode.value,
+    (newValue) => {
+      localStorage.setItem(DEV_MODE_KEY, String(newValue));
+    },
+    { deep: true },
+  );
   enablePersistence(runtime);
   const progress = loadPersistedProgress();
   if (!progress) {
@@ -163,5 +179,10 @@ export const useEngineStore = defineStore('engine', () => {
     loadToken: () => loadToken.value,
     loadProgress: () => ({ scene: loadProgress.scene, frame: loadProgress.frame }),
     loadReplay: () => loadReplay.value,
+    // 开发模式状态（暂无特殊功能）
+    devMode: () => devMode.value,
+    setDevMode(enabled: boolean) {
+      devMode.value = enabled;
+    },
   };
 });
