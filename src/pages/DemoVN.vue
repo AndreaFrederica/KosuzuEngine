@@ -9,6 +9,7 @@
             @restart="restartScene"
             @open-context="showContext = !showContext"
             @open-debug="showDebug = !showDebug"
+            @open-console="showConsole = !showConsole"
             @open-history="showHistory = !showHistory"
             @open-save="
               slMode = 'save';
@@ -22,6 +23,7 @@
           />
           <ChoicePanel />
           <ContextViewer :visible="showContext" />
+          <ScriptConsole :visible="showConsole" @close="showConsole = false" />
           <SaveLoadPanel :visible="showSL" :mode="slMode" @close="showSL = false" />
           <HistoryPanel
             :visible="showHistory"
@@ -39,6 +41,7 @@ import StageView from '../engine/render/StageView.vue';
 import DialogBox from '../engine/render/DialogBox.vue';
 import ChoicePanel from '../engine/render/ChoicePanel.vue';
 import ContextViewer from '../engine/debug/ContextViewer.vue';
+import ScriptConsole from '../engine/debug/ScriptConsole.vue';
 import HistoryPanel from '../engine/render/HistoryPanel.vue';
 import SaveLoadPanel from '../engine/render/SaveLoadPanel.vue';
 import { onMounted, ref } from 'vue';
@@ -51,6 +54,7 @@ const showContext = ref(false);
 const showHistory = ref(false);
 const showDialog = ref(true);
 const showSL = ref(false);
+const showConsole = ref(false);
 const slMode = ref<'save' | 'load'>('save');
 const store = useEngineStore();
 

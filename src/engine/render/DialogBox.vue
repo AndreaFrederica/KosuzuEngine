@@ -4,7 +4,7 @@
     <div class="dialog-toolbar row items-center justify-between q-px-md">
       <!-- 左侧返回按钮 -->
       <div class="row items-center q-gutter-sm">
-        <div class="text-white cursor-pointer hover-opacity" @click="$emit('back')">返回</div>
+        <q-btn flat dense color="white" label="返回" :disable="!canBack" @click="$emit('back')" />
         <q-btn flat dense color="white" label="回到开头" @click="$emit('restart')" />
       </div>
 
@@ -12,6 +12,7 @@
       <div class="row q-gutter-sm">
         <q-btn flat dense color="white" label="上下文" @click="$emit('open-context')" />
         <q-btn flat dense color="white" label="调试" @click="$emit('open-debug')" />
+        <q-btn flat dense color="white" label="控制台" @click="$emit('open-console')" />
         <q-btn flat dense color="white" label="历史" @click="$emit('open-history')" />
         <q-btn flat dense color="white" label="存档" @click="$emit('open-save')" />
         <q-btn flat dense color="white" label="读档" @click="$emit('open-load')" />
@@ -43,6 +44,7 @@ const store = useEngineStore();
 const dialog = computed(() => store.dialog());
 const speaker = computed(() => dialog.value.speaker ?? '');
 const text = computed(() => dialog.value.text ?? '');
+const canBack = computed(() => store.canBack());
 
 // 定义事件，方便父组件（如 DemoVN.vue）监听处理
 defineEmits([
@@ -50,6 +52,7 @@ defineEmits([
   'restart',
   'open-context',
   'open-debug',
+  'open-console',
   'open-history',
   'open-save',
   'open-load',

@@ -92,7 +92,11 @@ export const useEngineStore = defineStore('engine', () => {
     dispatch,
     choose,
     advance,
+    canBack() {
+      return (state.history?.length ?? 0) > 1;
+    },
     back() {
+      if ((state.history?.length ?? 0) <= 1) return;
       runtime.back();
     },
     save(slot: string) {
