@@ -1,6 +1,6 @@
-import { BackgroundActor } from '../engine/core/BaseActor';
-import { ContextOps } from '../engine/core/BaseActor';
-import { Josei06Sailor, Josei07Sailor, AkamafuGirl, NekoAnimal } from '../roles/josei';
+import { BackgroundActor } from '../../engine/core/BaseActor';
+import { ContextOps } from '../../engine/core/BaseActor';
+import { Josei06Sailor, Josei07Sailor, AkamafuGirl, NekoAnimal } from '../actors';
 
 export async function sceneEffects(): Promise<void | string> {
   const ctx = new ContextOps();
@@ -78,4 +78,3 @@ export async function sceneEffects(): Promise<void | string> {
   ]);
   if (picked.ok && picked.value === 'scene1') return 'scene1';
 }
-

@@ -55,8 +55,7 @@ import {
   clearPersistedProgress,
   type PersistedProgress,
 } from '../engine/core/Persistence';
-import { scene1, scene2 } from '../scripts/scene1';
-import { sceneEffects } from '../scripts/effectsTest';
+import { scenes, getSceneFn, hasScene } from '../game/scenes';
 import { defaultRuntime } from '../engine/core/Runtime';
 const showDebug = ref(false);
 const showContext = ref(false);
@@ -68,12 +67,8 @@ const showSettings = ref(false);
 const slMode = ref<'save' | 'load'>('save');
 const store = useEngineStore();
 
-const scenes = {
-  scene1,
-  scene2,
-  sceneEffects,
-} as const;
-type SceneName = keyof typeof scenes;
+// 从场景注册表获取场景ID列表
+type SceneName = (typeof scenes)[number]['id'];
 
 let sceneLoopToken = 0;
 
@@ -99,8 +94,8 @@ async function runSceneLoop(initialScene: SceneName, initialFrame: number) {
     if (token !== sceneLoopToken) return;
     nextFrame = 0;
     const maybeNext = (result || '').trim();
-    if (maybeNext && maybeNext in scenes) {
-      nextScene = maybeNext as SceneName;
+    if (maybeNext && hasScene(maybeNext)) {
+      nextScene = maybeNext as SceneName; // eslint-disable-line @typescript-eslint/no-unnecessary-type-assertion
     }
   }
 }
@@ -108,20 +103,10 @@ async function runSceneLoop(initialScene: SceneName, initialFrame: number) {
 async function startSceneFromFrame(
   sceneName: SceneName,
   frame: number,
-  replay: PersistedProgress | null,
+  _replay: PersistedProgress | null, // eslint-disable-line @typescript-eslint/no-unused-vars
 ) {
   defaultRuntime.reset();
-  // 暂时禁用 beginReplay，完全使用新脚本
-  // if (replay && replay.actions) {
-  //   const plan: { actions: NonNullable<PersistedProgress['actions']>; choices?: string[]; targetFrame?: number } = {
-  //     actions: replay.actions,
-  //     targetFrame: replay.frame,
-  //   };
-  //   if (Array.isArray(replay.choices)) plan.choices = replay.choices;
-  //   defaultRuntime.beginReplay(plan);
-  // } else if (frame > 0) {
-  //   defaultRuntime.replayToFrame(frame);
-  // }
+
   // 始终使用 replayToFrame 来跳转到目标帧
   if (frame > 0) {
     defaultRuntime.replayToFrame(frame);
@@ -133,18 +118,25 @@ async function startSceneFromFrame(
   const timestamp = Date.now();
   console.log('[HMR DemoVN] 动态导入脚本，时间戳:', timestamp);
   let result: string | void;
+
+  // 根据场景名称动态导入对应模块
   if (sceneName === 'scene1' || sceneName === 'scene2') {
-    const mod = await import(`../scripts/scene1?t=${timestamp}`);
+    const mod = await import(`../game/scenes/scene1?t=${timestamp}`);
     console.log('[HMR DemoVN] scene1 模块导入完成');
     result = await (sceneName === 'scene1' ? mod.scene1() : mod.scene2());
   } else if (sceneName === 'sceneEffects') {
-    const mod = await import(`../scripts/effectsTest?t=${timestamp}`);
-    console.log('[HMR DemoVN] effectsTest 模块导入完成');
+    const mod = await import(`../game/scenes/sceneEffects?t=${timestamp}`);
+    console.log('[HMR DemoVN] sceneEffects 模块导入完成');
     result = await mod.sceneEffects();
   } else {
-    // 降级到缓存的 scenes 对象
-    const fn = scenes[sceneName] as () => Promise<string | void>;
-    result = await fn();
+    // 使用场景注册表获取场景函数
+    const sceneFn = getSceneFn(sceneName);
+    if (sceneFn) {
+      result = await sceneFn();
+    } else {
+      console.error(`[HMR DemoVN] 未找到场景: ${sceneName}`);
+      return '';
+    }
   }
 
   return result ?? '';
@@ -152,14 +144,18 @@ async function startSceneFromFrame(
 
 onMounted(() => {
   const progress = loadPersistedProgress();
-  const restored = loadPersistedState();
-  const sceneName: SceneName =
-    progress?.scene && progress.scene in scenes ? (progress.scene as SceneName) : 'scene1';
+  const _restored = loadPersistedState(); // eslint-disable-line @typescript-eslint/no-unused-vars
+
+  // 从场景注册表获取有效的场景ID列表
+  const validSceneIds = new Set(scenes.map((s) => s.id));
+
+  // 确定初始场景
+  let sceneName: SceneName = 'scene1';
+  if (progress?.scene && validSceneIds.has(progress.scene)) {
+    sceneName = progress.scene as SceneName; // eslint-disable-line @typescript-eslint/no-unnecessary-type-assertion
+  }
+
   const frame = progress?.scene === sceneName ? progress.frame : 0;
-  // 暂时禁用 replayHistory，让热重载使用新脚本的文本
-  // if (!Array.isArray(progress?.actions) && frame > 0 && restored?.scene === sceneName) {
-  //   defaultRuntime.setReplayHistory(restored.history);
-  // }
   void runSceneLoop(sceneName, frame);
 });
 
@@ -168,10 +164,13 @@ watch(
   () => {
     const p = store.loadProgress();
     const replay = store.loadReplay?.() ?? null;
-    const scene = (p.scene && p.scene in scenes ? p.scene : 'scene1') as SceneName;
+
+    // 从场景注册表获取有效的场景ID列表
+    const validSceneIds = new Set(scenes.map((s) => s.id));
+
+    const scene = (p.scene && validSceneIds.has(p.scene) ? p.scene : 'scene1') as SceneName; // eslint-disable-line @typescript-eslint/no-unnecessary-type-assertion
     const frame = typeof p.frame === 'number' ? p.frame : 0;
-    // 暂时禁用 replayHistory，让热重载使用新脚本的文本
-    // if (!replay && frame > 0) defaultRuntime.setReplayHistory(store.state.history);
+
     showDialog.value = true;
     sceneLoopToken += 1;
     const token = sceneLoopToken;
@@ -192,8 +191,8 @@ watch(
         if (token !== sceneLoopToken) return;
         nextFrame = 0;
         const maybeNext = (result || '').trim();
-        if (maybeNext && maybeNext in scenes) {
-          nextScene = maybeNext as SceneName;
+        if (maybeNext && validSceneIds.has(maybeNext)) {
+          nextScene = maybeNext as SceneName; // eslint-disable-line @typescript-eslint/no-unnecessary-type-assertion
         }
       }
     })();
@@ -215,8 +214,14 @@ function restartScene() {
   console.log('[HMR DemoVN] __reloadScene 被调用！');
   const progress = loadPersistedProgress();
   console.log('[HMR DemoVN] 当前进度:', progress);
+
+  // 从场景注册表获取有效的场景ID列表
+  const validSceneIds = new Set(scenes.map((s) => s.id));
+
   const sceneName: SceneName =
-    progress?.scene && progress.scene in scenes ? (progress.scene as SceneName) : 'scene1';
+    progress?.scene && validSceneIds.has(progress.scene)
+      ? (progress.scene as SceneName) // eslint-disable-line @typescript-eslint/no-unnecessary-type-assertion
+      : 'scene1';
   const frame = progress?.frame ?? 0;
   console.log('[HMR DemoVN] 场景名称:', sceneName, '目标帧:', frame);
 
@@ -235,11 +240,17 @@ function restartScene() {
 console.log('[HMR DemoVN] __reloadScene 函数已注册到 window 对象');
 
 if (import.meta.hot) {
-  import.meta.hot.accept(['../scripts/scene1', '../scripts/effectsTest'], () => {
+  import.meta.hot.accept(['../game/scenes/scene1', '../game/scenes/sceneEffects'], () => {
     console.log('[HMR DemoVN] import.meta.hot.accept 回调被触发！');
     const progress = loadPersistedProgress();
+
+    // 从场景注册表获取有效的场景ID列表
+    const validSceneIds = new Set(scenes.map((s) => s.id));
+
     const sceneName: SceneName =
-      progress?.scene && progress.scene in scenes ? (progress.scene as SceneName) : 'scene1';
+      progress?.scene && validSceneIds.has(progress.scene)
+        ? (progress.scene as SceneName) // eslint-disable-line @typescript-eslint/no-unnecessary-type-assertion
+        : 'scene1';
     const frame = progress?.frame ?? 0;
 
     // HMR 时清除保存的 actions，让新脚本完全重新执行

@@ -29,7 +29,7 @@
 import { computed } from 'vue';
 import { useEngineStore } from 'stores/engine-store';
 
-const props = defineProps<{ visible?: boolean }>();
+defineProps<{ visible?: boolean }>();
 defineEmits<{ (e: 'close'): void }>();
 
 const store = useEngineStore();

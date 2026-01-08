@@ -35,7 +35,7 @@ import {
   AudioActor,
   CharacterActor,
 } from '../core/BaseActor';
-import { Josei06Sailor, Josei07Sailor, AkamafuGirl, NekoAnimal } from '../../roles/josei';
+import { Josei06Sailor, Josei07Sailor, AkamafuGirl, NekoAnimal } from '../../game/actors';
 import { Terminal } from 'xterm';
 import { FitAddon } from 'xterm-addon-fit';
 import 'xterm/css/xterm.css';

@@ -1,6 +1,6 @@
-import { BackgroundActor, AudioActor } from '../engine/core/BaseActor';
-import { ContextOps } from '../engine/core/BaseActor';
-import { Josei06Sailor, Josei07Sailor, AkamafuGirl, NekoAnimal } from '../roles/josei';
+import { BackgroundActor, AudioActor } from '../../engine/core/BaseActor';
+import { ContextOps } from '../../engine/core/BaseActor';
+import { Josei06Sailor, Josei07Sailor, AkamafuGirl, NekoAnimal } from '../actors';
 
 export async function scene1(): Promise<void | string> {
   const bg = new BackgroundActor('haikei_01_sora/jpg/sora_01.jpg');
