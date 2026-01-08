@@ -1,39 +1,235 @@
 <template>
   <div v-if="visible" class="settings-panel" @click.stop>
     <div class="settings-header">
-      <div class="title">设置</div>
-      <button class="close-btn" @click="$emit('close')">关闭</button>
+      <div class="title">{{ uiText.settings }}</div>
+      <button class="close-btn" @click="$emit('close')">{{ uiText.close }}</button>
     </div>
     <div class="settings-body">
-      <div class="setting-item">
-        <div class="setting-info">
-          <div class="setting-label">开发模式</div>
-          <div class="setting-desc">开启后恢复位置时将跳过所有动画效果</div>
+      <!-- 语言设置 -->
+      <div class="setting-section">
+        <div class="section-title">{{ uiText.language }}</div>
+        <div class="setting-item">
+          <div class="setting-info">
+            <div class="setting-label">{{ uiText.language }}</div>
+            <div class="setting-desc">选择界面和对话文本的语言 / Select UI and dialog language</div>
+          </div>
+          <select v-model="currentLocale" @change="onLocaleChange" class="setting-select">
+            <option v-for="lang in supportedLocales" :key="lang.code" :value="lang.code">
+              {{ lang.name }} / {{ lang.nativeName }}
+            </option>
+          </select>
         </div>
-        <q-toggle
-          :model-value="isDevMode"
-          @update:model-value="onDevModeChange"
-          color="primary"
-          keep-color
-        />
       </div>
-      <div v-if="isDevMode" class="dev-mode-info">
-        <div class="info-title">开发模式已启用</div>
-        <div class="info-desc">恢复位置时角色移动、背景切换和特效动画将被跳过</div>
+
+      <!-- 语音设置 -->
+      <div class="setting-section">
+        <div class="section-title">{{ uiText.voiceSettings }} / Voice</div>
+        <div class="setting-item">
+          <div class="setting-info">
+            <div class="setting-label">{{ uiText.voiceEnabled }}</div>
+            <div class="setting-desc">自动播放角色语音 / Auto-play character voice</div>
+          </div>
+          <q-toggle
+            :model-value="voiceEnabled"
+            @update:model-value="onVoiceEnabledChange"
+            color="primary"
+            keep-color
+          />
+        </div>
+
+        <div v-if="voiceEnabled" class="setting-item">
+          <div class="setting-info">
+            <div class="setting-label">{{ uiText.ttsEngine }}</div>
+            <div class="setting-desc">选择文字转语音服务 / Select TTS service</div>
+          </div>
+          <select v-model="ttsEngine" @change="onTTSEngineChange" class="setting-select">
+            <option value="browser">{{ uiText.ttsEngineBrowser }}</option>
+            <option value="openai">{{ uiText.ttsEngineOpenai }}</option>
+            <option value="azure">{{ uiText.ttsEngineAzure }}</option>
+            <option value="google">{{ uiText.ttsEngineGoogle }}</option>
+          </select>
+        </div>
+
+        <div v-if="voiceEnabled && ttsEngine === 'browser'" class="setting-item">
+          <div class="setting-info">
+            <div class="setting-label">{{ uiText.browserVoice }}</div>
+            <div class="setting-desc">选择浏览器 TTS 语音 / Select browser TTS voice</div>
+          </div>
+          <select v-model="browserVoice" @change="onBrowserVoiceChange" class="setting-select">
+            <option value="">默认 / Default</option>
+            <option v-for="voice in browserVoices" :key="voice.name" :value="voice.name">
+              {{ voice.name }} ({{ voice.lang }})
+            </option>
+          </select>
+        </div>
+      </div>
+
+      <!-- 开发模式设置 -->
+      <div class="setting-section">
+        <div class="section-title">开发 / Development</div>
+        <div class="setting-item">
+          <div class="setting-info">
+            <div class="setting-label">开发模式</div>
+            <div class="setting-desc">开启后恢复位置时将跳过所有动画效果</div>
+          </div>
+          <q-toggle
+            :model-value="isDevMode"
+            @update:model-value="onDevModeChange"
+            color="primary"
+            keep-color
+          />
+        </div>
+        <div v-if="isDevMode" class="dev-mode-info">
+          <div class="info-title">开发模式已启用</div>
+          <div class="info-desc">恢复位置时角色移动、背景切换和特效动画将被跳过</div>
+        </div>
+      </div>
+
+      <!-- 系统信息 -->
+      <div class="setting-section">
+        <div class="section-title">系统信息</div>
+        <div class="info-grid">
+          <div class="info-item">
+            <span class="info-label">场景:</span>
+            <span class="info-value">{{ store.state.scene || '-' }}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">当前帧:</span>
+            <span class="info-value">{{ store.state.history?.length ?? 0 }}</span>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, onMounted, onUnmounted } from 'vue';
 import { useEngineStore } from 'stores/engine-store';
+import { getI18nManager, getSupportedLocales, type SupportedLocale } from '../../engine/i18n';
+import { getVoiceManager } from '../../engine/i18n';
 
 defineProps<{ visible?: boolean }>();
 defineEmits<{ (e: 'close'): void }>();
 
 const store = useEngineStore();
+const i18n = getI18nManager();
+const voiceManager = getVoiceManager();
+
+// 语言设置（用于触发 computed 重新计算）
+const currentLocale = ref<SupportedLocale>(i18n.getLocale());
+const supportedLocales = getSupportedLocales();
+
+// 监听语言变化以更新 UI
+let unlistenLocale: (() => void) | null = null;
+onMounted(() => {
+  unlistenLocale = i18n.onLocaleChange(() => {
+    currentLocale.value = i18n.getLocale();
+  });
+});
+onUnmounted(() => {
+  unlistenLocale?.();
+});
+
+// i18n 翻译函数
+const t = (key: string): string => {
+  try {
+    const result = i18n.getTranslation(`@ui:${key}`);
+    return result.text !== `@ui:${key}` ? result.text : key;
+  } catch {
+    return key;
+  }
+};
+
+// 响应式翻译（依赖 currentLocale 以在语言切换时更新）
+const uiText = computed(() => {
+  // 触发 computed 重新计算
+  void currentLocale.value;
+  return {
+    settings: t('settings'),
+    close: t('close'),
+    language: t('language'),
+    voiceSettings: t('voice_settings'),
+    voiceEnabled: t('voice_enabled'),
+    ttsEngine: t('tts_engine'),
+    browserVoice: t('browser_voice'),
+    ttsEngineBrowser: t('tts_engine_browser'),
+    ttsEngineOpenai: t('tts_engine_openai'),
+    ttsEngineAzure: t('tts_engine_azure'),
+    ttsEngineGoogle: t('tts_engine_google'),
+  };
+});
+
+// 语音设置
+const voiceEnabled = ref(false);
+const ttsEngine = ref<'browser' | 'openai' | 'azure' | 'google'>('browser');
+const browserVoice = ref('');
+const browserVoices = ref<SpeechSynthesisVoice[]>([]);
+
+// 开发模式设置
 const isDevMode = computed(() => store.devMode());
+
+// 初始化语音设置
+onMounted(() => {
+  const voiceSettings = voiceManager.getSettings();
+  voiceEnabled.value = voiceSettings.enabled;
+  ttsEngine.value = voiceSettings.engine;
+  browserVoice.value = voiceSettings.browserVoiceId || '';
+
+  // 加载浏览器语音列表
+  loadBrowserVoices();
+});
+
+function loadBrowserVoices() {
+  if ('speechSynthesis' in window) {
+    browserVoices.value = speechSynthesis.getVoices();
+
+    // 监听语音列表变化
+    speechSynthesis.onvoiceschanged = () => {
+      browserVoices.value = speechSynthesis.getVoices();
+    };
+  }
+}
+
+function onLocaleChange(event: Event) {
+  const target = event.target as HTMLSelectElement;
+  const locale = target.value as SupportedLocale;
+  i18n.setLocale(locale);
+  // 更新 currentLocale 以触发 computed 重新计算
+  currentLocale.value = locale;
+  // 语言切换后，i18n 系统会自动重新翻译当前对话和历史记录
+}
+
+function onVoiceEnabledChange(value: boolean) {
+  voiceEnabled.value = value;
+  voiceManager.updateSettings({ enabled: value });
+
+  // 如果启用语音，预加载语音列表
+  if (value && ttsEngine.value === 'browser') {
+    void voiceManager.preloadVoices();
+  }
+}
+
+function onTTSEngineChange(event: Event) {
+  const target = event.target as HTMLSelectElement;
+  const engine = target.value as 'browser' | 'openai' | 'azure' | 'google';
+  ttsEngine.value = engine;
+  voiceManager.updateSettings({ engine });
+
+  if (engine === 'browser') {
+    void voiceManager.preloadVoices();
+  }
+}
+
+function onBrowserVoiceChange(event: Event) {
+  const target = event.target as HTMLSelectElement;
+  const voiceId = target.value;
+  browserVoice.value = voiceId;
+  if (voiceId) {
+    voiceManager.updateSettings({ browserVoiceId: voiceId });
+  }
+  // 不更新 browserVoiceId 为空字符串，保持原值
+}
 
 function onDevModeChange(value: boolean) {
   store.setDevMode(value);
@@ -46,8 +242,10 @@ function onDevModeChange(value: boolean) {
   left: 50%;
   bottom: 220px;
   transform: translateX(-50%);
-  width: min(500px, calc(100% - 32px));
-  background: rgba(0, 0, 0, 0.85);
+  width: min(520px, calc(100% - 32px));
+  max-height: 70vh;
+  overflow: auto;
+  background: rgba(0, 0, 0, 0.9);
   color: #fff;
   border-radius: 8px;
   padding: 16px;
@@ -89,13 +287,30 @@ function onDevModeChange(value: boolean) {
   gap: 16px;
 }
 
+.setting-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+}
+
+.section-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 4px;
+}
+
 .setting-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px;
+  padding: 10px 12px;
   background: rgba(255, 255, 255, 0.05);
   border-radius: 6px;
+  gap: 12px;
 }
 
 .setting-info {
@@ -103,23 +318,43 @@ function onDevModeChange(value: boolean) {
   flex-direction: column;
   gap: 4px;
   flex: 1;
-  padding-right: 16px;
 }
 
 .setting-label {
   font-weight: 500;
-  font-size: 15px;
+  font-size: 14px;
 }
 
 .setting-desc {
-  font-size: 13px;
-  opacity: 0.7;
+  font-size: 12px;
+  opacity: 0.65;
   line-height: 1.4;
 }
 
+.setting-select {
+  background: rgba(0, 0, 0, 0.3);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 13px;
+  cursor: pointer;
+  min-width: 160px;
+}
+
+.setting-select:focus {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.setting-select option {
+  background: #1a1a1a;
+  color: #fff;
+}
+
 .dev-mode-info {
-  padding: 12px;
-  background: rgba(76, 175, 80, 0.15);
+  padding: 10px 12px;
+  background: rgba(76, 175, 80, 0.12);
   border: 1px solid rgba(76, 175, 80, 0.3);
   border-radius: 6px;
   display: flex;
@@ -130,11 +365,35 @@ function onDevModeChange(value: boolean) {
 .info-title {
   font-weight: 500;
   color: #81c784;
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .info-desc {
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.info-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
   font-size: 12px;
-  opacity: 0.85;
+}
+
+.info-label {
+  opacity: 0.7;
+}
+
+.info-value {
+  font-weight: 500;
+  opacity: 0.9;
 }
 </style>

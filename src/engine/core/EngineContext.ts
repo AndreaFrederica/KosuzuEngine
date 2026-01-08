@@ -2,6 +2,10 @@ export interface DialogState {
   speaker?: string;
   text?: string;
   html?: boolean;
+  /** 保存原始文本键，用于语言切换时重新翻译 */
+  originalText?: string;
+  /** 保存原始角色 ID，用于语言切换时重新翻译角色名 */
+  originalSpeaker?: string;
 }
 
 export interface ChoiceItem {
@@ -18,6 +22,10 @@ export interface HistoryEntry {
   speaker?: string;
   text?: string;
   html?: boolean;
+  /** 保存原始文本键，用于语言切换时重新翻译 */
+  originalText?: string;
+  /** 保存原始角色 ID，用于语言切换时重新翻译角色名 */
+  originalSpeaker?: string;
 }
 
 import type { TransformState, PoseState } from './BaseActor';
@@ -73,16 +81,20 @@ export const reducer: Reducer = (state, action) => {
     return next;
   }
   if (action.type === 'say') {
-    const payload = action.payload as { text: string; speaker?: string; html?: boolean };
+    const payload = action.payload as { text: string; speaker?: string; html?: boolean; originalText?: string; originalSpeaker?: string };
     const nextDialog: DialogState = {};
     if (payload.text !== undefined) nextDialog.text = payload.text;
     if (payload.speaker !== undefined) nextDialog.speaker = payload.speaker;
     if (payload.html !== undefined) nextDialog.html = payload.html;
+    if (payload.originalText !== undefined) nextDialog.originalText = payload.originalText;
+    if (payload.originalSpeaker !== undefined) nextDialog.originalSpeaker = payload.originalSpeaker;
     const nextChoice: ChoiceState = { items: state.choice.items, visible: false };
     const entry: HistoryEntry = {};
     if (payload.text !== undefined) entry.text = payload.text;
     if (payload.speaker !== undefined) entry.speaker = payload.speaker;
     if (payload.html !== undefined) entry.html = payload.html;
+    if (payload.originalText !== undefined) entry.originalText = payload.originalText;
+    if (payload.originalSpeaker !== undefined) entry.originalSpeaker = payload.originalSpeaker;
     const nextHistory = [...state.history, entry];
     return { ...state, dialog: nextDialog, choice: nextChoice, history: nextHistory };
   }
@@ -97,6 +109,8 @@ export const reducer: Reducer = (state, action) => {
         if (last.text !== undefined) nd.text = last.text;
         if (last.speaker !== undefined) nd.speaker = last.speaker;
         if (last.html !== undefined) nd.html = last.html;
+        if (last.originalText !== undefined) nd.originalText = last.originalText;
+        if (last.originalSpeaker !== undefined) nd.originalSpeaker = last.originalSpeaker;
         next.dialog = nd;
       } else {
         next.dialog = {};

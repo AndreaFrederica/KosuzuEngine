@@ -57,6 +57,7 @@ import {
 } from '../engine/core/Persistence';
 import { scenes, getSceneFn, hasScene } from '../game/scenes';
 import { defaultRuntime } from '../engine/core/Runtime';
+import { initI18n, registerEngineStore } from '../engine/i18n';
 const showDebug = ref(false);
 const showContext = ref(false);
 const showHistory = ref(false);
@@ -172,6 +173,11 @@ async function startSceneFromFrame(
 }
 
 onMounted(() => {
+  // 初始化 i18n 国际化系统
+  initI18n();
+  // 注册 engine store，用于语言切换时重新翻译
+  registerEngineStore(store);
+
   const progress = loadPersistedProgress();
   const _restored = loadPersistedState(); // eslint-disable-line @typescript-eslint/no-unused-vars
 

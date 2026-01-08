@@ -79,10 +79,61 @@ export class CharacterActor extends BaseActor {
     super('character', name, id, runtime);
   }
 
-  /** 让角色说话，显示对话文本 */
+  /** 让角色说话，显示对话文本（自动支持 i18n 翻译） */
   say(text: string, opts?: { duration?: number; html?: boolean }) {
+    // 尝试获取 i18n 翻译（同步方式）
+    let finalText = text;
+    let finalSpeaker = this.name;
+    let voicePath: string | undefined;
+    let ttsConfig: { provider?: 'browser' | 'openai' | 'azure' | 'google'; voiceId?: string; rate?: number; pitch?: number; volume?: number } | undefined;
+
+    // 检查 i18n 模块是否已加载
+    try {
+      // 使用 require 同步获取（如果可用）或直接访问全局
+      type I18nManager = {
+        getTranslation: (keyOrText: string, params?: Record<string, unknown>) => { text: string; voice?: string; tts?: { provider?: 'browser' | 'openai' | 'azure' | 'google'; voiceId?: string; rate?: number; pitch?: number; volume?: number } | undefined };
+      };
+      const i18nModule = (window as unknown as { __i18n_manager__?: I18nManager }).__i18n_manager__;
+      if (i18nModule) {
+        // 翻译对话文本
+        const translation = i18nModule.getTranslation(text);
+        if (translation.text !== text) {
+          finalText = translation.text;
+        }
+        voicePath = translation.voice;
+        // 过滤掉 'custom' 类型（如果存在）
+        if (translation.tts) {
+          ttsConfig = translation.tts;
+        }
+
+        // 翻译角色名字（使用 @char: 前缀）
+        const nameKey = `@char:${this.name}`;
+        const nameTranslation = i18nModule.getTranslation(nameKey);
+        if (nameTranslation.text !== nameKey) {
+          finalSpeaker = nameTranslation.text;
+        }
+      }
+    } catch {
+      // i18n 未加载，使用原文
+    }
+
+    // 播放语音（异步，不阻塞对话显示）
+    if (voicePath || ttsConfig) {
+      void import('../i18n').then(({ getVoiceManager }) => {
+        const voiceManager = getVoiceManager();
+        if (voicePath) {
+          void voiceManager.playVoiceFile(voicePath);
+        } else if (ttsConfig) {
+          void voiceManager.speakWithAPI(finalText, ttsConfig);
+        }
+      });
+    }
+
     const options = opts?.duration !== undefined ? { duration: opts.duration } : undefined;
-    const action: ActorAction = { type: 'say', payload: { text, speaker: this.name, html: opts?.html } };
+    const action: ActorAction = {
+      type: 'say',
+      payload: { text: finalText, speaker: finalSpeaker, html: opts?.html, originalText: text, originalSpeaker: this.name }
+    };
     if (options) action.options = options;
     return this.action(action);
   }
@@ -90,6 +141,62 @@ export class CharacterActor extends BaseActor {
   /** 让角色说HTML格式的内容 */
   sayHtml(html: string, opts?: { duration?: number }) {
     return this.say(html, { ...opts, html: true });
+  }
+
+  /** 让角色说话，支持 i18n 和语音
+   *
+   * 使用方式：
+   * - say('中文文本') - 使用中文作为键，自动查找对应语言的翻译
+   * - say('scene.key') - 使用命名键查找翻译
+   * - say('文本', { params: { name: 'xxx' } }) - 支持参数插值
+   * - say('文本', { useVoice: false }) - 禁用语音
+   */
+  sayI18n(
+    keyOrText: string,
+    opts?: {
+      duration?: number;
+      html?: boolean;
+      /** 翻译参数 */
+      params?: Record<string, unknown>;
+      /** 是否使用语音文件（默认根据 i18n 配置） */
+      useVoice?: boolean;
+      /** 强制指定语音文件路径 */
+      voicePath?: string;
+      /** TTS 配置覆盖 */
+      tts?: { provider?: 'browser' | 'openai' | 'azure' | 'google'; voiceId?: string; rate?: number; pitch?: number; volume?: number };
+    },
+  ) {
+    // 动态导入 i18n 功能
+    void import('../i18n').then(({ getI18nManager, getVoiceManager }) => {
+      const i18n = getI18nManager();
+      const voiceManager = getVoiceManager();
+
+      // 获取翻译
+      const translation = i18n.getTranslation(keyOrText, opts?.params);
+
+      // 处理语音播放
+      if (opts?.useVoice !== false) {
+        const voicePath = opts?.voicePath ?? translation.voice;
+        const ttsConfig = opts?.tts ?? translation.tts;
+
+        if (voicePath) {
+          // 播放预录制的语音文件
+          void voiceManager.playVoiceFile(voicePath);
+        } else if (ttsConfig) {
+          // 使用 TTS
+          void voiceManager.speakWithAPI(translation.text, ttsConfig);
+        }
+      }
+
+      // 执行原有的 say 逻辑
+      const sayOpts: { duration?: number; html?: boolean } = {};
+      if (opts?.duration !== undefined) sayOpts.duration = opts.duration;
+      if (opts?.html !== undefined) sayOpts.html = opts.html;
+      return this.say(translation.text, sayOpts);
+    });
+
+    // 返回一个 Promise，保持 API 一致性
+    return Promise.resolve({ ok: true } as const);
   }
 
   /** 在场景中显示角色 */
