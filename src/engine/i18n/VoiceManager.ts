@@ -18,7 +18,6 @@ export interface VoiceSettings {
 }
 
 export class VoiceManager {
-  private audioContext: AudioContext | null = null;
   private settings: VoiceSettings;
 
   constructor() {
@@ -61,31 +60,10 @@ export class VoiceManager {
     if (!this.settings.enabled) return;
 
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-      if (!this.audioContext) {
-        this.audioContext = new AudioContextClass();
-      }
-
-      const response = await fetch(`/assets/voices/${path}`);
-      if (!response.ok) {
-        console.warn(`[VoiceManager] 语音文件加载失败: ${path}`);
-        return;
-      }
-
-      const arrayBuffer = await response.arrayBuffer();
-      const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
-
-      const source = this.audioContext.createBufferSource();
-      source.buffer = audioBuffer;
-
-      // 创建音量节点
-      const gainNode = this.audioContext.createGain();
-      gainNode.gain.value = this.settings.volume;
-
-      source.connect(gainNode);
-      gainNode.connect(this.audioContext.destination);
-      source.start();
+      // 使用新的多通道音频系统
+      const { audioManager } = await import('../render/AudioManager');
+      const audioUrl = `/assets/voices/${path}`;
+      await audioManager.playVoice(audioUrl, { volume: this.settings.volume });
     } catch (error) {
       console.error(`[VoiceManager] 播放语音文件失败: ${path}`, error);
     }

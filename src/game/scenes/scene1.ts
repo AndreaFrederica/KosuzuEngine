@@ -114,7 +114,7 @@ export async function scene1(): Promise<void | string> {
   await akamafu.dim(0.75, 200);
   await sailorA.focus(200);
   await ctx.wait(200);
-  await sailorA.say('太好了，那就出发吧。');
+  await sailorA.say('太好了，那就出发吧。1');
 
   // 新朋友加入，切换到春日阳光主题音乐
   await bgm.stop({ fadeOut: 500 });
@@ -229,16 +229,16 @@ export async function scene2(): Promise<void | string> {
 }
 
 // 热重载支持
-if (import.meta.hot) {
-  import.meta.hot.accept(() => {
-    console.log('[HMR] scene1.ts accept 回调被触发！');
-    const reloadScene = (window as unknown as { __reloadScene?: () => void }).__reloadScene;
-    console.log('[HMR] reloadScene 函数存在?', !!reloadScene);
-    if (reloadScene) {
-      console.log('[HMR] 调用 reloadScene()');
-      reloadScene();
-    } else {
-      console.error('[HMR] reloadScene 函数不存在！请确保 DemoVN.vue 已注册');
-    }
-  });
-}
+// if (import.meta.hot) {
+//   import.meta.hot.accept(() => {
+//     console.log('[HMR] scene1.ts accept 回调被触发！');
+//     const reloadScene = (window as unknown as { __reloadScene?: () => void }).__reloadScene;
+//     console.log('[HMR] reloadScene 函数存在?', !!reloadScene);
+//     if (reloadScene) {
+//       console.log('[HMR] 调用 reloadScene()');
+//       reloadScene();
+//     } else {
+//       console.error('[HMR] reloadScene 函数不存在！请确保 DemoVN.vue 已注册');
+//     }
+//   });
+// }

@@ -119,12 +119,18 @@ export class CharacterActor extends BaseActor {
 
     // 播放语音（异步，不阻塞对话显示）
     if (voicePath || ttsConfig) {
-      void import('../i18n').then(({ getVoiceManager }) => {
-        const voiceManager = getVoiceManager();
+      void import('../render/CharacterAudioManager').then(({ characterAudioRegistry }) => {
+        const charAudioManager = characterAudioRegistry.getOrCreate(this.name);
         if (voicePath) {
-          void voiceManager.playVoiceFile(voicePath);
+          // 使用角色的音频管理器播放预录制语音
+          const audioUrl = `/assets/audio/voice/${voicePath}`;
+          void charAudioManager.playVoice(audioUrl);
         } else if (ttsConfig) {
-          void voiceManager.speakWithAPI(finalText, ttsConfig);
+          // TTS 仍然使用 VoiceManager（暂时保留）
+          void import('../i18n').then(({ getVoiceManager }) => {
+            const voiceManager = getVoiceManager();
+            void voiceManager.speakWithAPI(finalText, ttsConfig);
+          });
         }
       });
     }
@@ -179,13 +185,18 @@ export class CharacterActor extends BaseActor {
         const voicePath = opts?.voicePath ?? translation.voice;
         const ttsConfig = opts?.tts ?? translation.tts;
 
-        if (voicePath) {
-          // 播放预录制的语音文件
-          void voiceManager.playVoiceFile(voicePath);
-        } else if (ttsConfig) {
-          // 使用 TTS
-          void voiceManager.speakWithAPI(translation.text, ttsConfig);
-        }
+        // 使用角色的音频管理器
+        void import('../render/CharacterAudioManager').then(({ characterAudioRegistry }) => {
+          const charAudioManager = characterAudioRegistry.getOrCreate(this.name);
+          if (voicePath) {
+            // 播放预录制的语音文件
+            const audioUrl = `/assets/audio/voice/${voicePath}`;
+            void charAudioManager.playVoice(audioUrl);
+          } else if (ttsConfig) {
+            // 使用 TTS（暂时保留 VoiceManager）
+            void voiceManager.speakWithAPI(translation.text, ttsConfig);
+          }
+        });
       }
 
       // 执行原有的 say 逻辑

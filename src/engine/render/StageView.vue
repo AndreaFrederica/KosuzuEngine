@@ -82,6 +82,47 @@ const bgmName = computed(() => bgm.value?.name);
 const bgmVolume = computed(() => bgm.value?.volume ?? 1.0);
 const bgmFadeDuration = computed(() => bgm.value?.fadeDuration);
 
+// 状态同步检查
+let syncInterval: ReturnType<typeof setInterval> | null = null;
+
+// 同步 BGM 播放状态
+async function syncBgmState() {
+  const managerStatus = audioManager.getStatus();
+  const expectedName = bgmName.value;
+
+  // 如果有待处理的播放请求（等待用户交互），跳过同步
+  if (managerStatus.hasPendingPlay) {
+    console.log('[StageView] 等待用户交互后播放，跳过同步');
+    return;
+  }
+
+  // 只在真正需要同步时才打印日志
+  // 注意：currentTrack 是完整路径，expectedName 是文件名，需要比较完整路径
+  const expectedTrack = expectedName ? `/assets/audio/bgm/${expectedName}` : null;
+  const needsSync =
+    (expectedTrack && (managerStatus.currentTrack !== expectedTrack || !managerStatus.isPlaying)) ||
+    (!expectedTrack && managerStatus.currentTrack && managerStatus.isPlaying);
+
+  if (!needsSync) return;
+
+  console.log('[StageView] BGM 状态需要同步:', {
+    expected: expectedTrack,
+    actual: managerStatus.currentTrack,
+    isPlaying: managerStatus.isPlaying,
+  });
+
+  // 情况1：期望播放某个音乐，但实际状态不一致
+  if (expectedTrack) {
+    console.log('[StageView] 重新播放 BGM:', expectedName);
+    await audioManager.play(expectedName, { fadeIn: bgmFadeDuration.value ?? 800 });
+  }
+  // 情况2：期望停止音乐，但实际还在播放
+  else if (managerStatus.currentTrack && managerStatus.isPlaying) {
+    console.log('[StageView] 停止 BGM');
+    await audioManager.stop({ fadeOut: bgmFadeDuration.value ?? 500 });
+  }
+}
+
 // 监听 BGM 状态变化并播放
 watch(
   () => ({ name: bgmName.value, volume: bgmVolume.value, fadeDuration: bgmFadeDuration.value }),
@@ -90,10 +131,10 @@ watch(
 
     if (name) {
       // 播放新的背景音乐，使用脚本指定的淡入时间（如果没有则使用默认 800ms）
-      await audioManager.play(name, fadeDuration ?? 800);
+      await audioManager.play(name, { fadeIn: fadeDuration ?? 800 });
     } else {
       // 停止背景音乐，使用脚本指定的淡出时间（如果没有则使用默认 500ms）
-      await audioManager.stop(fadeDuration ?? 500);
+      await audioManager.stop({ fadeOut: fadeDuration ?? 500 });
     }
   },
   { deep: true, immediate: true },
@@ -114,6 +155,8 @@ let ro: ResizeObserver | null = null;
 onMounted(() => {
   const el = stageRef.value;
   if (!el) return;
+
+  // 舞台尺寸初始化
   const rect = el.getBoundingClientRect();
   stageSize.value = { width: rect.width, height: rect.height };
   void store.dispatch('stage', { width: rect.width, height: rect.height });
@@ -125,10 +168,25 @@ onMounted(() => {
     }
   });
   ro.observe(el);
+
+  // BGM 状态同步：延迟检查确保组件已初始化
+  setTimeout(() => {
+    void syncBgmState();
+  }, 100);
+
+  // 定期检查状态同步（每秒一次）
+  syncInterval = setInterval(() => {
+    void syncBgmState();
+  }, 1000);
 });
 onBeforeUnmount(() => {
   if (ro && stageRef.value) ro.unobserve(stageRef.value);
   ro = null;
+  // 清理 BGM 同步定时器
+  if (syncInterval) {
+    clearInterval(syncInterval);
+    syncInterval = null;
+  }
   // 清理音频资源
   audioManager.dispose();
 });
