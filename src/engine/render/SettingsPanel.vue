@@ -8,7 +8,7 @@
       <div class="setting-item">
         <div class="setting-info">
           <div class="setting-label">开发模式</div>
-          <div class="setting-desc">暂无特殊功能，开关仅保存设置状态</div>
+          <div class="setting-desc">开启后恢复位置时将跳过所有动画效果</div>
         </div>
         <q-toggle
           :model-value="isDevMode"
@@ -19,7 +19,7 @@
       </div>
       <div v-if="isDevMode" class="dev-mode-info">
         <div class="info-title">开发模式已启用</div>
-        <div class="info-desc">当前无特殊功能</div>
+        <div class="info-desc">恢复位置时角色移动、背景切换和特效动画将被跳过</div>
       </div>
     </div>
   </div>

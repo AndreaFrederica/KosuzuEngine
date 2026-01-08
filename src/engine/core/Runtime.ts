@@ -25,6 +25,8 @@ export class Runtime {
     }
     | null;
   private readonly progressKey: string;
+  // 开发模式回调，用于检查设置面板的开发模式开关
+  private isDevModeCallback: () => boolean = () => import.meta.env?.DEV === true;
 
   constructor() {
     this.state = { ...initialEngineState };
@@ -99,8 +101,8 @@ export class Runtime {
     let replayIsLast = false;
     const plan = this.replayPlan;
 
-    // Dev 模式下重放时跳过动画，加快恢复速度
-    const isSkipping = import.meta.env?.DEV && this.replayTargetFrame !== null;
+    // Dev 模式下重放时跳过动画，加快恢复速度（使用回调检查设置面板的开发模式开关）
+    const isSkipping = this.isDevModeCallback() && this.replayTargetFrame !== null;
     if (isSkipping && effectiveAction.options?.duration !== undefined) {
       // 移除 duration 选项以跳过动画
       effectiveAction = {
@@ -329,6 +331,11 @@ export class Runtime {
 
   isRestoring() {
     return this.replayTargetFrame !== null;
+  }
+
+  // 设置开发模式检查回调，用于检查设置面板的开发模式开关
+  setDevModeCallback(callback: () => boolean) {
+    this.isDevModeCallback = callback;
   }
 
   back() {

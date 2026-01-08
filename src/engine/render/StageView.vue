@@ -161,26 +161,29 @@ function actorImgStyleById(id: string): CSSProperties {
     transition: `filter ${trans} ease`,
   };
 
-  if (fxName === 'shake' && fxDuration > 0) {
-    const p = fx?.params || {};
-    const strengthX = Number(p.strengthX ?? 0.01);
-    const strengthY = Number(p.strengthY ?? 0);
-    const xPx = Math.max(0, strengthX) * (stageSize.value.width || 800);
-    const yPx = Math.max(0, strengthY) * (stageSize.value.height || 450);
-    (styles as Record<string, unknown>)['--shake-x'] = `${Math.round(xPx)}px`;
-    (styles as Record<string, unknown>)['--shake-y'] = `${Math.round(yPx)}px`;
-    styles.animation = `${token % 2 === 0 ? 'actor-shake' : 'actor-shake2'} ${Math.floor(fxDuration)}ms linear`;
-    styles.animationIterationCount = 1;
-    styles.animationFillMode = 'both';
-  }
-  if (fxName === 'jump' && fxDuration > 0) {
-    const p = fx?.params || {};
-    const height = Number(p.height ?? 0.06);
-    const yPx = Math.max(0, height) * (stageSize.value.height || 450);
-    (styles as Record<string, unknown>)['--jump-y'] = `${Math.round(yPx)}px`;
-    styles.animation = `${token % 2 === 0 ? 'actor-jump' : 'actor-jump2'} ${Math.floor(fxDuration)}ms cubic-bezier(.2,.8,.2,1)`;
-    styles.animationIterationCount = 1;
-    styles.animationFillMode = 'both';
+  // Dev 模式下恢复位置时禁用特效动画
+  if (!isRestoring) {
+    if (fxName === 'shake' && fxDuration > 0) {
+      const p = fx?.params || {};
+      const strengthX = Number(p.strengthX ?? 0.01);
+      const strengthY = Number(p.strengthY ?? 0);
+      const xPx = Math.max(0, strengthX) * (stageSize.value.width || 800);
+      const yPx = Math.max(0, strengthY) * (stageSize.value.height || 450);
+      (styles as Record<string, unknown>)['--shake-x'] = `${Math.round(xPx)}px`;
+      (styles as Record<string, unknown>)['--shake-y'] = `${Math.round(yPx)}px`;
+      styles.animation = `${token % 2 === 0 ? 'actor-shake' : 'actor-shake2'} ${Math.floor(fxDuration)}ms linear`;
+      styles.animationIterationCount = 1;
+      styles.animationFillMode = 'both';
+    }
+    if (fxName === 'jump' && fxDuration > 0) {
+      const p = fx?.params || {};
+      const height = Number(p.height ?? 0.06);
+      const yPx = Math.max(0, height) * (stageSize.value.height || 450);
+      (styles as Record<string, unknown>)['--jump-y'] = `${Math.round(yPx)}px`;
+      styles.animation = `${token % 2 === 0 ? 'actor-jump' : 'actor-jump2'} ${Math.floor(fxDuration)}ms cubic-bezier(.2,.8,.2,1)`;
+      styles.animationIterationCount = 1;
+      styles.animationFillMode = 'both';
+    }
   }
   return styles;
 }
@@ -222,7 +225,10 @@ watchEffect(() => {
   const prevSrc = prev ? `/assets/bg/${prev}` : '';
   const effect = bgEffect.value;
   const duration = Math.max(0, Math.floor(bgDuration.value));
-  if (!prevSrc || effect === 'cut' || duration <= 0) {
+
+  // Dev 模式下恢复位置时禁用背景切换动画
+  const isRestoring = store.isRestoring?.() ?? false;
+  if (isRestoring || !prevSrc || effect === 'cut' || duration <= 0) {
     bgPrevSrc.value = '';
     bgStylePrev.value = {};
     bgStyleCurr.value = {};

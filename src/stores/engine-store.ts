@@ -35,6 +35,10 @@ export const useEngineStore = defineStore('engine', () => {
     },
     { deep: true },
   );
+
+  // 设置 Runtime 的开发模式回调，使其能检查设置面板的开发模式开关
+  runtime.setDevModeCallback(() => devMode.value);
+
   enablePersistence(runtime);
   const progress = loadPersistedProgress();
   if (!progress) {
@@ -185,6 +189,7 @@ export const useEngineStore = defineStore('engine', () => {
       devMode.value = enabled;
     },
     // 检查是否正在恢复位置（Dev 模式下快速重放时禁用 CSS 动画）
-    isRestoring: () => runtime.isRestoring(),
+    // 需要同时检查：开发模式开关 AND 正在恢复位置
+    isRestoring: () => devMode.value && runtime.isRestoring(),
   };
 });
