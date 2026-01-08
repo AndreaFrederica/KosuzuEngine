@@ -36,9 +36,21 @@
 
       <!-- 底部信息 -->
       <div class="footer-info">
-        <p class="engine-info">Powered by KosuzuEngine</p>
-        <p class="version-info">{{ gameConfig.version }}</p>
-        <p v-if="gameConfig.author" class="author-info">{{ gameConfig.author }}</p>
+        <!-- 引擎品牌 (Logo + 文字) -->
+        <div class="engine-brand">
+          <div class="engine-logo-section">
+            <img src="/logo.png" alt="KosuzuEngine" class="engine-logo" />
+          </div>
+          <div class="engine-text">
+            <p class="engine-info">Powered by</p>
+            <p class="engine-name">KosuzuEngine</p>
+          </div>
+        </div>
+        <!-- 游戏版本信息 -->
+        <div class="game-version">
+          <p class="version-info">{{ gameConfig.version }}</p>
+          <p v-if="gameConfig.author" class="author-info">{{ gameConfig.author }}</p>
+        </div>
       </div>
     </div>
 
@@ -165,7 +177,7 @@ function goToSettings() {
 }
 
 .title-game-name {
-  font-size: 64px;
+  font-size: clamp(32px, 8vw, 64px);
   font-weight: 700;
   margin: 0;
   background: linear-gradient(135deg, #fff 0%, #e0e0e0 100%);
@@ -173,21 +185,21 @@ function goToSettings() {
   -webkit-text-fill-color: transparent;
   background-clip: text;
   text-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-  letter-spacing: 8px;
+  letter-spacing: clamp(4px, 1vw, 8px);
 }
 
 .title-subtitle {
-  font-size: 20px;
+  font-size: clamp(14px, 3vw, 20px);
   color: rgba(255, 255, 255, 0.8);
   margin-top: 20px;
-  letter-spacing: 4px;
+  letter-spacing: clamp(2px, 0.5vw, 4px);
   font-weight: 300;
 }
 
 .menu-buttons {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: clamp(8px, 2vw, 16px);
   width: 100%;
   max-width: 400px;
   animation: menu-fade-in 1s ease-out 0.5s both;
@@ -199,7 +211,7 @@ function goToSettings() {
   backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 8px;
-  padding: 16px 32px;
+  padding: clamp(12px, 3vw, 16px) clamp(24px, 5vw, 32px);
   color: #fff;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -212,47 +224,100 @@ function goToSettings() {
 .menu-button:hover {
   background: rgba(255, 255, 255, 0.2);
   border-color: rgba(255, 255, 255, 0.4);
-  transform: translateX(10px);
+  transform: translateX(clamp(5px, 1.5vw, 10px));
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
 }
 
 .menu-button:active {
-  transform: translateX(10px) scale(0.98);
+  transform: translateX(clamp(5px, 1.5vw, 10px)) scale(0.98);
 }
 
 .button-text {
-  font-size: 20px;
+  font-size: clamp(16px, 4vw, 20px);
   font-weight: 500;
-  letter-spacing: 2px;
+  letter-spacing: clamp(1px, 0.3vw, 2px);
 }
 
 .button-text-en {
-  font-size: 12px;
+  font-size: clamp(10px, 2.5vw, 12px);
   color: rgba(255, 255, 255, 0.6);
-  letter-spacing: 1px;
+  letter-spacing: clamp(0.5px, 0.2vw, 1px);
   text-transform: uppercase;
 }
 
 .footer-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
   text-align: center;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.7);
   animation: footer-fade-in 1s ease-out 1s both;
+  padding-bottom: 20px;
+}
+
+.engine-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.engine-logo-section {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.engine-logo {
+  height: 50px;
+  width: auto;
+  object-fit: contain;
+  opacity: 0.9;
+  transition: opacity 0.3s ease;
+}
+
+.engine-logo:hover {
+  opacity: 1;
+}
+
+.engine-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
 }
 
 .engine-info {
-  font-size: 14px;
+  font-size: 12px;
   margin: 0;
+  opacity: 0.6;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.engine-name {
+  font-size: 16px;
+  margin: 0;
+  font-weight: 600;
+  letter-spacing: 2px;
+  opacity: 0.9;
+}
+
+.game-version {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  opacity: 0.5;
 }
 
 .version-info {
-  font-size: 12px;
-  margin: 8px 0 0 0;
+  font-size: 11px;
+  margin: 0;
 }
 
 .author-info {
-  font-size: 12px;
-  margin: 4px 0 0 0;
-  opacity: 0.7;
+  font-size: 11px;
+  margin: 0;
 }
 
 /* 图鉴面板 */
@@ -342,6 +407,163 @@ function goToSettings() {
   }
   to {
     opacity: 1;
+  }
+}
+
+/* 响应式布局 - 移动端优化 */
+@media (max-width: 768px) {
+  .title-content {
+    padding: 40px 20px 20px;
+  }
+
+  .game-title-section {
+    margin-top: 40px;
+  }
+
+  .menu-buttons {
+    max-width: 100%;
+  }
+
+  .footer-info {
+    gap: 12px;
+    padding-bottom: 16px;
+  }
+
+  .engine-logo {
+    height: 40px;
+  }
+
+  .engine-brand {
+    gap: 8px;
+  }
+
+  .engine-info {
+    font-size: 10px;
+  }
+
+  .engine-name {
+    font-size: 14px;
+  }
+
+  .version-info,
+  .author-info {
+    font-size: 10px;
+  }
+}
+
+/* 超小屏幕 */
+@media (max-width: 480px) {
+  .title-content {
+    padding: 30px 16px 16px;
+  }
+
+  .game-title-section {
+    margin-top: 30px;
+  }
+
+  .menu-button {
+    border-radius: 6px;
+  }
+
+  .engine-logo {
+    height: 32px;
+  }
+}
+
+/* 大屏幕优化 */
+@media (min-width: 1920px) {
+  .menu-buttons {
+    max-width: 500px;
+  }
+
+  .title-game-name {
+    font-size: 80px;
+  }
+}
+
+/* 小高度屏幕优化 (横向平板或窄屏幕) */
+@media (max-height: 600px) {
+  .title-content {
+    flex-direction: row;
+    flex-wrap: wrap;
+    padding: 20px 40px;
+    justify-content: center;
+    align-content: center;
+    gap: 20px;
+  }
+
+  .game-title-section {
+    margin-top: 0;
+    flex: 1 1 auto;
+    min-width: 200px;
+  }
+
+  .title-game-name {
+    font-size: clamp(24px, 4vw, 48px);
+  }
+
+  .title-subtitle {
+    font-size: clamp(12px, 2vw, 16px);
+    margin-top: 12px;
+  }
+
+  .menu-buttons {
+    flex: 0 0 auto;
+    max-width: 300px;
+    gap: 8px;
+  }
+
+  .footer-info {
+    position: absolute;
+    bottom: 10px;
+    right: 20px;
+    flex-direction: row;
+    gap: 12px;
+    padding-bottom: 0;
+  }
+
+  .engine-brand {
+    flex-direction: row;
+  }
+
+  .game-version {
+    display: none;
+  }
+}
+
+/* 超小高度屏幕 */
+@media (max-height: 450px) {
+  .title-content {
+    padding: 10px 30px;
+    gap: 10px;
+  }
+
+  .game-title-section {
+    min-width: 150px;
+  }
+
+  .title-game-name {
+    font-size: clamp(20px, 3vw, 36px);
+  }
+
+  .title-subtitle {
+    margin-top: 8px;
+  }
+
+  .menu-buttons {
+    max-width: 250px;
+  }
+
+  .menu-button {
+    padding: 8px 16px;
+  }
+
+  .button-text {
+    font-size: clamp(14px, 2.5vw, 18px);
+  }
+
+  .button-text-en {
+    font-size: clamp(9px, 1.5vw, 10px);
   }
 }
 </style>
