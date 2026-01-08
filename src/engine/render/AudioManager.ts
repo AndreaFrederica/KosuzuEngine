@@ -6,12 +6,18 @@
 import { AudioChannel, type ChannelConfig, type ChannelStatus } from './AudioChannel';
 
 // 全局回调类型，用于显示用户交互提示
-type ShowInteractionCallback = () => void;
+type ShowPromptCallback = () => void;
+type HidePromptCallback = () => void;
 
-let showInteractionCallback: ShowInteractionCallback | null = null;
+let showPromptCallback: ShowPromptCallback | null = null;
+let hidePromptCallback: HidePromptCallback | null = null;
 
-export function setShowInteractionCallback(callback: ShowInteractionCallback | null) {
-  showInteractionCallback = callback;
+export function setShowPromptVisible(callback: ShowPromptCallback | null) {
+  showPromptCallback = callback;
+}
+
+export function setHidePrompt(callback: HidePromptCallback | null) {
+  hidePromptCallback = callback;
 }
 
 export class AudioManager {
@@ -98,20 +104,7 @@ export class AudioManager {
     const events = ['click', 'keydown', 'touchstart', 'mousedown'];
     const handler = () => {
       if (!this.hasUserInteracted) {
-        console.log('[AudioManager] 检测到用户交互');
-        this.hasUserInteracted = true;
-
-        // 隐藏交互提示（如果存在）
-        if (showInteractionCallback) {
-          showInteractionCallback = null;
-        }
-
-        // 尝试播放所有待处理的音频
-        for (const [chId, { url, fadeInMs }] of this.pendingPlays) {
-          console.log(`[AudioManager] 用户交互后重试播放: ${chId}`);
-          void this.playOnChannel(chId, url, fadeInMs);
-        }
-        this.pendingPlays.clear();
+        this.handleUserInteraction();
       }
 
       // 移除事件监听
@@ -124,6 +117,30 @@ export class AudioManager {
     events.forEach(event => {
       window.addEventListener(event, handler, { once: true, passive: true });
     });
+  }
+
+  /**
+   * 处理用户交互（播放待处理的音频）
+   */
+  handleUserInteraction() {
+    if (this.hasUserInteracted) {
+      return; // 已经处理过，直接返回
+    }
+    console.log('[AudioManager] 检测到用户交互');
+    this.hasUserInteracted = true;
+
+    // 隐藏交互提示（如果存在）
+    if (hidePromptCallback) {
+      hidePromptCallback();
+      hidePromptCallback = null;
+    }
+
+    // 尝试播放所有待处理的音频
+    for (const [chId, { url, fadeInMs }] of this.pendingPlays) {
+      console.log(`[AudioManager] 用户交互后重试播放: ${chId}`);
+      void this.playOnChannel(chId, url, fadeInMs);
+    }
+    this.pendingPlays.clear();
   }
 
   /**
@@ -150,8 +167,8 @@ export class AudioManager {
         // 绑定交互监听器
         this.bindInteractionHandler();
         // 显示交互提示
-        if (showInteractionCallback) {
-          showInteractionCallback();
+        if (showPromptCallback) {
+          showPromptCallback();
         }
         return false;
       }

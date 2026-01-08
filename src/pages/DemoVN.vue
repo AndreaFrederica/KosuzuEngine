@@ -3,11 +3,13 @@
     <div class="col stage-container">
       <StageView :debug="showDebug" @stage-click="onStageClick">
         <template #overlay>
+          <AudioPrompt />
           <DialogBox
             v-if="showDialog"
             @back="store.back?.()"
             @restart="restartScene"
             @open-settings="showSettings = !showSettings"
+            @open-audio="showAudioChannels = !showAudioChannels"
             @open-context="showContext = !showContext"
             @open-debug="showDebug = !showDebug"
             @open-console="showConsole = !showConsole"
@@ -27,6 +29,7 @@
           <ScriptConsole :visible="showConsole" @close="showConsole = false" />
           <SaveLoadPanel :visible="showSL" :mode="slMode" @close="showSL = false" />
           <SettingsPanel :visible="showSettings" @close="showSettings = false" />
+          <AudioChannelsPanel :visible="showAudioChannels" @close="showAudioChannels = false" />
           <HistoryPanel
             :visible="showHistory"
             @close="showHistory = false"
@@ -47,6 +50,8 @@ import ScriptConsole from '../engine/debug/ScriptConsole.vue';
 import HistoryPanel from '../engine/render/HistoryPanel.vue';
 import SaveLoadPanel from '../engine/render/SaveLoadPanel.vue';
 import SettingsPanel from '../engine/render/SettingsPanel.vue';
+import AudioChannelsPanel from '../engine/render/AudioChannelsPanel.vue';
+import AudioPrompt from '../engine/render/AudioPrompt.vue';
 import { onMounted, ref, watch } from 'vue';
 import { useEngineStore } from 'stores/engine-store';
 import {
@@ -65,6 +70,7 @@ const showDialog = ref(true);
 const showSL = ref(false);
 const showConsole = ref(false);
 const showSettings = ref(false);
+const showAudioChannels = ref(false);
 const slMode = ref<'save' | 'load'>('save');
 const store = useEngineStore();
 

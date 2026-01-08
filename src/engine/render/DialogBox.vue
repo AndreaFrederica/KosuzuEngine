@@ -11,6 +11,7 @@
       <!-- 右侧功能按钮 -->
       <div class="row q-gutter-sm">
         <q-btn flat dense color="white" label="设置" @click="$emit('open-settings')" />
+        <q-btn flat dense color="white" label="音频" @click="$emit('open-audio')" />
         <q-btn flat dense color="white" label="上下文" @click="$emit('open-context')" />
         <q-btn flat dense color="white" label="调试" @click="$emit('open-debug')" />
         <q-btn flat dense color="white" label="控制台" @click="$emit('open-console')" />
@@ -54,6 +55,7 @@ defineEmits<{
   (e: 'back'): void;
   (e: 'restart'): void;
   (e: 'open-settings'): void;
+  (e: 'open-audio'): void;
   (e: 'open-context'): void;
   (e: 'open-debug'): void;
   (e: 'open-console'): void;

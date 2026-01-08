@@ -1,3 +1,4 @@
+
 /**
  * 音频通道类型
  */
@@ -29,6 +30,7 @@ export interface ChannelStatus {
   audioReady: boolean;
   hasAudioElement: boolean;
   loop: boolean;
+  level: number; // 实时电平值 0-1
 }
 
 /**
@@ -44,6 +46,15 @@ export class AudioChannel {
   private channelId: string;
   private channelType: ChannelType;
   private loop: boolean = false;
+
+  // 实时电平分析
+  private audioContext: AudioContext | null = null;
+  private analyser: AnalyserNode | null = null;
+  private source: MediaElementAudioSourceNode | null = null;
+  private gainNode: GainNode | null = null;
+  private timeDataArray: Float32Array | null = null;
+  private currentLevel: number = 0;
+  private levelUpdateInterval: ReturnType<typeof setInterval> | null = null;
 
   constructor(channelId: string, config: ChannelConfig) {
     this.channelId = channelId;
@@ -69,11 +80,15 @@ export class AudioChannel {
     this.currentVolume = initialVolume;
     this.targetVolume = initialVolume;
 
+    // 设置音频分析器用于实时电平
+    this.setupAudioAnalyzer();
+
     // 监听音频结束事件（仅单次播放模式）
     if (!this.loop) {
       this.audioElement.addEventListener('ended', () => {
         console.log(`[AudioChannel:${this.channelId}] 音频播放结束`);
         this.isPlaying = false;
+        this.stopLevelAnalysis();
       });
     }
 
@@ -83,6 +98,99 @@ export class AudioChannel {
     });
 
     console.log(`[AudioChannel:${this.channelId}] 音频元素初始化完成`);
+  }
+
+  /**
+   * 设置音频分析器
+   */
+  private setupAudioAnalyzer() {
+    if (!this.audioElement) return;
+
+    try {
+      // 创建 AudioContext
+      const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!AudioContextClass) {
+        console.warn(`[AudioChannel:${this.channelId}] 浏览器不支持 Web Audio API`);
+        return;
+      }
+
+      this.audioContext = new AudioContextClass();
+      this.analyser = this.audioContext.createAnalyser();
+      this.analyser.fftSize = 1024; // 适中的 FFT 大小
+      this.analyser.smoothingTimeConstant = 0.15; // 较低的平滑常数，响应更灵敏
+
+      // 创建 GainNode 用于控制音量（放在 analyser 前面）
+      this.gainNode = this.audioContext.createGain();
+      this.gainNode.gain.value = this.targetVolume;
+
+      // 创建音频源并连接：source -> gain -> analyser -> destination
+      this.source = this.audioContext.createMediaElementSource(this.audioElement);
+      this.source.connect(this.gainNode);
+      this.gainNode.connect(this.analyser);
+      this.analyser.connect(this.audioContext.destination);
+
+      // 初始化时域数据数组（用于 RMS 计算）
+      this.timeDataArray = new Float32Array(new ArrayBuffer(this.analyser.fftSize * Float32Array.BYTES_PER_ELEMENT)) as Float32Array;
+
+      console.log(`[AudioChannel:${this.channelId}] 音频分析器已设置(GainNode + TimeDomain)`);
+    } catch (e) {
+      console.warn(`[AudioChannel:${this.channelId}] 设置音频分析器失败:`, e);
+    }
+  }
+
+  /**
+   * 开始电平分析
+   */
+  private startLevelAnalysis() {
+    if (this.levelUpdateInterval) return;
+    if (!this.analyser || !this.timeDataArray) return;
+
+    this.levelUpdateInterval = setInterval(() => {
+      if (!this.analyser || !this.timeDataArray) return;
+
+      // 获取时域数据（波形采样）
+      // @ts-expect-error: TypeScript limitation: Float32Array defaults to ArrayBufferLike, but we created it with ArrayBuffer
+      this.analyser.getFloatTimeDomainData(this.timeDataArray);
+
+      // 计算 RMS（均方根）作为电平值
+      let sum = 0;
+      for (let i = 0; i < this.timeDataArray.length; i++) {
+        const v = this.timeDataArray[i]!;
+        sum += v * v;
+      }
+      const rms = Math.sqrt(sum / this.timeDataArray.length);
+
+      // 单层平滑（alpha = 0.25）
+      const alpha = 0.25;
+      this.currentLevel = this.currentLevel * (1 - alpha) + rms * alpha;
+    }, 50); // 每 50ms 更新一次
+  }
+
+  /**
+   * 停止电平分析
+   */
+  private stopLevelAnalysis() {
+    if (this.levelUpdateInterval) {
+      clearInterval(this.levelUpdateInterval);
+      this.levelUpdateInterval = null;
+    }
+    this.currentLevel = 0;
+  }
+
+  /**
+   * 应用音量（优先使用 GainNode，兜底使用 audioElement.volume）
+   */
+  private applyVolume(v: number): void {
+    const volume = Math.max(0, Math.min(1, v));
+    this.currentVolume = volume;
+    this.targetVolume = volume;
+
+    if (this.gainNode) {
+      this.gainNode.gain.value = volume;
+    } else if (this.audioElement) {
+      // 兜底：如果没启用 WebAudio，就用元素音量
+      this.audioElement.volume = volume;
+    }
   }
 
   /**
@@ -125,13 +233,23 @@ export class AudioChannel {
       this.audioElement.loop = this.loop;
       this.currentTrack = url;
 
-      // 重置音量
-      this.audioElement.volume = 0;
+      // 重置音量为 0（使用 gainNode）
       this.currentVolume = 0;
+      if (this.gainNode) {
+        this.gainNode.gain.value = 0;
+      }
 
       // 开始播放
       await this.audioElement.play();
       this.isPlaying = true;
+
+      // 恢复 AudioContext（如果被挂起）
+      if (this.audioContext && this.audioContext.state === 'suspended') {
+        void this.audioContext.resume();
+      }
+
+      // 启动电平分析
+      this.startLevelAnalysis();
 
       console.log(`[AudioChannel:${this.channelId}] 音频开始播放`);
 
@@ -139,8 +257,7 @@ export class AudioChannel {
       if (fadeInMs > 0) {
         await this.fadeTo(this.targetVolume, fadeInMs);
       } else {
-        this.audioElement.volume = this.targetVolume;
-        this.currentVolume = this.targetVolume;
+        this.applyVolume(this.targetVolume);
       }
 
       return true;
@@ -148,7 +265,8 @@ export class AudioChannel {
       const errorName = error instanceof Error ? error.name : String(error);
       if (errorName === 'NotAllowedError') {
         console.log(`[AudioChannel:${this.channelId}] 需要用户交互才能播放音频`);
-        return false;
+        // 重新抛出错误，让 AudioManager 处理
+        throw error;
       }
       console.error(`[AudioChannel:${this.channelId}] 播放失败:`, error);
       this.isPlaying = false;
@@ -178,6 +296,9 @@ export class AudioChannel {
       this.audioElement.currentTime = 0;
       this.isPlaying = false;
       this.currentTrack = null;
+
+      // 停止电平分析
+      this.stopLevelAnalysis();
 
       // 清除源
       this.audioElement.src = '';
@@ -230,10 +351,7 @@ export class AudioChannel {
     if (fadeMs > 0) {
       return await this.fadeTo(this.targetVolume, fadeMs);
     } else {
-      if (this.audioElement) {
-        this.audioElement.volume = this.targetVolume;
-        this.currentVolume = this.targetVolume;
-      }
+      this.applyVolume(this.targetVolume);
       return true;
     }
   }
@@ -252,16 +370,16 @@ export class AudioChannel {
       this.fadeInterval = null;
     }
 
-    if (!this.audioElement) {
-      return false;
-    }
-
     // 限制音量范围
     this.targetVolume = Math.max(0, Math.min(1, volume));
 
     // 如果时间太短，直接设置
     if (ms < 10) {
-      this.audioElement.volume = this.targetVolume;
+      if (this.gainNode) {
+        this.gainNode.gain.value = this.targetVolume;
+      } else if (this.audioElement) {
+        this.audioElement.volume = this.targetVolume;
+      }
       this.currentVolume = this.targetVolume;
       return true;
     }
@@ -282,7 +400,10 @@ export class AudioChannel {
         // 确保音量在有效范围内
         this.currentVolume = Math.max(0, Math.min(1, this.currentVolume));
 
-        if (this.audioElement) {
+        // 优先使用 gainNode，兜底使用 audioElement.volume
+        if (this.gainNode) {
+          this.gainNode.gain.value = this.currentVolume;
+        } else if (this.audioElement) {
           this.audioElement.volume = this.currentVolume;
         }
 
@@ -293,7 +414,9 @@ export class AudioChannel {
             this.fadeInterval = null;
           }
           this.currentVolume = this.targetVolume;
-          if (this.audioElement) {
+          if (this.gainNode) {
+            this.gainNode.gain.value = this.targetVolume;
+          } else if (this.audioElement) {
             this.audioElement.volume = this.targetVolume;
           }
           console.log(`[AudioChannel:${this.channelId}] 音量渐变完成: ${this.targetVolume}`);
@@ -344,6 +467,7 @@ export class AudioChannel {
         audioReady: false,
         hasAudioElement: false,
         loop: this.loop,
+        level: 0,
       };
     }
 
@@ -363,6 +487,7 @@ export class AudioChannel {
       audioReady,
       hasAudioElement: true,
       loop: this.loop,
+      level: this.currentLevel,
     };
   }
 
@@ -374,10 +499,29 @@ export class AudioChannel {
       clearInterval(this.fadeInterval);
       this.fadeInterval = null;
     }
+    this.stopLevelAnalysis();
     if (this.audioElement) {
       this.audioElement.pause();
       this.audioElement.src = '';
       this.audioElement = null;
     }
+    // 清理音频上下文
+    if (this.source) {
+      this.source.disconnect();
+      this.source = null;
+    }
+    if (this.gainNode) {
+      this.gainNode.disconnect();
+      this.gainNode = null;
+    }
+    if (this.analyser) {
+      this.analyser.disconnect();
+      this.analyser = null;
+    }
+    if (this.audioContext) {
+      void this.audioContext.close();
+      this.audioContext = null;
+    }
+    this.timeDataArray = null;
   }
 }
