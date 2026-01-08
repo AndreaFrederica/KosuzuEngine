@@ -38,17 +38,66 @@
         src={{ d.src }}
       </div>
     </div>
+    <!-- 用户交互提示：点击启用音频 -->
+    <transition name="audio-prompt">
+      <div v-if="showAudioPrompt" class="audio-prompt" @click="handleAudioPromptClick">
+        <div class="audio-prompt-content">
+          <svg class="audio-prompt-icon" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+          </svg>
+          <span class="audio-prompt-text">点击启用音频</span>
+        </div>
+      </div>
+    </transition>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted, onBeforeUnmount, watchEffect, type CSSProperties } from 'vue';
+import { computed, ref, onMounted, onBeforeUnmount, watchEffect, watch, type CSSProperties } from 'vue';
 // no-op
 import { useEngineStore } from 'stores/engine-store';
+import { audioManager, setShowInteractionCallback } from './AudioManager';
 const props = defineProps<{ debug?: boolean }>();
 const emit = defineEmits<{ (e: 'stage-click'): void }>();
 const store = useEngineStore();
 const bg = computed(() => store.background());
+
+// 音频提示状态
+const showAudioPrompt = ref(false);
+
+// 设置交互提示回调
+setShowInteractionCallback(() => {
+  showAudioPrompt.value = true;
+});
+
+// 处理音频提示点击
+function handleAudioPromptClick() {
+  console.log('[StageView] 用户点击音频提示');
+  showAudioPrompt.value = false;
+}
+
+// BGM 状态
+const bgm = computed(() => store.state.bgm);
+const bgmName = computed(() => bgm.value?.name);
+const bgmVolume = computed(() => bgm.value?.volume ?? 1.0);
+const bgmFadeDuration = computed(() => bgm.value?.fadeDuration);
+
+// 监听 BGM 状态变化并播放
+watch(
+  () => ({ name: bgmName.value, volume: bgmVolume.value, fadeDuration: bgmFadeDuration.value }),
+  async ({ name, volume, fadeDuration }) => {
+    console.log('[StageView] BGM 状态变化:', { name, volume, fadeDuration });
+
+    if (name) {
+      // 播放新的背景音乐，使用脚本指定的淡入时间（如果没有则使用默认 800ms）
+      await audioManager.play(name, fadeDuration ?? 800);
+    } else {
+      // 停止背景音乐，使用脚本指定的淡出时间（如果没有则使用默认 500ms）
+      await audioManager.stop(fadeDuration ?? 500);
+    }
+  },
+  { deep: true, immediate: true },
+);
 const bgName = computed(() => bg.value?.name);
 const bgEffect = computed(() => bg.value?.effect ?? 'cut');
 const bgDuration = computed(() => bg.value?.duration ?? 0);
@@ -80,6 +129,8 @@ onMounted(() => {
 onBeforeUnmount(() => {
   if (ro && stageRef.value) ro.unobserve(stageRef.value);
   ro = null;
+  // 清理音频资源
+  audioManager.dispose();
 });
 const actorIds = computed(() => store.actorIds());
 const debugInfo = computed(() =>
@@ -456,5 +507,83 @@ watchEffect(() => {
   100% {
     transform: translate3d(0, 0, 0);
   }
+}
+
+/* 音频提示样式 */
+.audio-prompt {
+  position: absolute;
+  bottom: 100px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  cursor: pointer;
+  animation: audio-prompt-pulse 2s ease-in-out infinite;
+}
+
+.audio-prompt-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  padding: 12px 24px;
+  border-radius: 50px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.3s ease;
+}
+
+.audio-prompt:hover .audio-prompt-content {
+  background: rgba(0, 0, 0, 0.9);
+  border-color: rgba(255, 255, 255, 0.4);
+  transform: scale(1.05);
+}
+
+.audio-prompt-icon {
+  width: 24px;
+  height: 24px;
+  animation: audio-prompt-icon-bounce 1s ease-in-out infinite;
+}
+
+.audio-prompt-text {
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+
+@keyframes audio-prompt-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
+@keyframes audio-prompt-icon-bounce {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.15);
+  }
+}
+
+/* 音频提示过渡动画 */
+.audio-prompt-enter-active,
+.audio-prompt-leave-active {
+  transition: all 0.4s ease;
+}
+
+.audio-prompt-enter-from,
+.audio-prompt-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(20px);
+}
+
+.audio-prompt-enter-to,
+.audio-prompt-leave-from {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
 }
 </style>

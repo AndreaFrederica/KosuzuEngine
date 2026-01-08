@@ -4,16 +4,17 @@ import { Josei06Sailor, Josei07Sailor, AkamafuGirl, NekoAnimal } from '../actors
 
 export async function scene1(): Promise<void | string> {
   const bg = new BackgroundActor('haikei_01_sora/jpg/sora_01.jpg');
-  const bgm = new AudioActor('daytime');
+  const bgm = new AudioActor('main');
   const sailorA = new Josei06Sailor('sailorA');
   const sailorB = new Josei07Sailor('sailorB');
   const akamafu = new AkamafuGirl('akamafu');
   const neko = new NekoAnimal('neko');
   const ctx = new ContextOps();
 
+  // 开场播放欢迎音乐
   await bg.switch('haikei_01_sora/jpg/sora_01.jpg', { effect: 'blurFade', duration: 650 });
   await ctx.wait(650);
-  await bgm.play('daytime', { fadeIn: 800 });
+  await bgm.play('ようこそ.ogg', { fadeIn: 800 });
 
   await sailorA.show({ x: 0.75, y: 0.3, layer: 2, scale: 0.6, opacity: 0 });
   await sailorB.show({ x: 0.1, y: 0.4, layer: 2, scale: 0.6, opacity: 0 });
@@ -28,11 +29,16 @@ export async function scene1(): Promise<void | string> {
   await sailorB.dim(0.75, 220);
   await ctx.wait(220);
 
+  // 切换到晨间主题音乐
+  await bgm.stop({ fadeOut: 400 });
+  await bgm.play('朝の人々.ogg', { fadeIn: 600 });
+  await ctx.wait(400);
+
   await sailorA.say('今天天气真好。');
   await sailorA.dim(0.75, 220);
   await sailorB.focus(220);
   await ctx.wait(220);
-  await sailorB.say('嗯，放学一起去买甜点吧？11');
+  await sailorB.say('嗯，放学一起去买甜点吧？');
 
   await sailorA.move({ x: 0.65, y: 0.38, scale: 0.6 }, { duration: 280 });
   await sailorB.move({ x: 0.18, y: 0.5, scale: 0.6 }, { duration: 280 });
@@ -110,6 +116,10 @@ export async function scene1(): Promise<void | string> {
   await ctx.wait(200);
   await sailorA.say('太好了，那就出发吧。');
 
+  // 新朋友加入，切换到春日阳光主题音乐
+  await bgm.stop({ fadeOut: 500 });
+  await bgm.play('春の陽射し.ogg', { fadeIn: 700 });
+
   await bg.switch('haikei_01_sora/jpg/sora_03.jpg', { effect: 'zoom', duration: 520 });
   await sailorA.move({ x: 0.8, y: 0.32, scale: 0.6 }, { duration: 280 });
   await sailorB.move({ x: 0.18, y: 0.42, scale: 0.6 }, { duration: 280 });
@@ -149,6 +159,12 @@ export async function scene1(): Promise<void | string> {
   await sailorB.dim(0.75, 220);
   await akamafu.dim(0.75, 220);
   await ctx.wait(220);
+
+  // 浪漫时刻，切换到情感主题音乐
+  await bgm.stop({ fadeOut: 600 });
+  await bgm.play('見上げる空、無限の海.ogg', { fadeIn: 800 });
+  await ctx.wait(500);
+
   await sailorA.say('今天真是个适合约会的日子。');
   await sailorA.dim(0.75, 200);
   await sailorB.focus(200);

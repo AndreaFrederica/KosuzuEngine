@@ -37,7 +37,7 @@ export interface EngineState {
   scene?: string;
   stage?: { width?: number; height?: number };
   bg?: { name?: string; effect?: string; duration?: number };
-  bgm?: { name?: string; volume?: number };
+  bgm?: { name?: string; volume?: number; fadeDuration?: number };
   actors: Record<
     string,
     {
@@ -148,16 +148,23 @@ export const reducer: Reducer = (state, action) => {
   }
   if (action.type === 'bgm') {
     const payload = action.payload as { name?: string; volume?: number; stop?: boolean };
+    const fadeDuration = action.options?.duration;
     const nextState = { ...state };
     if (payload?.stop) {
-      delete (nextState as Partial<EngineState>).bgm;
+      // 保存淡出时间
+      if (fadeDuration !== undefined) {
+        nextState.bgm = { fadeDuration };
+      } else {
+        delete (nextState as Partial<EngineState>).bgm;
+      }
       return nextState as EngineState;
     }
     const nextName = payload?.name !== undefined ? payload.name : undefined;
     const nextVol = payload?.volume !== undefined ? payload.volume : undefined;
-    const nextBgm: { name?: string; volume?: number } = {};
+    const nextBgm: { name?: string; volume?: number; fadeDuration?: number } = {};
     if (nextName !== undefined) nextBgm.name = nextName;
     if (nextVol !== undefined) nextBgm.volume = nextVol;
+    if (fadeDuration !== undefined) nextBgm.fadeDuration = fadeDuration;
     if (Object.keys(nextBgm).length > 0) {
       nextState.bgm = nextBgm;
     } else {
