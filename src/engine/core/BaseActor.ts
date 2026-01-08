@@ -390,6 +390,17 @@ export class AudioActor extends BaseActor {
   }
 }
 
+/** 路由导航回调类型 */
+export type RouterNavigateCallback = (path: string) => void;
+
+/** 路由回调注册表 */
+let routerNavigateCallback: RouterNavigateCallback | null = null;
+
+/** 注册路由导航回调（从 Vue 组件中调用） */
+export function registerRouterNavigateCallback(callback: RouterNavigateCallback) {
+  routerNavigateCallback = callback;
+}
+
 /** 上下文操作类，提供对引擎状态和变量的访问 */
 export class ContextOps {
   protected runtime: Runtime;
@@ -447,6 +458,42 @@ export class ContextOps {
   /** 重新开始当前场景 */
   restart() {
     this.runtime.reset();
+  }
+
+  /** 导航到主菜单（标题界面） */
+  goToTitle() {
+    if (routerNavigateCallback) {
+      routerNavigateCallback('/title');
+    }
+  }
+
+  /** 导航到启动动画界面 */
+  goToSplash() {
+    if (routerNavigateCallback) {
+      routerNavigateCallback('/');
+    }
+  }
+
+  /** 导航到结束动画界面 */
+  goToEnd() {
+    if (routerNavigateCallback) {
+      routerNavigateCallback('/end');
+    }
+  }
+
+  /** 导航到设置界面 */
+  goToSettings() {
+    if (routerNavigateCallback) {
+      routerNavigateCallback('/settings');
+    }
+  }
+
+  /** 导航到存读档界面 */
+  goToSaves(mode?: 'save' | 'load') {
+    if (routerNavigateCallback) {
+      // 可以通过 query 参数传递模式（可选）
+      routerNavigateCallback(mode ? `/saves?mode=${mode}` : '/saves');
+    }
   }
 }
 

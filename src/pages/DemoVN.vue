@@ -63,6 +63,9 @@ import {
 import { scenes, getSceneFn, hasScene } from '../game/scenes';
 import { defaultRuntime } from '../engine/core/Runtime';
 import { initI18n, registerEngineStore } from '../engine/i18n';
+import { useRouter } from 'vue-router';
+import { registerRouterNavigateCallback } from '../engine/core/BaseActor';
+import { initNavigation } from '../engine/navigation';
 const showDebug = ref(false);
 const showContext = ref(false);
 const showHistory = ref(false);
@@ -73,6 +76,7 @@ const showSettings = ref(false);
 const showAudioChannels = ref(false);
 const slMode = ref<'save' | 'load'>('save');
 const store = useEngineStore();
+const router = useRouter();
 
 // 从场景注册表获取场景ID列表
 type SceneName = (typeof scenes)[number]['id'];
@@ -179,6 +183,14 @@ async function startSceneFromFrame(
 }
 
 onMounted(() => {
+  // 注册路由导航回调，允许脚本中调用导航方法
+  // 同时初始化全局导航 API，使 UI 组件也能使用
+  const navigateCallback = (path: string) => {
+    void router.push(path);
+  };
+  registerRouterNavigateCallback(navigateCallback);
+  initNavigation(navigateCallback);
+
   // 初始化 i18n 国际化系统
   initI18n();
   // 注册 engine store，用于语言切换时重新翻译

@@ -5,7 +5,11 @@ const routes: RouteRecordRaw[] = [
     path: '/',
     component: () => import('layouts/MainLayout.vue'),
     children: [
-      { path: '', component: () => import('pages/DemoVN.vue') },
+      { path: '', component: () => import('../game/ui/SplashScreen.vue') },
+      { path: 'title', component: () => import('../game/ui/TitleScreen.vue') },
+      { path: 'saves', component: () => import('../game/ui/SaveLoadScreen.vue') },
+      { path: 'settings', component: () => import('../game/ui/SettingsScreen.vue') },
+      { path: 'end', component: () => import('../game/ui/EndScreen.vue') },
       { path: 'demo', component: () => import('pages/DemoVN.vue') },
     ],
   },
