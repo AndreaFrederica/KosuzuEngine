@@ -66,14 +66,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { gameRegistry } from '../registry';
 import { bgm } from '../../engine/audio';
-import { nav } from '../../engine/navigation';
+import { audioManager } from '../../engine/render/AudioManager';
 
 const router = useRouter();
 const showGallery = ref(false);
+const hasInteracted = ref(false);
 
 // 获取游戏配置
 const gameConfig = gameRegistry.getDefault() || {
@@ -87,30 +88,50 @@ const gameConfig = gameRegistry.getDefault() || {
 // 使用自定义背景或默认背景
 const backgroundImage = gameConfig.titleBackground || '/assets/bg/haikei_01_sora/jpg/sora_01.jpg';
 
+// 首次用户交互时播放BGM（绕过自动播放限制）
+function handleFirstInteraction() {
+  if (!hasInteracted.value) {
+    hasInteracted.value = true;
+    // 解锁音频并播放
+    audioManager.handleUserInteraction();
+    void bgm.play('ようこそ.ogg', { fadeIn: 1000 });
+  }
+}
+
+// 组件挂载时添加全局交互监听
+onMounted(() => {
+  const events = ['click', 'keydown', 'touchstart', 'mousedown'] as const;
+  events.forEach(event => {
+    window.addEventListener(event, handleFirstInteraction, { once: true, passive: true });
+  });
+});
+
+// 组件卸载时移除监听
+onUnmounted(() => {
+  const events = ['click', 'keydown', 'touchstart', 'mousedown'] as const;
+  events.forEach(event => {
+    window.removeEventListener(event, handleFirstInteraction);
+  });
+});
+
 // 按钮点击音效（暂无文件）
 function playClickSound() {
   // TODO: 添加 click.ogg 到 /assets/audio/sfx/
   // void sfx.play('/assets/audio/sfx/click.ogg', { volume: 0.5 });
 }
 
-// 组件挂载时播放背景音乐
-onMounted(() => {
-  // 使用全局音频 API 播放主菜单背景音乐
-  // 使用现有的 BGM 文件
-  void bgm.play('ようこそ.ogg', { fadeIn: 1000 });
-});
-
-function startNewGame() {
+async function startNewGame() {
   playClickSound();
   // 清除存档进度，从零开始
   localStorage.removeItem('kosuzu_engine_progress');
   localStorage.removeItem('kosuzu_engine_state');
 
+  console.log('[TitleScreen] 开始停止BGM...');
   // 停止背景音乐并切换到游戏界面
-  void bgm.stop({ fadeOut: 500 });
-  setTimeout(() => {
-    nav.goToGame();
-  }, 500);
+  await bgm.stop({ fadeOut: 500 });
+  console.log('[TitleScreen] BGM已停止，准备导航到游戏界面...');
+  await router.push('/demo');
+  console.log('[TitleScreen] 导航命令已执行');
 }
 
 function goToSaveLoad() {

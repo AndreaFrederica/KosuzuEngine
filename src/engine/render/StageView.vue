@@ -113,7 +113,7 @@ watch(
       await audioManager.stop({ fadeOut: fadeDuration ?? 500 });
     }
   },
-  { deep: true, immediate: true },
+  { deep: true },  // 移除 immediate: true，由 syncBgmState() 处理初始同步
 );
 const bgName = computed(() => bg.value?.name);
 const bgEffect = computed(() => bg.value?.effect ?? 'cut');

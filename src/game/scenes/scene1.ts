@@ -1,3 +1,4 @@
+import { defaultRuntime } from 'src/engine/core/Runtime';
 import { BackgroundActor, AudioActor } from '../../engine/core/BaseActor';
 import { ContextOps } from '../../engine/core/BaseActor';
 import { Josei06Sailor, Josei07Sailor, AkamafuGirl, NekoAnimal } from '../actors';
@@ -28,6 +29,15 @@ export async function scene1(): Promise<void | string> {
   await sailorA.focus(220);
   await sailorB.dim(0.75, 220);
   await ctx.wait(220);
+
+  // 方法1：直接dispatch（无角色说话）
+  await defaultRuntime.dispatch({
+    type: 'say',
+    payload: {
+      text: '这是一段旁白文本...',
+      speaker: 'System',  // 空字符串表示无角色
+    }
+  });
 
   // 切换到晨间主题音乐
   await bgm.stop({ fadeOut: 400 });

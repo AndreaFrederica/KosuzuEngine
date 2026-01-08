@@ -300,8 +300,9 @@ export class AudioChannel {
       // 停止电平分析
       this.stopLevelAnalysis();
 
-      // 清除源
-      this.audioElement.src = '';
+      // 先移除 src 避免触发 error 事件，然后设置为空
+      this.audioElement.removeAttribute('src');
+      this.audioElement.load();
 
       console.log(`[AudioChannel:${this.channelId}] 音频已停止`);
       return true;
