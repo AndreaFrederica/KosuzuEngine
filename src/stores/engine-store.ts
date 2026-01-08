@@ -21,6 +21,8 @@ export const useEngineStore = defineStore('engine', () => {
     frame: undefined,
   });
   const loadReplay = reactive<{ value: PersistedProgress | null }>({ value: null });
+  // 标志：是否跳过脚本执行（直接从保存状态恢复）
+  const skipScript = reactive<{ value: boolean }>({ value: false });
 
   // 开发模式状态（暂无特殊功能）
   const devMode = reactive<{ value: boolean }>({
@@ -165,8 +167,10 @@ export const useEngineStore = defineStore('engine', () => {
         const out: PersistedProgress = { scene, frame, time, actions: parsed.actions as ActorAction<unknown>[] };
         if ('choices' in parsed && Array.isArray(parsed.choices)) out.choices = parsed.choices as string[];
         loadReplay.value = out;
+        skipScript.value = false; // 有 actions，需要重新执行脚本
       } else {
         loadReplay.value = null;
+        skipScript.value = true; // 没有 actions，直接恢复状态，跳过脚本执行
         if (savedState) {
           runtime.hydrate(savedState);
         }
@@ -183,6 +187,9 @@ export const useEngineStore = defineStore('engine', () => {
     loadToken: () => loadToken.value,
     loadProgress: () => ({ scene: loadProgress.scene, frame: loadProgress.frame }),
     loadReplay: () => loadReplay.value,
+    // 检查是否应该跳过脚本执行（直接从保存状态恢复）
+    shouldSkipScript: () => skipScript.value,
+    clearSkipScript: () => { skipScript.value = false; },
     // 开发模式状态（暂无特殊功能）
     devMode: () => devMode.value,
     setDevMode(enabled: boolean) {

@@ -23,7 +23,7 @@
             @hide="showDialog = false"
           />
           <ChoicePanel />
-          <ContextViewer :visible="showContext" />
+          <ContextViewer :visible="showContext" @close="showContext = false" />
           <ScriptConsole :visible="showConsole" @close="showConsole = false" />
           <SaveLoadPanel :visible="showSL" :mode="slMode" @close="showSL = false" />
           <SettingsPanel :visible="showSettings" @close="showSettings = false" />
@@ -75,6 +75,14 @@ let sceneLoopToken = 0;
 async function runSceneLoop(initialScene: SceneName, initialFrame: number) {
   sceneLoopToken += 1;
   const token = sceneLoopToken;
+
+  // 检查是否应该跳过脚本执行（直接从保存状态恢复）
+  if (store.shouldSkipScript?.()) {
+    console.log('[runSceneLoop] 跳过脚本执行，直接从保存状态恢复');
+    store.clearSkipScript?.();
+    return; // 不执行脚本，状态已在 load() 中通过 hydrate 恢复
+  }
+
   const initialProgress = loadPersistedProgress();
   const initialReplay: PersistedProgress | null =
     initialProgress?.scene === initialScene && Array.isArray(initialProgress.actions)
@@ -103,13 +111,34 @@ async function runSceneLoop(initialScene: SceneName, initialFrame: number) {
 async function startSceneFromFrame(
   sceneName: SceneName,
   frame: number,
-  _replay: PersistedProgress | null, // eslint-disable-line @typescript-eslint/no-unused-vars
+  replay: PersistedProgress | null,
 ) {
+  // 检查开发模式
+  const isDevMode = store.devMode();
+
+  // 检查是否有保存的完整状态
+  const savedState = loadPersistedState();
+
+  // 非开发模式且有保存状态时，直接恢复状态，不重新执行脚本
+  if (!isDevMode && savedState && savedState.scene === sceneName && frame > 0) {
+    console.log('[恢复] 使用已保存的状态直接恢复，不重新执行脚本');
+    defaultRuntime.hydrate(savedState);
+    await store.dispatch('scene', sceneName);
+    return ''; // 不继续执行脚本
+  }
+
+  // 开发模式或没有保存状态时，重放脚本
   defaultRuntime.reset();
 
-  // 始终使用 replayToFrame 来跳转到目标帧
   if (frame > 0) {
     defaultRuntime.replayToFrame(frame);
+    if (replay && Array.isArray(replay.actions)) {
+      defaultRuntime.beginReplay({
+        actions: replay.actions,
+        choices: replay.choices ?? [],
+        targetFrame: frame,
+      });
+    }
   }
   await store.dispatch('scene', sceneName);
 

@@ -17,6 +17,7 @@
           <div class="meta">
             <div class="scene">{{ s.scene || s.slot }}</div>
             <div class="text">{{ truncate(s.text || '') }}</div>
+            <div class="time">{{ formatTime(s.time) }}</div>
           </div>
           <div class="btns">
             <button class="mini-btn" @click.stop="onItem(s.slot)">
@@ -79,6 +80,19 @@ function truncate(t: string) {
   if (!t) return '';
   const max = 40;
   return t.length > max ? t.slice(0, max) + '...' : t;
+}
+
+function formatTime(time?: number) {
+  if (!time) return '-';
+  const date = new Date(time);
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  const year = date.getFullYear();
+  const month = pad(date.getMonth() + 1);
+  const day = pad(date.getDate());
+  const hours = pad(date.getHours());
+  const minutes = pad(date.getMinutes());
+  const seconds = pad(date.getSeconds());
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 }
 </script>
 
@@ -163,6 +177,10 @@ function truncate(t: string) {
 .text {
   font-size: 13px;
   opacity: 0.85;
+}
+.time {
+  font-size: 11px;
+  opacity: 0.6;
 }
 .name {
   font-size: 14px;
