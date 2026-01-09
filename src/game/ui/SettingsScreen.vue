@@ -24,16 +24,31 @@
             <h3 class="section-title">文字 / Text</h3>
             <div class="setting-item">
               <div class="setting-info">
+                <div class="setting-label">启用打字机效果</div>
+                <div class="setting-desc">Enable Typewriter Effect</div>
+              </div>
+              <div class="setting-control">
+                <q-toggle
+                  :model-value="typewriterEnabled"
+                  @update:model-value="setTypewriterEnabled"
+                  color="positive"
+                  size="md"
+                />
+              </div>
+            </div>
+            <div class="setting-item">
+              <div class="setting-info">
                 <div class="setting-label">文字速度</div>
                 <div class="setting-desc">Text Speed</div>
               </div>
               <div class="setting-control">
                 <input
                   type="range"
-                  min="0"
+                  min="1"
                   max="100"
-                  :value="textSpeed"
-                  @input="setTextSpeed"
+                  v-model.number="textSpeed"
+                  @input="(e: Event) => setTextSpeed((e.target as HTMLInputElement).valueAsNumber)"
+                  :disabled="!typewriterEnabled"
                   class="setting-slider"
                 />
                 <div class="setting-value">{{ textSpeed }}%</div>
@@ -47,10 +62,11 @@
               <div class="setting-control">
                 <input
                   type="range"
-                  min="0"
+                  min="1"
                   max="100"
-                  :value="autoSpeed"
-                  @input="setAutoSpeed"
+                  v-model.number="autoSpeed"
+                  @input="(e: Event) => setAutoSpeed((e.target as HTMLInputElement).valueAsNumber)"
+                  :disabled="!typewriterEnabled"
                   class="setting-slider"
                 />
                 <div class="setting-value">{{ autoSpeed }}%</div>
@@ -267,12 +283,16 @@ const autoContinueAfterLoad = ref(false);
 const hideContinueButton = ref(false);
 const continueKeyBinding = ref('Enter');
 const isBindingKey = ref(false);
+const typewriterEnabled = ref(true);
 
 // 对话框 diff 设置 key
 const DIALOG_DIFF_KEY = 'engine:dialogDiffEnabled';
 const AUTO_CONTINUE_AFTER_LOAD_KEY = 'engine:autoContinueAfterLoad';
 const HIDE_CONTINUE_BUTTON_KEY = 'engine:hideContinueButton';
 const CONTINUE_KEY_BINDING_KEY = 'engine:continueKeyBinding';
+const TYPEWRITER_ENABLED_KEY = 'engine:typewriterEnabled';
+const TEXT_SPEED_KEY = 'engine:textSpeed';
+const AUTO_SPEED_KEY = 'engine:autoSpeed';
 
 // 加载设置
 onMounted(() => {
@@ -285,6 +305,10 @@ onMounted(() => {
   hideContinueButton.value = localStorage.getItem(HIDE_CONTINUE_BUTTON_KEY) === 'true';
   // 加载继续按键绑定设置
   continueKeyBinding.value = localStorage.getItem(CONTINUE_KEY_BINDING_KEY) || 'Enter';
+  // 加载打字机设置
+  typewriterEnabled.value = localStorage.getItem(TYPEWRITER_ENABLED_KEY) !== 'false';
+  textSpeed.value = parseInt(localStorage.getItem(TEXT_SPEED_KEY) || String(textSpeed.value), 10);
+  autoSpeed.value = parseInt(localStorage.getItem(AUTO_SPEED_KEY) || String(autoSpeed.value), 10);
 });
 
 function loadSettings() {
@@ -316,12 +340,18 @@ function loadSettings() {
   hideContinueButton.value = localStorage.getItem(HIDE_CONTINUE_BUTTON_KEY) === 'true';
   // 同步继续按键绑定设置到专用 key
   continueKeyBinding.value = localStorage.getItem(CONTINUE_KEY_BINDING_KEY) || 'Enter';
+
+  // 同步打字机设置到专用 key
+  typewriterEnabled.value = localStorage.getItem(TYPEWRITER_ENABLED_KEY) !== 'false';
+  textSpeed.value = parseInt(localStorage.getItem(TEXT_SPEED_KEY) || String(textSpeed.value), 10);
+  autoSpeed.value = parseInt(localStorage.getItem(AUTO_SPEED_KEY) || String(autoSpeed.value), 10);
 }
 
 function saveSettings() {
   const settings = {
     textSpeed: textSpeed.value,
     autoSpeed: autoSpeed.value,
+    typewriterEnabled: typewriterEnabled.value,
     masterVolume: masterVolume.value,
     bgmVolume: bgmVolume.value,
     sfxVolume: sfxVolume.value,
@@ -336,15 +366,40 @@ function saveSettings() {
   localStorage.setItem('game_settings', JSON.stringify(settings));
 }
 
-function setTextSpeed(event: Event) {
-  const target = event.target as HTMLInputElement;
-  textSpeed.value = parseInt(target.value, 10);
+function setTypewriterEnabled(value: boolean) {
+  typewriterEnabled.value = value;
+  localStorage.setItem(TYPEWRITER_ENABLED_KEY, String(value));
+  window.dispatchEvent(
+    new CustomEvent('engine-setting-changed', {
+      detail: { key: TYPEWRITER_ENABLED_KEY, value: String(value) },
+    }),
+  );
   saveSettings();
 }
 
-function setAutoSpeed(event: Event) {
-  const target = event.target as HTMLInputElement;
-  autoSpeed.value = parseInt(target.value, 10);
+function setTextSpeed(value: number | null) {
+  if (value != null) {
+    textSpeed.value = value;
+  }
+  localStorage.setItem(TEXT_SPEED_KEY, String(textSpeed.value));
+  window.dispatchEvent(
+    new CustomEvent('engine-setting-changed', {
+      detail: { key: TEXT_SPEED_KEY, value: String(textSpeed.value) },
+    }),
+  );
+  saveSettings();
+}
+
+function setAutoSpeed(value: number | null) {
+  if (value != null) {
+    autoSpeed.value = value;
+  }
+  localStorage.setItem(AUTO_SPEED_KEY, String(autoSpeed.value));
+  window.dispatchEvent(
+    new CustomEvent('engine-setting-changed', {
+      detail: { key: AUTO_SPEED_KEY, value: String(autoSpeed.value) },
+    }),
+  );
   saveSettings();
 }
 
@@ -386,12 +441,10 @@ function setDialogDiffEnabled(value: boolean) {
   dialogDiffEnabled.value = value;
   // 保存到专用 key
   localStorage.setItem(DIALOG_DIFF_KEY, String(value));
-  // 触发 storage 事件通知其他组件
+  // 使用 CustomEvent 通知（同标签页实时生效）
   window.dispatchEvent(
-    new StorageEvent('storage', {
-      key: DIALOG_DIFF_KEY,
-      newValue: String(value),
-      storageArea: localStorage,
+    new CustomEvent('engine-setting-changed', {
+      detail: { key: DIALOG_DIFF_KEY, value: String(value) },
     }),
   );
   saveSettings();
@@ -439,6 +492,7 @@ function startKeyBinding() {
 function resetToDefaults() {
   textSpeed.value = 50;
   autoSpeed.value = 50;
+  typewriterEnabled.value = true;
   masterVolume.value = 80;
   bgmVolume.value = 80;
   sfxVolume.value = 80;
@@ -454,6 +508,9 @@ function resetToDefaults() {
   localStorage.setItem(AUTO_CONTINUE_AFTER_LOAD_KEY, 'false');
   localStorage.setItem(HIDE_CONTINUE_BUTTON_KEY, 'false');
   localStorage.setItem(CONTINUE_KEY_BINDING_KEY, 'Enter');
+  localStorage.setItem(TYPEWRITER_ENABLED_KEY, 'true');
+  localStorage.setItem(TEXT_SPEED_KEY, '50');
+  localStorage.setItem(AUTO_SPEED_KEY, '50');
   // 派发自定义事件通知 DialogBox
   window.dispatchEvent(
     new CustomEvent('engine-setting-changed', {
@@ -463,6 +520,26 @@ function resetToDefaults() {
   window.dispatchEvent(
     new CustomEvent('engine-setting-changed', {
       detail: { key: CONTINUE_KEY_BINDING_KEY, value: 'Enter' },
+    }),
+  );
+  window.dispatchEvent(
+    new CustomEvent('engine-setting-changed', {
+      detail: { key: TYPEWRITER_ENABLED_KEY, value: 'true' },
+    }),
+  );
+  window.dispatchEvent(
+    new CustomEvent('engine-setting-changed', {
+      detail: { key: TEXT_SPEED_KEY, value: '50' },
+    }),
+  );
+  window.dispatchEvent(
+    new CustomEvent('engine-setting-changed', {
+      detail: { key: AUTO_SPEED_KEY, value: '50' },
+    }),
+  );
+  window.dispatchEvent(
+    new CustomEvent('engine-setting-changed', {
+      detail: { key: DIALOG_DIFF_KEY, value: 'true' },
     }),
   );
   saveSettings();
@@ -634,6 +711,7 @@ function goBack() {
   background: rgba(255, 255, 255, 0.1);
   outline: none;
   -webkit-appearance: none;
+  appearance: none;
   cursor: pointer;
 }
 
@@ -644,6 +722,7 @@ function goBack() {
 
 .setting-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
+  appearance: none;
   width: 16px;
   height: 16px;
   border-radius: 50%;

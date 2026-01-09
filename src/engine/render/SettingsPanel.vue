@@ -64,6 +64,55 @@
         </div>
       </div>
 
+      <!-- 文本设置 -->
+      <div class="setting-section">
+        <div class="section-title">{{ uiText.textSettings }}</div>
+        <div class="setting-item">
+          <div class="setting-info">
+            <div class="setting-label">{{ uiText.typewriterEnabled }}</div>
+            <div class="setting-desc">{{ uiText.typewriterEnabledDesc }}</div>
+          </div>
+          <q-toggle
+            :model-value="typewriterEnabled"
+            @update:model-value="onTypewriterEnabledChange"
+            color="primary"
+            keep-color
+          />
+        </div>
+        <div v-if="typewriterEnabled" class="setting-item">
+          <div class="setting-info">
+            <div class="setting-label">{{ uiText.textSpeed }}</div>
+            <div class="setting-desc">{{ uiText.textSpeedDesc }}</div>
+          </div>
+          <div class="setting-slider-control">
+            <q-slider
+              :model-value="textSpeed"
+              @update:model-value="onTextSpeedChange"
+              :min="1"
+              :max="100"
+              color="primary"
+            />
+            <span class="slider-value">{{ textSpeed }}%</span>
+          </div>
+        </div>
+        <div v-if="typewriterEnabled" class="setting-item">
+          <div class="setting-info">
+            <div class="setting-label">{{ uiText.autoSpeed }}</div>
+            <div class="setting-desc">{{ uiText.autoSpeedDesc }}</div>
+          </div>
+          <div class="setting-slider-control">
+            <q-slider
+              :model-value="autoSpeed"
+              @update:model-value="onAutoSpeedChange"
+              :min="1"
+              :max="100"
+              color="primary"
+            />
+            <span class="slider-value">{{ autoSpeed }}%</span>
+          </div>
+        </div>
+      </div>
+
       <!-- 显示设置 -->
       <div class="setting-section">
         <div class="section-title">{{ uiText.displaySettings }}</div>
@@ -220,6 +269,14 @@ const uiText = computed(() => {
     continueKeyBinding: t('continue_key_binding'),
     continueKeyBindingDesc: t('continue_key_binding_desc'),
     pressKeyToBind: t('press_key_to_bind'),
+    // 文本设置
+    textSettings: t('text_settings'),
+    typewriterEnabled: t('typewriter_enabled'),
+    typewriterEnabledDesc: t('typewriter_enabled_desc'),
+    textSpeed: t('text_speed'),
+    textSpeedDesc: t('text_speed_desc'),
+    autoSpeed: t('auto_speed'),
+    autoSpeedDesc: t('auto_speed_desc'),
   };
 });
 
@@ -247,6 +304,15 @@ const hideContinueButton = ref(localStorage.getItem(HIDE_CONTINUE_BUTTON_KEY) ==
 const CONTINUE_KEY_BINDING_KEY = 'engine:continueKeyBinding';
 const continueKeyBinding = ref(localStorage.getItem(CONTINUE_KEY_BINDING_KEY) || 'Enter');
 const isBindingKey = ref(false);
+
+// 打字机效果设置
+const TYPEWRITER_ENABLED_KEY = 'engine:typewriterEnabled';
+const TEXT_SPEED_KEY = 'engine:textSpeed';
+const AUTO_SPEED_KEY = 'engine:autoSpeed';
+const typewriterEnabled = ref(localStorage.getItem(TYPEWRITER_ENABLED_KEY) !== 'false'); // 默认启用
+const textSpeed = ref(parseInt(localStorage.getItem(TEXT_SPEED_KEY) || '50', 10));
+const autoSpeed = ref(parseInt(localStorage.getItem(AUTO_SPEED_KEY) || '50', 10));
+
 // 初始化语音设置
 onMounted(() => {
   const voiceSettings = voiceManager.getSettings();
@@ -317,10 +383,8 @@ function onDialogDiffChange(value: boolean) {
   dialogDiffEnabled.value = value;
   localStorage.setItem(DIALOG_DIFF_KEY, String(value));
   window.dispatchEvent(
-    new StorageEvent('storage', {
-      key: DIALOG_DIFF_KEY,
-      newValue: String(value),
-      storageArea: localStorage,
+    new CustomEvent('engine-setting-changed', {
+      detail: { key: DIALOG_DIFF_KEY, value: String(value) },
     }),
   );
 }
@@ -328,6 +392,41 @@ function onDialogDiffChange(value: boolean) {
 function onAutoContinueAfterLoadChange(value: boolean) {
   autoContinueAfterLoad.value = value;
   localStorage.setItem(AUTO_CONTINUE_AFTER_LOAD_KEY, String(value));
+}
+
+// 打字机效果设置变化
+function onTypewriterEnabledChange(value: boolean) {
+  typewriterEnabled.value = value;
+  localStorage.setItem(TYPEWRITER_ENABLED_KEY, String(value));
+  window.dispatchEvent(
+    new CustomEvent('engine-setting-changed', {
+      detail: { key: TYPEWRITER_ENABLED_KEY, value: String(value) },
+    }),
+  );
+}
+
+function onTextSpeedChange(value: number | null) {
+  if (value != null) {
+    textSpeed.value = value;
+  }
+  localStorage.setItem(TEXT_SPEED_KEY, String(textSpeed.value));
+  window.dispatchEvent(
+    new CustomEvent('engine-setting-changed', {
+      detail: { key: TEXT_SPEED_KEY, value: String(textSpeed.value) },
+    }),
+  );
+}
+
+function onAutoSpeedChange(value: number | null) {
+  if (value != null) {
+    autoSpeed.value = value;
+  }
+  localStorage.setItem(AUTO_SPEED_KEY, String(value));
+  window.dispatchEvent(
+    new CustomEvent('engine-setting-changed', {
+      detail: { key: AUTO_SPEED_KEY, value: String(value) },
+    }),
+  );
 }
 
 function onHideContinueButtonChange(value: boolean) {
@@ -519,5 +618,18 @@ function startKeyBinding() {
 .info-value {
   font-weight: 500;
   opacity: 0.9;
+}
+
+.setting-slider-control {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 200px;
+}
+
+.slider-value {
+  min-width: 40px;
+  text-align: right;
+  font-weight: 500;
 }
 </style>

@@ -118,6 +118,27 @@ const enUS: LocaleData = {
   '@ui:press_key_to_bind': {
     text: 'Press any key to bind...',
   },
+  '@ui:text_settings': {
+    text: 'Text Settings',
+  },
+  '@ui:typewriter_enabled': {
+    text: 'Enable Typewriter Effect',
+  },
+  '@ui:typewriter_enabled_desc': {
+    text: 'When enabled, text will be displayed character by character',
+  },
+  '@ui:text_speed': {
+    text: 'Text Speed',
+  },
+  '@ui:text_speed_desc': {
+    text: 'Adjust the speed of character-by-character text display',
+  },
+  '@ui:auto_speed': {
+    text: 'Auto Play Speed',
+  },
+  '@ui:auto_speed_desc': {
+    text: 'Adjust the text playback speed in auto mode',
+  },
 
   // ==================== Scene 1 - Dialog Text ====================
   '今天天气真好。': {

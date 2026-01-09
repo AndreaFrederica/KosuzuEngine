@@ -118,6 +118,27 @@ const zhCN: LocaleData = {
   '@ui:press_key_to_bind': {
     text: '按下任意键进行绑定...',
   },
+  '@ui:text_settings': {
+    text: '文本设置',
+  },
+  '@ui:typewriter_enabled': {
+    text: '启用打字机效果',
+  },
+  '@ui:typewriter_enabled_desc': {
+    text: '开启后文本将逐字显示，关闭则立即显示全部文本',
+  },
+  '@ui:text_speed': {
+    text: '文字速度',
+  },
+  '@ui:text_speed_desc': {
+    text: '调整文本逐字显示的速度',
+  },
+  '@ui:auto_speed': {
+    text: '自动播放速度',
+  },
+  '@ui:auto_speed_desc': {
+    text: '调整自动模式下的文本播放速度',
+  },
 
   // ==================== 场景1 - 对话文本 ====================
   '今天天气真好。': {

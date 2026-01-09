@@ -116,8 +116,27 @@ const jaJP: LocaleData = {
   },
   '@ui:press_key_to_bind': {
     text: 'キーを押してバインド...',
+  },  '@ui:text_settings': {
+    text: 'テキスト設定',
   },
-  // ==================== シーン1 - 会話テキスト ====================
+  '@ui:typewriter_enabled': {
+    text: 'タイプライター効果を有効化',
+  },
+  '@ui:typewriter_enabled_desc': {
+    text: '有効にすると、テキストが一文字ずつ表示されます',
+  },
+  '@ui:text_speed': {
+    text: 'テキスト速度',
+  },
+  '@ui:text_speed_desc': {
+    text: 'テキストの一文字ずつ表示速度を調整',
+  },
+  '@ui:auto_speed': {
+    text: '自動再生速度',
+  },
+  '@ui:auto_speed_desc': {
+    text: '自動モードでのテキスト再生速度を調整',
+  },  // ==================== シーン1 - 会話テキスト ====================
   '今天天气真好。': {
     text: '今日は本当にいい天気ですね。',
     voice: 'josei_06_sailor/line1_ja.wav',
