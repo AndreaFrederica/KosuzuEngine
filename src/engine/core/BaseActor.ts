@@ -495,6 +495,38 @@ export class ContextOps {
       routerNavigateCallback(mode ? `/saves?mode=${mode}` : '/saves');
     }
   }
+
+  /** 完整的路由导航对象 */
+  readonly nav = {
+    /** 导航到主菜单（标题界面） */
+    goToTitle: () => {
+      if (routerNavigateCallback) routerNavigateCallback('/title');
+    },
+    /** 导航到启动动画界面 */
+    goToSplash: () => {
+      if (routerNavigateCallback) routerNavigateCallback('/');
+    },
+    /** 导航到结束动画界面 */
+    goToEnd: () => {
+      if (routerNavigateCallback) routerNavigateCallback('/end');
+    },
+    /** 导航到设置界面 */
+    goToSettings: () => {
+      if (routerNavigateCallback) routerNavigateCallback('/settings');
+    },
+    /** 导航到存读档界面 */
+    goToSaves: (mode?: 'save' | 'load') => {
+      if (routerNavigateCallback) routerNavigateCallback(mode ? `/saves?mode=${mode}` : '/saves');
+    },
+    /** 导航到游戏界面 */
+    goToGame: () => {
+      if (routerNavigateCallback) routerNavigateCallback('/demo');
+    },
+    /** 通用导航方法 */
+    push: (path: string) => {
+      if (routerNavigateCallback) routerNavigateCallback(path);
+    },
+  };
 }
 
 /** 舞台操作类，提供对舞台尺寸的访问 */

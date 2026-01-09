@@ -232,9 +232,13 @@ export async function scene2(): Promise<void | string> {
     { text: '回到 scene1', goto: 'scene1' },
     { text: '进入特效测试场景（sceneEffects）', goto: 'sceneEffects' },
     { text: '结束演示', goto: 'end' },
+    { text: "回到主界面", goto: "titleScreen" },
   ]);
   if (picked.ok && picked.value === 'scene1') return 'scene1';
   if (picked.ok && picked.value === 'sceneEffects') return 'sceneEffects';
+  if (picked.ok && picked.value === 'titleScreen') {
+    ctx.goToTitle();
+  };
   await sailorA.say('演示结束。');
 }
 
