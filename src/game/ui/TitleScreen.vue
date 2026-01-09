@@ -82,6 +82,20 @@
             </svg>
             <span class="github-text">GitHub</span>
           </a>
+          <!-- Wiki 链接 -->
+          <a
+            href="https://wiki.sirrus.cc/KosuzuEngine/"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="wiki-link"
+          >
+            <svg class="wiki-icon" viewBox="0 0 24 24" fill="currentColor">
+              <path
+                d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2zm-2 1H8v-6c0-2.48 1.51-4.5 4-4.5s4 2.02 4 4.5v6z"
+              />
+            </svg>
+            <span class="wiki-text">Wiki</span>
+          </a>
         </div>
 
         <!-- 游戏版本信息 -->
@@ -477,6 +491,35 @@ function goToSettings() {
   font-weight: 500;
 }
 
+/* Wiki 链接 */
+.wiki-link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  margin-left: 12px;
+  color: rgba(255, 255, 255, 0.6);
+  text-decoration: none;
+  border-radius: 6px;
+  transition: all 0.3s ease;
+}
+
+.wiki-link:hover {
+  color: rgba(255, 255, 255, 1);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.wiki-icon {
+  width: 40px;
+  height: 40px;
+  fill: currentColor;
+}
+
+.wiki-text {
+  font-size: 18px;
+  font-weight: 500;
+}
+
 /* Patchouli 链接 */
 .patchouli-link {
   display: flex;
@@ -788,6 +831,10 @@ function goToSettings() {
   .game-version {
     display: none;
   }
+
+  .wiki-link {
+    display: none;
+  }
 }
 
 /* 超小高度屏幕 */
@@ -823,6 +870,10 @@ function goToSettings() {
 
   .button-text-en {
     font-size: clamp(9px, 1.5vw, 10px);
+  }
+
+  .wiki-link {
+    display: none;
   }
 }
 
