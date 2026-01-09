@@ -5,7 +5,7 @@
         <template #overlay>
           <AudioPrompt />
           <DialogBox
-            v-if="showDialog"
+            v-show="showDialog"
             @back="store.back?.()"
             @restart="restartScene"
             @open-settings="showSettings = !showSettings"
