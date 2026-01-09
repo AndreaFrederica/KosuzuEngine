@@ -40,6 +40,7 @@
         :speed="textSpeed"
         :auto-speed="autoSpeed"
         :max-height="150"
+        :show-debug-panel="showTypewriterDebug"
         class="dialog-text"
         @complete="onTypewriterComplete"
       />
@@ -53,16 +54,17 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, onMounted, onUnmounted } from 'vue';
+import { computed, ref, watch, onMounted, onUnmounted, type ComputedRef } from 'vue';
 import { useQuasar } from 'quasar';
 import { useEngineStore } from 'stores/engine-store';
 import { useSettingsStore } from 'stores/settings-store';
 import TypewriterText from './TypewriterText.vue';
 
 type TypewriterPublicApi = {
-  isTyping: { value: boolean };
-  hasNextPage: { value: boolean };
-  revealAllCurrentPage: () => void;
+  isTyping: boolean;
+  currentPage: number;
+  hasNextPage: ComputedRef<boolean>;
+  revealAll: () => void;
   nextPage: () => void;
 };
 
@@ -80,12 +82,25 @@ const hideContinueButton = computed(() => settingsStore.displaySettings.hideCont
 // 继续按键绑定设置
 const continueKeyBinding = computed(() => settingsStore.displaySettings.continueKeyBinding);
 
+// 打字机调试面板显示设置
+const showTypewriterDebug = computed(() => settingsStore.displaySettings.showTypewriterDebug);
+
 // 打字机效果设置
 const typewriterEnabled = computed(() => settingsStore.textSettings.typewriterEnabled);
 const textSpeed = computed(() => settingsStore.textSettings.textSpeed);
 const autoSpeed = computed(() => settingsStore.textSettings.autoSpeed);
 
 const typewriterRef = ref<TypewriterPublicApi | null>(null);
+
+// 监听 isTyping 状态变化
+watch(
+  () => typewriterRef.value?.isTyping,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  (newValue) => {
+    // 预留：可以在这里添加逻辑
+  },
+  { immediate: true },
+);
 
 // 用于 diff 检查的稳定引用
 const stableSpeaker = ref('');
@@ -121,9 +136,9 @@ watch(
   { immediate: true, deep: true },
 );
 
-// 打字机完成回调
+// 打字机完成回调（预留，可用于自动继续等功能）
 function onTypewriterComplete() {
-  // 可以在这里添加逻辑，例如自动继续
+  // 预留：可以在这里添加逻辑，例如自动继续
 }
 
 onMounted(() => {
@@ -160,12 +175,12 @@ const emit = defineEmits<{
 
 function onNext() {
   const tw = typewriterRef.value;
-  const isTypingNow = !!tw?.isTyping.value;
-  const hasNext = !!tw?.hasNextPage.value;
+  const isTypingNow = !!tw?.isTyping;
+  const hasNext = !!tw?.hasNextPage;
 
   // 打字中：先瞬间输出本页，不执行下一步
   if (isTypingNow) {
-    tw?.revealAllCurrentPage();
+    tw?.revealAll();
     return;
   }
 
@@ -178,11 +193,9 @@ function onNext() {
   store.advance();
 }
 
-// 点击对话框内容区域继续（仅当隐藏按钮时）
+// 点击对话框内容区域继续
 function onContentClick() {
-  if (hideContinueButton.value) {
-    onNext();
-  }
+  onNext();
 }
 
 // 监听按键事件

@@ -245,6 +245,18 @@
             @click="startKeyBinding"
           />
         </div>
+        <div class="setting-item">
+          <div class="setting-info">
+            <div class="setting-label">打字机调试面板</div>
+            <div class="setting-desc">显示打字机组件的调试信息 / Show typewriter debug panel</div>
+          </div>
+          <q-toggle
+            :model-value="settingsStore.displaySettings.showTypewriterDebug"
+            @update:model-value="onShowTypewriterDebugChange"
+            color="primary"
+            keep-color
+          />
+        </div>
       </div>
 
       <!-- 开发模式设置 -->
@@ -456,6 +468,10 @@ function onAutoSpeedChange(value: number | null) {
 
 function onHideContinueButtonChange(value: boolean) {
   settingsStore.setHideContinueButton(value);
+}
+
+function onShowTypewriterDebugChange(value: boolean) {
+  settingsStore.setShowTypewriterDebug(value);
 }
 
 // 音量控制函数

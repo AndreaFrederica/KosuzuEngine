@@ -51,6 +51,8 @@ export interface DisplaySettings {
   hideContinueButton: boolean;
   /** 继续按键绑定 */
   continueKeyBinding: string;
+  /** 显示打字机调试面板 */
+  showTypewriterDebug: boolean;
 }
 
 /** 其他设置 */
@@ -101,6 +103,7 @@ const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = {
   autoContinueAfterLoad: false,
   hideContinueButton: false,
   continueKeyBinding: 'Enter',
+  showTypewriterDebug: false,
 };
 
 const DEFAULT_OTHER_SETTINGS: OtherSettings = {
@@ -135,6 +138,7 @@ const STORAGE_KEYS = {
     AUTO_CONTINUE: 'engine:autoContinueAfterLoad',
     HIDE_CONTINUE: 'engine:hideContinueButton',
     CONTINUE_KEY: 'engine:continueKeyBinding',
+    TYPEWRITER_DEBUG: 'engine:showTypewriterDebug',
   },
   OTHER: {
     SKIP_READ: 'game:skipRead',
@@ -217,6 +221,7 @@ export const useSettingsStore = defineStore('settings', () => {
     displaySettings.value.autoContinueAfterLoad = localStorage.getItem(STORAGE_KEYS.DISPLAY.AUTO_CONTINUE) === 'true';
     displaySettings.value.hideContinueButton = localStorage.getItem(STORAGE_KEYS.DISPLAY.HIDE_CONTINUE) === 'true';
     displaySettings.value.continueKeyBinding = localStorage.getItem(STORAGE_KEYS.DISPLAY.CONTINUE_KEY) || 'Enter';
+    displaySettings.value.showTypewriterDebug = localStorage.getItem(STORAGE_KEYS.DISPLAY.TYPEWRITER_DEBUG) === 'true';
 
     // 尝试从旧格式加载
     loadFromLegacy('dialogDiffEnabled', (v) => displaySettings.value.dialogDiffEnabled = Boolean(v));
@@ -295,6 +300,7 @@ export const useSettingsStore = defineStore('settings', () => {
     localStorage.setItem(STORAGE_KEYS.DISPLAY.AUTO_CONTINUE, String(displaySettings.value.autoContinueAfterLoad));
     localStorage.setItem(STORAGE_KEYS.DISPLAY.HIDE_CONTINUE, String(displaySettings.value.hideContinueButton));
     localStorage.setItem(STORAGE_KEYS.DISPLAY.CONTINUE_KEY, displaySettings.value.continueKeyBinding);
+    localStorage.setItem(STORAGE_KEYS.DISPLAY.TYPEWRITER_DEBUG, String(displaySettings.value.showTypewriterDebug));
   }
 
   function saveOtherSettings(): void {
@@ -449,6 +455,10 @@ export const useSettingsStore = defineStore('settings', () => {
     setContinueKeyBinding(value: string) {
       displaySettings.value.continueKeyBinding = value;
       dispatchSettingChanged(STORAGE_KEYS.DISPLAY.CONTINUE_KEY, value);
+    },
+    setShowTypewriterDebug(value: boolean) {
+      displaySettings.value.showTypewriterDebug = value;
+      dispatchSettingChanged(STORAGE_KEYS.DISPLAY.TYPEWRITER_DEBUG, String(value));
     },
 
     // 其他设置快捷方法

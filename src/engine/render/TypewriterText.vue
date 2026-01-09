@@ -1,5 +1,34 @@
 <template>
   <div class="typewriter-container" ref="containerRef">
+    <!-- 调试面板 -->
+    <div v-if="showDebugPanel" class="debug-panel">
+      <div class="debug-title">Typewriter Debug</div>
+      <div class="debug-item">
+        <span class="debug-label">currentPage:</span>
+        <span class="debug-value">{{ currentPage }} / {{ pages.length - 1 }}</span>
+      </div>
+      <div class="debug-item">
+        <span class="debug-label">isTyping:</span>
+        <span class="debug-value" :class="{ active: isTyping }">{{ isTyping }}</span>
+      </div>
+      <div class="debug-item">
+        <span class="debug-label">typingTimer:</span>
+        <span class="debug-value">{{ typingTimer !== null ? 'active' : 'null' }}</span>
+      </div>
+      <div class="debug-item">
+        <span class="debug-label">autoAdvanceTimer:</span>
+        <span class="debug-value">{{ autoAdvanceTimer !== null ? 'active' : 'null' }}</span>
+      </div>
+      <div class="debug-item">
+        <span class="debug-label">textNodes:</span>
+        <span class="debug-value">{{ currentTextNodes.length }}</span>
+      </div>
+      <div class="debug-item">
+        <span class="debug-label">enabled:</span>
+        <span class="debug-value">{{ enabled }}</span>
+      </div>
+    </div>
+
     <!-- 分页指示器 -->
     <div v-if="pages.length > 1" class="page-indicator">
       <button
@@ -14,7 +43,7 @@
     </div>
 
     <!-- 文本内容区域 -->
-    <div class="text-content" ref="textRef" @click="onTextClick"></div>
+    <div class="text-content" ref="textRef"></div>
 
     <!-- 隐藏的测试容器，用于高度检测 -->
     <div class="hidden-tester" ref="hiddenTesterRef"></div>
@@ -51,6 +80,7 @@ interface Props {
   speed?: number; // 打字速度 1-100，越大越快
   autoSpeed?: number; // 自动翻页速度 1-100，越大越快
   maxHeight?: number; // 容器最大高度（px），超出则分页
+  showDebugPanel?: boolean; // 是否显示调试面板（从 DialogBox 的 showTypewriterDebug 传入）
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -59,12 +89,14 @@ const props = withDefaults(defineProps<Props>(), {
   speed: 50,
   autoSpeed: 50,
   maxHeight: 150,
+  showDebugPanel: true,
 });
 
 const emit = defineEmits<{
   (e: 'complete'): void;
   (e: 'all-complete'): void;
   (e: 'skip'): void;
+  (e: 'typing-state-change', isTyping: boolean): void;
 }>();
 
 const containerRef = ref<HTMLElement | null>(null);
@@ -490,7 +522,9 @@ function startTypewriter() {
   if (!props.enabled || !textRef.value) return;
 
   stopTypewriter();
+  console.log('[TypewriterText] startTypewriter() setting isTyping to true');
   isTyping.value = true;
+  console.log('[TypewriterText] After setting, isTyping:', isTyping.value);
 
   // 重新渲染当前页，确保文本节点存在
   renderPage(currentPage.value);
@@ -559,26 +593,23 @@ function stopTypewriter() {
   isTyping.value = false;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function revealAllCurrentPage() {
   if (!textRef.value) return;
 
   stopTypewriter();
-  if (!currentTextNodes.length || !currentOriginalTexts.length) {
-    // 未启动过打字机：确保页面为完整渲染
-    renderPage(currentPage.value);
-    return;
-  }
 
-  currentTextNodes.forEach((node, index) => {
-    const originalText = currentOriginalTexts[index];
-    if (originalText != null) {
-      node.textContent = originalText;
-    }
-  });
+  // 重新渲染当前页，确保显示完整内容
+  // 无论打字机是否启动过，这都能正确显示完整文本
+  renderPage(currentPage.value);
+
+  // 清空打字机状态
+  currentTextNodes = [];
+  currentOriginalTexts = [];
 
   emit('skip');
   emit('complete');
-  scheduleAutoAdvanceIfNeeded();
+  // 不调用 scheduleAutoAdvanceIfNeeded()，需要用户再次点击才能继续
   if (currentPage.value === pages.value.length - 1) emit('all-complete');
 }
 
@@ -687,12 +718,6 @@ watch(
   },
 );
 
-function onTextClick() {
-  if (isTyping.value && props.enabled) {
-    revealAllCurrentPage();
-  }
-}
-
 async function goToPage(index: number) {
   if (index >= 0 && index < pages.value.length) {
     stopTypewriter();
@@ -728,7 +753,20 @@ defineExpose({
   pageCount: computed(() => pages.value.length),
   hasNextPage: computed(() => currentPage.value < pages.value.length - 1),
   hasPrevPage: computed(() => currentPage.value > 0),
-  revealAllCurrentPage,
+  revealAll: () => {
+    if (!textRef.value) return;
+
+    stopTypewriter();
+
+    // 重新渲染当前页，确保显示完整内容
+    renderPage(currentPage.value);
+
+    // 清空打字机状态
+    currentTextNodes = [];
+    currentOriginalTexts = [];
+
+    // 不触发任何事件，只负责显示内容
+  },
   goToPage,
   nextPage,
   previousPage,
@@ -740,6 +778,48 @@ defineExpose({
   position: relative;
   width: 100%;
   height: 100%;
+}
+
+.debug-panel {
+  position: absolute;
+  top: -160px;
+  right: 0;
+  width: 200px;
+  background: rgba(0, 0, 0, 0.85);
+  color: #00ff00;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  padding: 8px;
+  border-radius: 4px;
+  z-index: 1000;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.debug-title {
+  font-weight: bold;
+  color: #ffff00;
+  margin-bottom: 6px;
+  border-bottom: 1px solid #444;
+  padding-bottom: 4px;
+}
+
+.debug-item {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.debug-label {
+  color: #888;
+}
+
+.debug-value {
+  color: #00ff00;
+}
+
+.debug-value.active {
+  color: #ff9800;
+  font-weight: bold;
 }
 
 .page-indicator {
