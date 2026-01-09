@@ -6,16 +6,33 @@
     </div>
     <div class="sl-body">
       <div class="row">
-        <input v-model="slot" class="slot-input" type="text" :placeholder="uiText.slotPlaceholder" />
+        <input
+          v-model="slot"
+          class="slot-input"
+          type="text"
+          :placeholder="uiText.slotPlaceholder"
+        />
         <button class="action-btn" @click="onPrimary">
           {{ mode === 'save' ? uiText.saveBtn : uiText.loadBtn }}
         </button>
         <button class="action-btn" @click="refresh">{{ uiText.refresh }}</button>
       </div>
+      <div class="quick-save-section">
+        <div class="quick-save-label">
+          {{ mode === 'save' ? '快速存档' : '快速读取' }} /
+          {{ mode === 'save' ? 'Quick Save' : 'Quick Load' }}
+        </div>
+        <div class="quick-save-slots">
+          <button class="quick-save-btn" @click="onQuickSave(1)">QS1</button>
+          <button class="quick-save-btn" @click="onQuickSave(2)">QS2</button>
+          <button class="quick-save-btn" @click="onQuickSave(3)">QS3</button>
+        </div>
+      </div>
       <div class="list">
         <div v-for="s in saves" :key="s.slot" class="item" @click="onItem(s.slot)">
           <div class="meta">
-            <div class="scene">{{ s.scene || s.slot }}</div>
+            <div class="slot-name">{{ s.slot }}</div>
+            <div class="scene">{{ s.scene || uiText.unnamedScenario }}</div>
             <div class="text">{{ truncate(s.text || '') }}</div>
             <div class="time">{{ formatTime(s.time) }}</div>
           </div>
@@ -23,7 +40,9 @@
             <button class="mini-btn" @click.stop="onItem(s.slot)">
               {{ mode === 'save' ? uiText.overwrite : uiText.loadBtn }}
             </button>
-            <button class="mini-btn danger" @click.stop="onDelete(s.slot)">{{ uiText.delete }}</button>
+            <button class="mini-btn danger" @click.stop="onDelete(s.slot)">
+              {{ uiText.delete }}
+            </button>
           </div>
         </div>
         <div v-if="saves.length === 0" class="empty">{{ uiText.noSaves }}</div>
@@ -99,14 +118,33 @@ function onPrimary() {
   }
 }
 function onItem(s: string) {
-  slot.value = s;
-  onPrimary();
+  if (props.mode === 'save') {
+    // 保存模式：只当输入框为空时才使用选中槽位，不更新输入框显示
+    if (!slot.value) {
+      slot.value = s;
+    }
+    store.save(s);
+    refresh();
+  } else {
+    // 读取模式：直接读取，不更新输入框
+    store.load(s);
+  }
 }
 function onDelete(s: string) {
   store.deleteSave?.(s);
   if (slot.value === s) slot.value = '';
   refresh();
 }
+function onQuickSave(slotNum: number) {
+  const qsSlot = `quicksave:${slotNum}`;
+  if (props.mode === 'save') {
+    store.save(qsSlot);
+    refresh();
+  } else {
+    store.load(qsSlot);
+  }
+}
+
 function defaultSlot() {
   const scene = store.state.scene || uiText.value.unnamedScenario;
   const time = new Date();
@@ -215,6 +253,11 @@ function formatTime(time?: number) {
   gap: 4px;
   max-width: 80%;
 }
+.slot-name {
+  font-size: 11px;
+  opacity: 0.5;
+  font-family: monospace;
+}
 .scene {
   font-weight: 600;
 }
@@ -241,6 +284,38 @@ function formatTime(time?: number) {
   display: flex;
   gap: 8px;
   align-items: center;
+}
+.quick-save-section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  margin-bottom: 10px;
+}
+.quick-save-label {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+}
+.quick-save-slots {
+  display: flex;
+  gap: 8px;
+}
+.quick-save-btn {
+  background: rgba(103, 126, 234, 0.3);
+  color: #fff;
+  border: 1px solid rgba(103, 126, 234, 0.5);
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 50px;
+}
+.quick-save-btn:hover {
+  background: rgba(103, 126, 234, 0.5);
+  border-color: rgba(103, 126, 234, 0.8);
 }
 .danger {
   background: rgba(255, 80, 80, 0.35);

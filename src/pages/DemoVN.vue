@@ -22,6 +22,10 @@
               slMode = 'load';
               showSL = true;
             "
+            @back-to-title="backToTitle"
+            @quick-save-1="quickSave(1)"
+            @quick-save-2="quickSave(2)"
+            @quick-save-3="quickSave(3)"
             @hide="showDialog = false"
           />
           <ChoicePanel />
@@ -310,6 +314,15 @@ function restartScene() {
   clearPersistedProgress();
   showDialog.value = true;
   void runSceneLoop('scene1', 0);
+}
+
+function backToTitle() {
+  void router.push('/');
+}
+
+function quickSave(slotNum: number) {
+  const slot = `quicksave:${slotNum}`;
+  store.save(slot);
 }
 
 // Vite HMR: 监听脚本文件变化，自动重新运行当前场景

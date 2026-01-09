@@ -12,22 +12,25 @@
         <!-- 标题栏 -->
         <div class="saveload-header">
           <div class="mode-tabs">
-            <button
-              class="mode-tab"
-              :class="{ active: mode === 'load' }"
-              @click="mode = 'load'"
-            >
+            <button class="mode-tab" :class="{ active: mode === 'load' }" @click="mode = 'load'">
               <span class="mode-text">读取游戏</span>
               <span class="mode-text-en">Load</span>
             </button>
-            <button
-              class="mode-tab"
-              :class="{ active: mode === 'save' }"
-              @click="mode = 'save'"
-            >
+            <button class="mode-tab" :class="{ active: mode === 'save' }" @click="mode = 'save'">
               <span class="mode-text">保存游戏</span>
               <span class="mode-text-en">Save</span>
             </button>
+          </div>
+          <div class="quick-save-toolbar">
+            <div class="quick-save-label">
+              {{ mode === 'save' ? '快速存档' : '快速读取' }} /
+              {{ mode === 'save' ? 'Quick Save' : 'Quick Load' }}
+            </div>
+            <div class="quick-save-slots">
+              <button v-for="i in 3" :key="i" class="quick-save-btn" @click="quickSave(i)">
+                QS{{ i }}
+              </button>
+            </div>
           </div>
           <button class="back-button" @click="goBack">
             <span>返回</span>
@@ -66,21 +69,6 @@
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-
-        <!-- 底部快速存档栏 -->
-        <div class="quick-save-bar">
-          <div class="quick-save-title">快速存档 / Quick Save</div>
-          <div class="quick-save-slots">
-            <button
-              v-for="i in 3"
-              :key="i"
-              class="quick-save-btn"
-              @click="quickSave(i)"
-            >
-              QS{{ i }}
-            </button>
           </div>
         </div>
       </div>
@@ -137,11 +125,18 @@ function deleteSave(slot: string) {
   }
 }
 
-// 快速存档
+// 快速存档/读取
 function quickSave(slotNum: number) {
   const slot = `quicksave:${slotNum}`;
-  store.save(slot);
-  loadSaves();
+  if (mode.value === 'save') {
+    store.save(slot);
+    loadSaves();
+  } else {
+    store.load(slot);
+    loadSaves();
+    // 读取成功后跳转到游戏
+    void router.push('/demo');
+  }
 }
 
 // 格式化时间
@@ -237,6 +232,7 @@ onMounted(() => {
   align-items: center;
   padding: 24px 32px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  gap: 16px;
 }
 
 .mode-tabs {
@@ -436,18 +432,16 @@ onMounted(() => {
   border-color: rgba(244, 67, 54, 0.5);
 }
 
-.quick-save-bar {
+.quick-save-toolbar {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 16px 32px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(0, 0, 0, 0.2);
+  gap: 12px;
 }
 
-.quick-save-title {
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.7);
+.quick-save-label {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+  white-space: nowrap;
 }
 
 .quick-save-slots {

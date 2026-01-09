@@ -18,7 +18,11 @@
         <q-btn flat dense color="white" label="历史" @click="$emit('open-history')" />
         <q-btn flat dense color="white" label="存档" @click="$emit('open-save')" />
         <q-btn flat dense color="white" label="读档" @click="$emit('open-load')" />
+        <q-btn flat dense color="white" label="回到主屏幕" @click="$emit('back-to-title')" />
         <q-btn flat dense color="white" label="隐藏" @click.stop="$emit('hide')" />
+        <q-btn flat dense color="primary" label="QS1" @click="quickSaveWithConfirm(1)" />
+        <q-btn flat dense color="primary" label="QS2" @click="quickSaveWithConfirm(2)" />
+        <q-btn flat dense color="primary" label="QS3" @click="quickSaveWithConfirm(3)" />
       </div>
     </div>
 
@@ -41,8 +45,10 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
+import { useQuasar } from 'quasar';
 import { useEngineStore } from 'stores/engine-store';
 
+const $q = useQuasar();
 const store = useEngineStore();
 const dialog = computed(() => store.dialog());
 
@@ -98,7 +104,7 @@ const isHtml = computed(() => stableIsHtml.value);
 const canBack = computed(() => store.canBack());
 
 // 定义事件，方便父组件（如 DemoVN.vue）监听处理
-defineEmits<{
+const emit = defineEmits<{
   (e: 'back'): void;
   (e: 'restart'): void;
   (e: 'open-settings'): void;
@@ -109,11 +115,41 @@ defineEmits<{
   (e: 'open-history'): void;
   (e: 'open-save'): void;
   (e: 'open-load'): void;
+  (e: 'back-to-title'): void;
+  (e: 'quick-save-1'): void;
+  (e: 'quick-save-2'): void;
+  (e: 'quick-save-3'): void;
   (e: 'hide'): void;
 }>();
 
 function onNext() {
   store.advance();
+}
+
+// 快速存档确认对话框
+function quickSaveWithConfirm(slotNum: number) {
+  $q.dialog({
+    title: '快速存档确认',
+    message: `确定要保存到快速存档 QS${slotNum} 吗？`,
+    ok: {
+      label: '确定',
+      color: 'primary',
+    },
+    cancel: {
+      label: '取消',
+      color: 'grey',
+    },
+    persistent: true,
+  }).onOk(() => {
+    // 用户确认后触发对应事件
+    if (slotNum === 1) {
+      emit('quick-save-1');
+    } else if (slotNum === 2) {
+      emit('quick-save-2');
+    } else if (slotNum === 3) {
+      emit('quick-save-3');
+    }
+  });
 }
 </script>
 
