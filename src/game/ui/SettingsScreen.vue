@@ -255,11 +255,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { gameRegistry } from '../registry';
+import { useSettingsStore } from 'stores/settings-store';
 
 const router = useRouter();
+
+// 使用设置 store
+const settingsStore = useSettingsStore();
 
 // 获取游戏配置
 const gameConfig = gameRegistry.getDefault() || {
@@ -269,205 +273,88 @@ const gameConfig = gameRegistry.getDefault() || {
 // 使用自定义背景或默认背景
 const backgroundImage = gameConfig.titleBackground || '/assets/bg/haikei_01_sora/jpg/sora_01.jpg';
 
-// 设置项状态
-const textSpeed = ref(50);
-const autoSpeed = ref(50);
-const masterVolume = ref(80);
-const bgmVolume = ref(80);
-const sfxVolume = ref(80);
-const voiceVolume = ref(100);
-const voiceEnabled = ref(false);
-const skipRead = ref(false);
-const dialogDiffEnabled = ref(true);
-const autoContinueAfterLoad = ref(false);
-const hideContinueButton = ref(false);
-const continueKeyBinding = ref('Enter');
+// 设置项状态（从 settingsStore 获取）
+const textSpeed = ref(settingsStore.textSettings.textSpeed);
+const autoSpeed = ref(settingsStore.textSettings.autoSpeed);
+const masterVolume = ref(settingsStore.audioSettings.masterVolume);
+const bgmVolume = ref(settingsStore.audioSettings.bgmVolume);
+const sfxVolume = ref(settingsStore.audioSettings.sfxVolume);
+const voiceVolume = ref(settingsStore.audioSettings.voiceVolume);
+const voiceEnabled = ref(settingsStore.voiceSettings.enabled);
+const skipRead = ref(false); // 这个设置在 settingsStore 中还没有，先保留
+const dialogDiffEnabled = ref(settingsStore.displaySettings.dialogDiffEnabled);
+const autoContinueAfterLoad = ref(settingsStore.displaySettings.autoContinueAfterLoad);
+const hideContinueButton = ref(settingsStore.displaySettings.hideContinueButton);
+const continueKeyBinding = ref(settingsStore.displaySettings.continueKeyBinding);
 const isBindingKey = ref(false);
-const typewriterEnabled = ref(true);
-
-// 对话框 diff 设置 key
-const DIALOG_DIFF_KEY = 'engine:dialogDiffEnabled';
-const AUTO_CONTINUE_AFTER_LOAD_KEY = 'engine:autoContinueAfterLoad';
-const HIDE_CONTINUE_BUTTON_KEY = 'engine:hideContinueButton';
-const CONTINUE_KEY_BINDING_KEY = 'engine:continueKeyBinding';
-const TYPEWRITER_ENABLED_KEY = 'engine:typewriterEnabled';
-const TEXT_SPEED_KEY = 'engine:textSpeed';
-const AUTO_SPEED_KEY = 'engine:autoSpeed';
-
-// 加载设置
-onMounted(() => {
-  loadSettings();
-  // 加载对话框 diff 设置
-  dialogDiffEnabled.value = localStorage.getItem(DIALOG_DIFF_KEY) !== 'false';
-  // 加载读档后自动继续设置
-  autoContinueAfterLoad.value = localStorage.getItem(AUTO_CONTINUE_AFTER_LOAD_KEY) === 'true';
-  // 加载隐藏继续按钮设置
-  hideContinueButton.value = localStorage.getItem(HIDE_CONTINUE_BUTTON_KEY) === 'true';
-  // 加载继续按键绑定设置
-  continueKeyBinding.value = localStorage.getItem(CONTINUE_KEY_BINDING_KEY) || 'Enter';
-  // 加载打字机设置
-  typewriterEnabled.value = localStorage.getItem(TYPEWRITER_ENABLED_KEY) !== 'false';
-  textSpeed.value = parseInt(localStorage.getItem(TEXT_SPEED_KEY) || String(textSpeed.value), 10);
-  autoSpeed.value = parseInt(localStorage.getItem(AUTO_SPEED_KEY) || String(autoSpeed.value), 10);
-});
-
-function loadSettings() {
-  const settings = localStorage.getItem('game_settings');
-  if (settings) {
-    try {
-      const parsed = JSON.parse(settings);
-      textSpeed.value = parsed.textSpeed ?? 50;
-      autoSpeed.value = parsed.autoSpeed ?? 50;
-      masterVolume.value = parsed.masterVolume ?? 80;
-      bgmVolume.value = parsed.bgmVolume ?? 80;
-      sfxVolume.value = parsed.sfxVolume ?? 80;
-      voiceVolume.value = parsed.voiceVolume ?? 100;
-      voiceEnabled.value = parsed.voiceEnabled ?? false;
-      skipRead.value = parsed.skipRead ?? false;
-      dialogDiffEnabled.value = parsed.dialogDiffEnabled ?? true;
-      autoContinueAfterLoad.value = parsed.autoContinueAfterLoad ?? false;
-      hideContinueButton.value = parsed.hideContinueButton ?? false;
-      continueKeyBinding.value = parsed.continueKeyBinding ?? 'Enter';
-    } catch {
-      // 使用默认值
-    }
-  }
-  // 同步对话框 diff 设置到专用key
-  dialogDiffEnabled.value = localStorage.getItem(DIALOG_DIFF_KEY) !== 'false';
-  // 同步读档后自动继续设置到专用 key
-  autoContinueAfterLoad.value = localStorage.getItem(AUTO_CONTINUE_AFTER_LOAD_KEY) === 'true';
-  // 同步隐藏继续按钮设置到专用 key
-  hideContinueButton.value = localStorage.getItem(HIDE_CONTINUE_BUTTON_KEY) === 'true';
-  // 同步继续按键绑定设置到专用 key
-  continueKeyBinding.value = localStorage.getItem(CONTINUE_KEY_BINDING_KEY) || 'Enter';
-
-  // 同步打字机设置到专用 key
-  typewriterEnabled.value = localStorage.getItem(TYPEWRITER_ENABLED_KEY) !== 'false';
-  textSpeed.value = parseInt(localStorage.getItem(TEXT_SPEED_KEY) || String(textSpeed.value), 10);
-  autoSpeed.value = parseInt(localStorage.getItem(AUTO_SPEED_KEY) || String(autoSpeed.value), 10);
-}
-
-function saveSettings() {
-  const settings = {
-    textSpeed: textSpeed.value,
-    autoSpeed: autoSpeed.value,
-    typewriterEnabled: typewriterEnabled.value,
-    masterVolume: masterVolume.value,
-    bgmVolume: bgmVolume.value,
-    sfxVolume: sfxVolume.value,
-    voiceVolume: voiceVolume.value,
-    autoContinueAfterLoad: autoContinueAfterLoad.value,
-    voiceEnabled: voiceEnabled.value,
-    skipRead: skipRead.value,
-    dialogDiffEnabled: dialogDiffEnabled.value,
-    hideContinueButton: hideContinueButton.value,
-    continueKeyBinding: continueKeyBinding.value,
-  };
-  localStorage.setItem('game_settings', JSON.stringify(settings));
-}
+const typewriterEnabled = ref(settingsStore.textSettings.typewriterEnabled);
 
 function setTypewriterEnabled(value: boolean) {
   typewriterEnabled.value = value;
-  localStorage.setItem(TYPEWRITER_ENABLED_KEY, String(value));
-  window.dispatchEvent(
-    new CustomEvent('engine-setting-changed', {
-      detail: { key: TYPEWRITER_ENABLED_KEY, value: String(value) },
-    }),
-  );
-  saveSettings();
+  settingsStore.setTypewriterEnabled(value);
 }
 
 function setTextSpeed(value: number | null) {
   if (value != null) {
     textSpeed.value = value;
+    settingsStore.setTextSpeed(value);
   }
-  localStorage.setItem(TEXT_SPEED_KEY, String(textSpeed.value));
-  window.dispatchEvent(
-    new CustomEvent('engine-setting-changed', {
-      detail: { key: TEXT_SPEED_KEY, value: String(textSpeed.value) },
-    }),
-  );
-  saveSettings();
 }
 
 function setAutoSpeed(value: number | null) {
   if (value != null) {
     autoSpeed.value = value;
+    settingsStore.setAutoSpeed(value);
   }
-  localStorage.setItem(AUTO_SPEED_KEY, String(autoSpeed.value));
-  window.dispatchEvent(
-    new CustomEvent('engine-setting-changed', {
-      detail: { key: AUTO_SPEED_KEY, value: String(autoSpeed.value) },
-    }),
-  );
-  saveSettings();
 }
 
 function setMasterVolume(event: Event) {
   const target = event.target as HTMLInputElement;
   masterVolume.value = parseInt(target.value, 10);
-  saveSettings();
+  settingsStore.setMasterVolume(masterVolume.value);
 }
 
 function setBgmVolume(event: Event) {
   const target = event.target as HTMLInputElement;
   bgmVolume.value = parseInt(target.value, 10);
-  saveSettings();
+  settingsStore.setBgmVolume(bgmVolume.value);
 }
 
 function setSfxVolume(event: Event) {
   const target = event.target as HTMLInputElement;
   sfxVolume.value = parseInt(target.value, 10);
-  saveSettings();
+  settingsStore.setSfxVolume(sfxVolume.value);
 }
 
 function setVoiceVolume(event: Event) {
   const target = event.target as HTMLInputElement;
   voiceVolume.value = parseInt(target.value, 10);
-  saveSettings();
+  settingsStore.setVoiceVolume(voiceVolume.value);
 }
 
 function setVoiceEnabled(value: boolean) {
   voiceEnabled.value = value;
-  saveSettings();
+  settingsStore.setVoiceEnabled(value);
 }
 
 function setSkipRead(value: boolean) {
   skipRead.value = value;
-  saveSettings();
+  // 这个设置还没有在 settingsStore 中，先保留
 }
 
 function setDialogDiffEnabled(value: boolean) {
   dialogDiffEnabled.value = value;
-  // 保存到专用 key
-  localStorage.setItem(DIALOG_DIFF_KEY, String(value));
-  // 使用 CustomEvent 通知（同标签页实时生效）
-  window.dispatchEvent(
-    new CustomEvent('engine-setting-changed', {
-      detail: { key: DIALOG_DIFF_KEY, value: String(value) },
-    }),
-  );
-  saveSettings();
+  settingsStore.setDialogDiffEnabled(value);
 }
 
 function setAutoContinueAfterLoad(value: boolean) {
   autoContinueAfterLoad.value = value;
-  // 保存到专用 key
-  localStorage.setItem(AUTO_CONTINUE_AFTER_LOAD_KEY, String(value));
-  saveSettings();
+  settingsStore.setAutoContinueAfterLoad(value);
 }
 
 function setHideContinueButton(value: boolean) {
   hideContinueButton.value = value;
-  localStorage.setItem(HIDE_CONTINUE_BUTTON_KEY, String(value));
-  // 使用 CustomEvent 替代 StorageEvent，因为 StorageEvent 只在跨标签页时触发
-  window.dispatchEvent(
-    new CustomEvent('engine-setting-changed', {
-      detail: { key: HIDE_CONTINUE_BUTTON_KEY, value: String(value) },
-    }),
-  );
-  // 立即更新到 game_settings
-  saveSettings();
+  settingsStore.setHideContinueButton(value);
 }
 
 function startKeyBinding() {
@@ -475,16 +362,9 @@ function startKeyBinding() {
   const handler = (e: KeyboardEvent) => {
     e.preventDefault();
     continueKeyBinding.value = e.key;
-    localStorage.setItem(CONTINUE_KEY_BINDING_KEY, e.key);
-    // 使用 CustomEvent 替代 StorageEvent
-    window.dispatchEvent(
-      new CustomEvent('engine-setting-changed', {
-        detail: { key: CONTINUE_KEY_BINDING_KEY, value: e.key },
-      }),
-    );
+    settingsStore.setContinueKeyBinding(e.key);
     isBindingKey.value = false;
     window.removeEventListener('keydown', handler);
-    saveSettings();
   };
   window.addEventListener('keydown', handler);
 }
@@ -503,46 +383,20 @@ function resetToDefaults() {
   autoContinueAfterLoad.value = false;
   hideContinueButton.value = false;
   continueKeyBinding.value = 'Enter';
-  // 同步到专用 key
-  localStorage.setItem(DIALOG_DIFF_KEY, 'true');
-  localStorage.setItem(AUTO_CONTINUE_AFTER_LOAD_KEY, 'false');
-  localStorage.setItem(HIDE_CONTINUE_BUTTON_KEY, 'false');
-  localStorage.setItem(CONTINUE_KEY_BINDING_KEY, 'Enter');
-  localStorage.setItem(TYPEWRITER_ENABLED_KEY, 'true');
-  localStorage.setItem(TEXT_SPEED_KEY, '50');
-  localStorage.setItem(AUTO_SPEED_KEY, '50');
-  // 派发自定义事件通知 DialogBox
-  window.dispatchEvent(
-    new CustomEvent('engine-setting-changed', {
-      detail: { key: HIDE_CONTINUE_BUTTON_KEY, value: 'false' },
-    }),
-  );
-  window.dispatchEvent(
-    new CustomEvent('engine-setting-changed', {
-      detail: { key: CONTINUE_KEY_BINDING_KEY, value: 'Enter' },
-    }),
-  );
-  window.dispatchEvent(
-    new CustomEvent('engine-setting-changed', {
-      detail: { key: TYPEWRITER_ENABLED_KEY, value: 'true' },
-    }),
-  );
-  window.dispatchEvent(
-    new CustomEvent('engine-setting-changed', {
-      detail: { key: TEXT_SPEED_KEY, value: '50' },
-    }),
-  );
-  window.dispatchEvent(
-    new CustomEvent('engine-setting-changed', {
-      detail: { key: AUTO_SPEED_KEY, value: '50' },
-    }),
-  );
-  window.dispatchEvent(
-    new CustomEvent('engine-setting-changed', {
-      detail: { key: DIALOG_DIFF_KEY, value: 'true' },
-    }),
-  );
-  saveSettings();
+
+  // 使用 settings-store 重置所有设置
+  settingsStore.setTextSpeed(50);
+  settingsStore.setAutoSpeed(50);
+  settingsStore.setTypewriterEnabled(true);
+  settingsStore.setMasterVolume(80);
+  settingsStore.setBgmVolume(80);
+  settingsStore.setSfxVolume(80);
+  settingsStore.setVoiceVolume(100);
+  settingsStore.setVoiceEnabled(false);
+  settingsStore.setDialogDiffEnabled(true);
+  settingsStore.setAutoContinueAfterLoad(false);
+  settingsStore.setHideContinueButton(false);
+  settingsStore.setContinueKeyBinding('Enter');
 }
 
 function goBack() {
@@ -729,10 +583,27 @@ function goBack() {
   background: #fff;
   cursor: pointer;
   transition: transform 0.1s;
+  position: relative;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.setting-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  cursor: pointer;
+  border: none;
+  transition: transform 0.1s;
+}
+
+.setting-slider::-moz-range-thumb:hover {
+  transform: scale(1.2);
 }
 
 .setting-slider::-webkit-slider-thumb:hover {
-  transform: scale(1.2);
+  transform: translateY(-50%) scale(1.2);
 }
 
 .setting-value {

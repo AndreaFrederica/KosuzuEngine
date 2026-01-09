@@ -55,6 +55,18 @@ export class CharacterAudioManager {
     url: string,
     options?: { volume?: number; fadeIn?: number; loop?: boolean }
   ): Promise<string> {
+    // 检查语音是否启用
+    try {
+      const { useSettingsStore } = await import('../../stores/settings-store');
+      const settingsStore = useSettingsStore();
+      if (!settingsStore.voiceSettings.enabled) {
+        console.log(`[CharacterAudioManager:${this.characterName}] 语音已禁用，跳过播放: ${url}`);
+        return '';
+      }
+    } catch (e) {
+      console.warn('[CharacterAudioManager] 检查语音设置失败:', e);
+    }
+
     const channelId = `${this.characterName}_voice_${++this.channelCounter}`;
     const config: ChannelConfig = {
       type: 'voice',

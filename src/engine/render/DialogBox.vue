@@ -56,6 +56,7 @@
 import { computed, ref, watch, onMounted, onUnmounted } from 'vue';
 import { useQuasar } from 'quasar';
 import { useEngineStore } from 'stores/engine-store';
+import { useSettingsStore } from 'stores/settings-store';
 import TypewriterText from './TypewriterText.vue';
 
 type TypewriterPublicApi = {
@@ -67,27 +68,22 @@ type TypewriterPublicApi = {
 
 const $q = useQuasar();
 const store = useEngineStore();
+const settingsStore = useSettingsStore();
 const dialog = computed(() => store.dialog());
 
-// 文本 diff 设置（从 localStorage 读取）
-const DIALOG_DIFF_KEY = 'engine:dialogDiffEnabled';
-const dialogDiffEnabled = ref(localStorage.getItem(DIALOG_DIFF_KEY) !== 'false');
+// 文本 diff 设置（从 settingsStore 读取）
+const dialogDiffEnabled = computed(() => settingsStore.displaySettings.dialogDiffEnabled);
 
 // 隐藏继续按钮设置
-const HIDE_CONTINUE_BUTTON_KEY = 'engine:hideContinueButton';
-const hideContinueButton = ref(localStorage.getItem(HIDE_CONTINUE_BUTTON_KEY) === 'true');
+const hideContinueButton = computed(() => settingsStore.displaySettings.hideContinueButton);
 
 // 继续按键绑定设置
-const CONTINUE_KEY_BINDING_KEY = 'engine:continueKeyBinding';
-const continueKeyBinding = ref(localStorage.getItem(CONTINUE_KEY_BINDING_KEY) || 'Enter');
+const continueKeyBinding = computed(() => settingsStore.displaySettings.continueKeyBinding);
 
 // 打字机效果设置
-const TYPEWRITER_ENABLED_KEY = 'engine:typewriterEnabled';
-const TEXT_SPEED_KEY = 'engine:textSpeed';
-const AUTO_SPEED_KEY = 'engine:autoSpeed';
-const typewriterEnabled = ref(localStorage.getItem(TYPEWRITER_ENABLED_KEY) !== 'false');
-const textSpeed = ref(parseInt(localStorage.getItem(TEXT_SPEED_KEY) || '50', 10));
-const autoSpeed = ref(parseInt(localStorage.getItem(AUTO_SPEED_KEY) || '50', 10));
+const typewriterEnabled = computed(() => settingsStore.textSettings.typewriterEnabled);
+const textSpeed = computed(() => settingsStore.textSettings.textSpeed);
+const autoSpeed = computed(() => settingsStore.textSettings.autoSpeed);
 
 const typewriterRef = ref<TypewriterPublicApi | null>(null);
 
@@ -125,37 +121,6 @@ watch(
   { immediate: true, deep: true },
 );
 
-// 监听设置变化
-watch(
-  () => localStorage.getItem(DIALOG_DIFF_KEY),
-  (value) => {
-    dialogDiffEnabled.value = value !== 'false';
-  },
-);
-
-// 监听设置变化事件（使用 CustomEvent 因为 StorageEvent 只在跨标签页时触发）
-function onSettingChanged(e: Event) {
-  const customEvent = e as CustomEvent<{ key: string; value: string }>;
-  if (customEvent.detail?.key === DIALOG_DIFF_KEY) {
-    dialogDiffEnabled.value = customEvent.detail.value !== 'false';
-  }
-  if (customEvent.detail?.key === HIDE_CONTINUE_BUTTON_KEY) {
-    hideContinueButton.value = customEvent.detail.value === 'true';
-  }
-  if (customEvent.detail?.key === CONTINUE_KEY_BINDING_KEY) {
-    continueKeyBinding.value = customEvent.detail.value || 'Enter';
-  }
-  if (customEvent.detail?.key === TYPEWRITER_ENABLED_KEY) {
-    typewriterEnabled.value = customEvent.detail.value === 'true';
-  }
-  if (customEvent.detail?.key === TEXT_SPEED_KEY) {
-    textSpeed.value = parseInt(customEvent.detail.value, 10);
-  }
-  if (customEvent.detail?.key === AUTO_SPEED_KEY) {
-    autoSpeed.value = parseInt(customEvent.detail.value, 10);
-  }
-}
-
 // 打字机完成回调
 function onTypewriterComplete() {
   // 可以在这里添加逻辑，例如自动继续
@@ -163,12 +128,10 @@ function onTypewriterComplete() {
 
 onMounted(() => {
   window.addEventListener('keydown', onKeyDown);
-  window.addEventListener('engine-setting-changed', onSettingChanged);
 });
 
 onUnmounted(() => {
   window.removeEventListener('keydown', onKeyDown);
-  window.removeEventListener('engine-setting-changed', onSettingChanged);
 });
 
 const speaker = computed(() => stableSpeaker.value);

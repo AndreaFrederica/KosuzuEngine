@@ -13,5 +13,11 @@
     "vue"
   ],
   "typescript.tsdk": "node_modules/typescript/lib",
-  "AndreaNovelHelper.workspaceDisabled": true
+  "AndreaNovelHelper.workspaceDisabled": true,
+  "cSpell.words": [
+    "akamafu",
+    "haikei",
+    "Josei",
+    "neko"
+  ]
 }

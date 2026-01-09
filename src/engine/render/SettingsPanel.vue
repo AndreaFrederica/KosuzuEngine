@@ -30,7 +30,7 @@
             <div class="setting-desc">自动播放角色语音 / Auto-play character voice</div>
           </div>
           <q-toggle
-            :model-value="voiceEnabled"
+            :model-value="settingsStore.voiceSettings.enabled"
             @update:model-value="onVoiceEnabledChange"
             color="primary"
             keep-color
@@ -42,7 +42,11 @@
             <div class="setting-label">{{ uiText.ttsEngine }}</div>
             <div class="setting-desc">选择文字转语音服务 / Select TTS service</div>
           </div>
-          <select v-model="ttsEngine" @change="onTTSEngineChange" class="setting-select">
+          <select
+            v-model="settingsStore.voiceSettings.engine"
+            @change="onTTSEngineChange"
+            class="setting-select"
+          >
             <option value="browser">{{ uiText.ttsEngineBrowser }}</option>
             <option value="openai">{{ uiText.ttsEngineOpenai }}</option>
             <option value="azure">{{ uiText.ttsEngineAzure }}</option>
@@ -55,7 +59,11 @@
             <div class="setting-label">{{ uiText.browserVoice }}</div>
             <div class="setting-desc">选择浏览器 TTS 语音 / Select browser TTS voice</div>
           </div>
-          <select v-model="browserVoice" @change="onBrowserVoiceChange" class="setting-select">
+          <select
+            v-model="settingsStore.voiceSettings.browserVoiceId"
+            @change="onBrowserVoiceChange"
+            class="setting-select"
+          >
             <option value="">默认 / Default</option>
             <option v-for="voice in browserVoices" :key="voice.name" :value="voice.name">
               {{ voice.name }} ({{ voice.lang }})
@@ -73,7 +81,7 @@
             <div class="setting-desc">{{ uiText.typewriterEnabledDesc }}</div>
           </div>
           <q-toggle
-            :model-value="typewriterEnabled"
+            :model-value="settingsStore.textSettings.typewriterEnabled"
             @update:model-value="onTypewriterEnabledChange"
             color="primary"
             keep-color
@@ -86,13 +94,13 @@
           </div>
           <div class="setting-slider-control">
             <q-slider
-              :model-value="textSpeed"
+              :model-value="settingsStore.textSettings.textSpeed"
               @update:model-value="onTextSpeedChange"
               :min="1"
               :max="100"
               color="primary"
             />
-            <span class="slider-value">{{ textSpeed }}%</span>
+            <span class="slider-value">{{ settingsStore.textSettings.textSpeed }}%</span>
           </div>
         </div>
         <div v-if="typewriterEnabled" class="setting-item">
@@ -102,13 +110,82 @@
           </div>
           <div class="setting-slider-control">
             <q-slider
-              :model-value="autoSpeed"
+              :model-value="settingsStore.textSettings.autoSpeed"
               @update:model-value="onAutoSpeedChange"
               :min="1"
               :max="100"
               color="primary"
             />
-            <span class="slider-value">{{ autoSpeed }}%</span>
+            <span class="slider-value">{{ settingsStore.textSettings.autoSpeed }}%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 音频设置 -->
+      <div class="setting-section">
+        <div class="section-title">音频 / Audio</div>
+        <div class="setting-item">
+          <div class="setting-info">
+            <div class="setting-label">主音量</div>
+            <div class="setting-desc">全局音量控制 / Master Volume</div>
+          </div>
+          <div class="setting-slider-control">
+            <q-slider
+              :model-value="settingsStore.audioSettings.masterVolume"
+              @update:model-value="onMasterVolumeChange"
+              :min="0"
+              :max="100"
+              color="primary"
+            />
+            <span class="slider-value">{{ settingsStore.audioSettings.masterVolume }}%</span>
+          </div>
+        </div>
+        <div class="setting-item">
+          <div class="setting-info">
+            <div class="setting-label">BGM 音量</div>
+            <div class="setting-desc">背景音乐音量 / BGM Volume</div>
+          </div>
+          <div class="setting-slider-control">
+            <q-slider
+              :model-value="settingsStore.audioSettings.bgmVolume"
+              @update:model-value="onBgmVolumeChange"
+              :min="0"
+              :max="100"
+              color="primary"
+            />
+            <span class="slider-value">{{ settingsStore.audioSettings.bgmVolume }}%</span>
+          </div>
+        </div>
+        <div class="setting-item">
+          <div class="setting-info">
+            <div class="setting-label">音效音量</div>
+            <div class="setting-desc">音效音量 / SFX Volume</div>
+          </div>
+          <div class="setting-slider-control">
+            <q-slider
+              :model-value="settingsStore.audioSettings.sfxVolume"
+              @update:model-value="onSfxVolumeChange"
+              :min="0"
+              :max="100"
+              color="primary"
+            />
+            <span class="slider-value">{{ settingsStore.audioSettings.sfxVolume }}%</span>
+          </div>
+        </div>
+        <div class="setting-item">
+          <div class="setting-info">
+            <div class="setting-label">语音音量</div>
+            <div class="setting-desc">语音音量 / Voice Volume</div>
+          </div>
+          <div class="setting-slider-control">
+            <q-slider
+              :model-value="settingsStore.audioSettings.voiceVolume"
+              @update:model-value="onVoiceVolumeChange"
+              :min="0"
+              :max="100"
+              color="primary"
+            />
+            <span class="slider-value">{{ settingsStore.audioSettings.voiceVolume }}%</span>
           </div>
         </div>
       </div>
@@ -122,7 +199,7 @@
             <div class="setting-desc">{{ uiText.dialogDiffDesc }}</div>
           </div>
           <q-toggle
-            :model-value="dialogDiffEnabled"
+            :model-value="settingsStore.displaySettings.dialogDiffEnabled"
             @update:model-value="onDialogDiffChange"
             color="primary"
             keep-color
@@ -134,7 +211,7 @@
             <div class="setting-desc">{{ uiText.autoContinueAfterLoadDesc }}</div>
           </div>
           <q-toggle
-            :model-value="autoContinueAfterLoad"
+            :model-value="settingsStore.displaySettings.autoContinueAfterLoad"
             @update:model-value="onAutoContinueAfterLoadChange"
             color="primary"
             keep-color
@@ -146,7 +223,7 @@
             <div class="setting-desc">{{ uiText.hideContinueButtonDesc }}</div>
           </div>
           <q-toggle
-            :model-value="hideContinueButton"
+            :model-value="settingsStore.displaySettings.hideContinueButton"
             @update:model-value="onHideContinueButtonChange"
             color="primary"
             keep-color
@@ -158,7 +235,11 @@
             <div class="setting-desc">{{ uiText.continueKeyBindingDesc }}</div>
           </div>
           <q-btn
-            :label="continueKeyBinding || uiText.pressKeyToBind"
+            :label="
+              continueKeyBinding ||
+              settingsStore.displaySettings.continueKeyBinding ||
+              uiText.pressKeyToBind
+            "
             color="primary"
             outline
             @click="startKeyBinding"
@@ -193,11 +274,11 @@
         <div class="info-grid">
           <div class="info-item">
             <span class="info-label">场景:</span>
-            <span class="info-value">{{ store.state.scene || '-' }}</span>
+            <span class="info-value">{{ engineStore.state.scene || '-' }}</span>
           </div>
           <div class="info-item">
             <span class="info-label">当前帧:</span>
-            <span class="info-value">{{ store.state.history?.length ?? 0 }}</span>
+            <span class="info-value">{{ engineStore.state.history?.length ?? 0 }}</span>
           </div>
         </div>
       </div>
@@ -206,31 +287,30 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted, onUnmounted } from 'vue';
+import { computed, ref, onMounted } from 'vue';
 import { useEngineStore } from 'stores/engine-store';
+import { useSettingsStore } from 'stores/settings-store';
 import { getI18nManager, getSupportedLocales, type SupportedLocale } from '../../engine/i18n';
 import { getVoiceManager } from '../../engine/i18n';
 
 defineProps<{ visible?: boolean }>();
 defineEmits<{ (e: 'close'): void }>();
 
-const store = useEngineStore();
+const engineStore = useEngineStore();
+const settingsStore = useSettingsStore();
 const i18n = getI18nManager();
 const voiceManager = getVoiceManager();
 
-// 语言设置（用于触发 computed 重新计算）
-const currentLocale = ref<SupportedLocale>(i18n.getLocale());
+// 直接使用 settingsStore 中的语言设置
+const currentLocale = computed(() => settingsStore.localeSettings.currentLocale);
 const supportedLocales = getSupportedLocales();
 
-// 监听语言变化以更新 UI
-let unlistenLocale: (() => void) | null = null;
 onMounted(() => {
-  unlistenLocale = i18n.onLocaleChange(() => {
-    currentLocale.value = i18n.getLocale();
-  });
-});
-onUnmounted(() => {
-  unlistenLocale?.();
+  // 初始化浏览器语音列表
+  loadBrowserVoices();
+
+  // 初始化按键绑定设置
+  continueKeyBinding.value = settingsStore.displaySettings.continueKeyBinding;
 });
 
 // i18n 翻译函数
@@ -280,49 +360,20 @@ const uiText = computed(() => {
   };
 });
 
+// 语音相关 computed 属性
+const voiceEnabled = computed(() => settingsStore.voiceSettings.enabled);
+const ttsEngine = computed(() => settingsStore.voiceSettings.engine);
+const typewriterEnabled = computed(() => settingsStore.textSettings.typewriterEnabled);
+
 // 语音设置
-const voiceEnabled = ref(false);
-const ttsEngine = ref<'browser' | 'openai' | 'azure' | 'google'>('browser');
-const browserVoice = ref('');
 const browserVoices = ref<SpeechSynthesisVoice[]>([]);
 
-// 开发模式设置
-const isDevMode = computed(() => store.devMode());
-
-// 对话框 diff 设置
-const DIALOG_DIFF_KEY = 'engine:dialogDiffEnabled';
-const dialogDiffEnabled = ref(localStorage.getItem(DIALOG_DIFF_KEY) !== 'false');
-// 读档后自动继续设置
-const AUTO_CONTINUE_AFTER_LOAD_KEY = 'engine:autoContinueAfterLoad';
-const autoContinueAfterLoad = ref(localStorage.getItem(AUTO_CONTINUE_AFTER_LOAD_KEY) === 'true'); // 默认禁用
-
-// 隐藏继续按钮设置
-const HIDE_CONTINUE_BUTTON_KEY = 'engine:hideContinueButton';
-const hideContinueButton = ref(localStorage.getItem(HIDE_CONTINUE_BUTTON_KEY) === 'true');
-
-// 继续按键绑定设置
-const CONTINUE_KEY_BINDING_KEY = 'engine:continueKeyBinding';
-const continueKeyBinding = ref(localStorage.getItem(CONTINUE_KEY_BINDING_KEY) || 'Enter');
+// 按键绑定设置
 const isBindingKey = ref(false);
+const continueKeyBinding = ref('');
 
-// 打字机效果设置
-const TYPEWRITER_ENABLED_KEY = 'engine:typewriterEnabled';
-const TEXT_SPEED_KEY = 'engine:textSpeed';
-const AUTO_SPEED_KEY = 'engine:autoSpeed';
-const typewriterEnabled = ref(localStorage.getItem(TYPEWRITER_ENABLED_KEY) !== 'false'); // 默认启用
-const textSpeed = ref(parseInt(localStorage.getItem(TEXT_SPEED_KEY) || '50', 10));
-const autoSpeed = ref(parseInt(localStorage.getItem(AUTO_SPEED_KEY) || '50', 10));
-
-// 初始化语音设置
-onMounted(() => {
-  const voiceSettings = voiceManager.getSettings();
-  voiceEnabled.value = voiceSettings.enabled;
-  ttsEngine.value = voiceSettings.engine;
-  browserVoice.value = voiceSettings.browserVoiceId || '';
-
-  // 加载浏览器语音列表
-  loadBrowserVoices();
-});
+// 开发模式设置
+const isDevMode = computed(() => engineStore.devMode());
 
 function loadBrowserVoices() {
   if ('speechSynthesis' in window) {
@@ -338,18 +389,17 @@ function loadBrowserVoices() {
 function onLocaleChange(event: Event) {
   const target = event.target as HTMLSelectElement;
   const locale = target.value as SupportedLocale;
-  i18n.setLocale(locale);
-  // 更新 currentLocale 以触发 computed 重新计算
-  currentLocale.value = locale;
+  // 通过 settings-store 设置语言，I18nManager 会自动同步
+  settingsStore.setCurrentLocale(locale);
   // 语言切换后，i18n 系统会自动重新翻译当前对话和历史记录
 }
 
 function onVoiceEnabledChange(value: boolean) {
-  voiceEnabled.value = value;
+  settingsStore.setVoiceEnabled(value);
   voiceManager.updateSettings({ enabled: value });
 
   // 如果启用语音，预加载语音列表
-  if (value && ttsEngine.value === 'browser') {
+  if (value && settingsStore.voiceSettings.engine === 'browser') {
     void voiceManager.preloadVoices();
   }
 }
@@ -357,7 +407,7 @@ function onVoiceEnabledChange(value: boolean) {
 function onTTSEngineChange(event: Event) {
   const target = event.target as HTMLSelectElement;
   const engine = target.value as 'browser' | 'openai' | 'azure' | 'google';
-  ttsEngine.value = engine;
+  settingsStore.setVoiceEngine(engine);
   voiceManager.updateSettings({ engine });
 
   if (engine === 'browser') {
@@ -368,76 +418,69 @@ function onTTSEngineChange(event: Event) {
 function onBrowserVoiceChange(event: Event) {
   const target = event.target as HTMLSelectElement;
   const voiceId = target.value;
-  browserVoice.value = voiceId;
   if (voiceId) {
+    settingsStore.setBrowserVoiceId(voiceId);
     voiceManager.updateSettings({ browserVoiceId: voiceId });
   }
   // 不更新 browserVoiceId 为空字符串，保持原值
 }
 
 function onDevModeChange(value: boolean) {
-  store.setDevMode(value);
+  engineStore.setDevMode(value);
 }
 
 function onDialogDiffChange(value: boolean) {
-  dialogDiffEnabled.value = value;
-  localStorage.setItem(DIALOG_DIFF_KEY, String(value));
-  window.dispatchEvent(
-    new CustomEvent('engine-setting-changed', {
-      detail: { key: DIALOG_DIFF_KEY, value: String(value) },
-    }),
-  );
+  settingsStore.setDialogDiffEnabled(value);
 }
 
 function onAutoContinueAfterLoadChange(value: boolean) {
-  autoContinueAfterLoad.value = value;
-  localStorage.setItem(AUTO_CONTINUE_AFTER_LOAD_KEY, String(value));
+  settingsStore.setAutoContinueAfterLoad(value);
 }
 
 // 打字机效果设置变化
 function onTypewriterEnabledChange(value: boolean) {
-  typewriterEnabled.value = value;
-  localStorage.setItem(TYPEWRITER_ENABLED_KEY, String(value));
-  window.dispatchEvent(
-    new CustomEvent('engine-setting-changed', {
-      detail: { key: TYPEWRITER_ENABLED_KEY, value: String(value) },
-    }),
-  );
+  settingsStore.setTypewriterEnabled(value);
 }
 
 function onTextSpeedChange(value: number | null) {
   if (value != null) {
-    textSpeed.value = value;
+    settingsStore.setTextSpeed(value);
   }
-  localStorage.setItem(TEXT_SPEED_KEY, String(textSpeed.value));
-  window.dispatchEvent(
-    new CustomEvent('engine-setting-changed', {
-      detail: { key: TEXT_SPEED_KEY, value: String(textSpeed.value) },
-    }),
-  );
 }
 
 function onAutoSpeedChange(value: number | null) {
   if (value != null) {
-    autoSpeed.value = value;
+    settingsStore.setAutoSpeed(value);
   }
-  localStorage.setItem(AUTO_SPEED_KEY, String(value));
-  window.dispatchEvent(
-    new CustomEvent('engine-setting-changed', {
-      detail: { key: AUTO_SPEED_KEY, value: String(value) },
-    }),
-  );
 }
 
 function onHideContinueButtonChange(value: boolean) {
-  hideContinueButton.value = value;
-  localStorage.setItem(HIDE_CONTINUE_BUTTON_KEY, String(value));
-  // 使用 CustomEvent 替代 StorageEvent
-  window.dispatchEvent(
-    new CustomEvent('engine-setting-changed', {
-      detail: { key: HIDE_CONTINUE_BUTTON_KEY, value: String(value) },
-    }),
-  );
+  settingsStore.setHideContinueButton(value);
+}
+
+// 音量控制函数
+function onMasterVolumeChange(value: number | null) {
+  if (value != null) {
+    settingsStore.setMasterVolume(value);
+  }
+}
+
+function onBgmVolumeChange(value: number | null) {
+  if (value != null) {
+    settingsStore.setBgmVolume(value);
+  }
+}
+
+function onSfxVolumeChange(value: number | null) {
+  if (value != null) {
+    settingsStore.setSfxVolume(value);
+  }
+}
+
+function onVoiceVolumeChange(value: number | null) {
+  if (value != null) {
+    settingsStore.setVoiceVolume(value);
+  }
 }
 
 function startKeyBinding() {
@@ -445,13 +488,7 @@ function startKeyBinding() {
   const handler = (e: KeyboardEvent) => {
     e.preventDefault();
     continueKeyBinding.value = e.key;
-    localStorage.setItem(CONTINUE_KEY_BINDING_KEY, e.key);
-    // 使用 CustomEvent 替代 StorageEvent
-    window.dispatchEvent(
-      new CustomEvent('engine-setting-changed', {
-        detail: { key: CONTINUE_KEY_BINDING_KEY, value: e.key },
-      }),
-    );
+    settingsStore.setContinueKeyBinding(e.key);
     isBindingKey.value = false;
     window.removeEventListener('keydown', handler);
   };
@@ -467,13 +504,40 @@ function startKeyBinding() {
   transform: translateX(-50%);
   width: min(520px, calc(100% - 32px));
   max-height: 70vh;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
   background: rgba(0, 0, 0, 0.9);
   color: #fff;
   border-radius: 8px;
   padding: 16px;
   z-index: 1002;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+/* 自定义滚动条样式 */
+.settings-panel::-webkit-scrollbar {
+  width: 8px;
+}
+
+.settings-panel::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+
+.settings-panel::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.settings-panel::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+/* Firefox 滚动条样式 */
+.settings-panel {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.25) rgba(255, 255, 255, 0.05);
 }
 
 .settings-header {
@@ -625,6 +689,16 @@ function startKeyBinding() {
   align-items: center;
   gap: 12px;
   min-width: 200px;
+}
+
+.setting-slider-control :deep(.q-slider) {
+  display: flex;
+  align-items: center;
+}
+
+.setting-slider-control :deep(.q-slider__track) {
+  align-items: center;
+  display: flex;
 }
 
 .slider-value {

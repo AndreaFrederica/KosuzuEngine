@@ -10,8 +10,11 @@ export * from './types';
 export * from './I18nManager';
 export * from './VoiceManager';
 
+// 从 game/i18n 导出支持的语言列表（声明式定义）
+export { SUPPORTED_LOCALES } from '../../game/i18n';
+
 // 导入游戏特定的语言包（从 game 目录）
-import { getGameLocales } from '../../game/i18n';
+import { getGameLocales, SUPPORTED_LOCALES } from '../../game/i18n';
 
 import { getI18nManager } from './I18nManager';
 import type { SupportedLocale } from './types';
@@ -35,8 +38,11 @@ export function registerEngineStore(store: EngineStore) {
  * 在应用启动时调用此函数来注册所有语言包
  * 语言包从 game/i18n 目录加载
  */
-export function initI18n() {
+export async function initI18n() {
   const i18n = getI18nManager();
+
+  // 从 game/i18n 获取声明式定义的支持语言列表
+  i18n.setSupportedLocales(SUPPORTED_LOCALES);
 
   // 从 game/i18n 获取所有语言包
   const gameLocales = getGameLocales();
@@ -44,6 +50,13 @@ export function initI18n() {
   // 注册所有语言包
   for (const [locale, data] of Object.entries(gameLocales)) {
     i18n.registerTextTranslations(locale as SupportedLocale, data);
+  }
+
+  // 初始化与 settings-store 的同步
+  try {
+    await i18n.initSettingsSync();
+  } catch (e) {
+    console.warn('[i18n] 初始化 settings-store 同步失败:', e);
   }
 
   // 将 i18n 管理器保存到全局变量，供 BaseActor.say() 同步访问
@@ -103,14 +116,24 @@ function retranslateState() {
 }
 
 /**
- * 获取所有支持的语言列表
+ * 获取所有支持的语言列表（用于 UI 显示）
+ *
+ * 注意：声明的语言列表应该与 game/i18n 中的 SUPPORTED_LOCALES 保持同步
  */
 export function getSupportedLocales(): Array<{ code: SupportedLocale; name: string; nativeName: string }> {
-  return [
-    { code: 'zh-CN', name: 'Chinese (Simplified)', nativeName: '简体中文' },
-    { code: 'en-US', name: 'English (US)', nativeName: 'English' },
-    { code: 'ja-JP', name: 'Japanese', nativeName: '日本語' },
-  ];
+  return SUPPORTED_LOCALES.map((locale) => {
+    switch (locale) {
+      case 'zh-CN':
+        return { code: locale, name: 'Chinese (Simplified)', nativeName: '简体中文' };
+      case 'en-US':
+        return { code: locale, name: 'English (US)', nativeName: 'English' };
+      case 'ja-JP':
+        return { code: locale, name: 'Japanese', nativeName: '日本語' };
+      default:
+        // TypeScript 会确保永远不会到达这里
+        return { code: locale, name: '', nativeName: '' };
+    }
+  });
 }
 
 /**

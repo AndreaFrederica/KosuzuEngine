@@ -6,8 +6,6 @@
 
 import type { TTSConfig } from './types';
 
-const VOICE_STORAGE_KEY = 'kosuzu:voiceSettings';
-
 export interface VoiceSettings {
   enabled: boolean;
   engine: 'browser' | 'openai' | 'azure' | 'google';
@@ -19,18 +17,29 @@ export interface VoiceSettings {
 
 export class VoiceManager {
   private settings: VoiceSettings;
+  private settingsStore: {
+    voiceSettings: {
+      enabled: boolean;
+      engine: 'browser' | 'openai' | 'azure' | 'google';
+      browserVoiceId: string;
+    };
+    setVoiceEnabled: (value: boolean) => void;
+    setVoiceEngine: (value: 'browser' | 'openai' | 'azure' | 'google') => void;
+    setBrowserVoiceId: (value: string) => void;
+  } | null = null;
 
   constructor() {
-    // 从 localStorage 读取语音设置
-    const saved = localStorage.getItem(VOICE_STORAGE_KEY);
-    if (saved) {
-      try {
-        this.settings = JSON.parse(saved);
-      } catch {
-        this.settings = this.getDefaultSettings();
-      }
-    } else {
-      this.settings = this.getDefaultSettings();
+    this.settings = this.getDefaultSettings();
+    // 延迟初始化 settingsStore 以避免循环依赖
+    void this.initSettingsStore();
+  }
+
+  private async initSettingsStore() {
+    try {
+      const { useSettingsStore } = await import('../../stores/settings-store');
+      this.settingsStore = useSettingsStore();
+    } catch (e) {
+      console.warn('[VoiceManager] 初始化 settingsStore 失败:', e);
     }
   }
 
@@ -44,15 +53,35 @@ export class VoiceManager {
     };
   }
 
-  /** 获取语音设置 */
+  /** 获取语音设置（从 settings-store 读取） */
   getSettings(): VoiceSettings {
+    if (this.settingsStore) {
+      return {
+        enabled: this.settingsStore.voiceSettings.enabled,
+        engine: this.settingsStore.voiceSettings.engine,
+        browserVoiceId: this.settingsStore.voiceSettings.browserVoiceId,
+        rate: this.settings.rate,
+        pitch: this.settings.pitch,
+        volume: this.settings.volume,
+      };
+    }
     return { ...this.settings };
   }
 
-  /** 更新语音设置 */
+  /** 更新语音设置（更新到 settings-store） */
   updateSettings(updates: Partial<VoiceSettings>) {
     this.settings = { ...this.settings, ...updates };
-    localStorage.setItem(VOICE_STORAGE_KEY, JSON.stringify(this.settings));
+    if (this.settingsStore) {
+      if (updates.enabled !== undefined) {
+        this.settingsStore.setVoiceEnabled(updates.enabled);
+      }
+      if (updates.engine !== undefined) {
+        this.settingsStore.setVoiceEngine(updates.engine);
+      }
+      if (updates.browserVoiceId !== undefined) {
+        this.settingsStore.setBrowserVoiceId(updates.browserVoiceId);
+      }
+    }
   }
 
   /** 播放预录制的语音文件 */

@@ -58,6 +58,7 @@ import AudioChannelsPanel from '../engine/render/AudioChannelsPanel.vue';
 import AudioPrompt from '../engine/render/AudioPrompt.vue';
 import { onMounted, ref, watch } from 'vue';
 import { useEngineStore } from 'stores/engine-store';
+import { useSettingsStore } from 'stores/settings-store';
 import {
   loadPersistedProgress,
   loadPersistedState,
@@ -80,6 +81,7 @@ const showSettings = ref(false);
 const showAudioChannels = ref(false);
 const slMode = ref<'save' | 'load'>('save');
 const store = useEngineStore();
+const settingsStore = useSettingsStore();
 const router = useRouter();
 
 // 从场景注册表获取场景ID列表
@@ -102,7 +104,7 @@ async function runSceneLoop(initialScene: SceneName, initialFrame: number) {
     });
 
     // 检查是否启用了读档后自动继续
-    const autoContinue = localStorage.getItem('engine:autoContinueAfterLoad') === 'true';
+    const autoContinue = settingsStore.displaySettings.autoContinueAfterLoad;
     if (autoContinue) {
       console.log('[runSceneLoop] 读档后自动继续已启用，延迟触发继续');
       // 延迟一小段时间让用户看到恢复的状态，然后自动继续
@@ -223,7 +225,7 @@ onMounted(() => {
   initNavigation(navigateCallback);
 
   // 初始化 i18n 国际化系统
-  initI18n();
+  void initI18n();
   // 注册 engine store，用于语言切换时重新翻译
   registerEngineStore(store);
 
@@ -268,7 +270,7 @@ watch(
       });
 
       // 检查是否启用了读档后自动继续
-      const autoContinue = localStorage.getItem('engine:autoContinueAfterLoad') === 'true';
+      const autoContinue = settingsStore.displaySettings.autoContinueAfterLoad;
       if (autoContinue) {
         console.log('[watch loadToken] 读档后自动继续已启用，延迟触发继续');
         // 延迟一小段时间让用户看到恢复的状态，然后自动继续

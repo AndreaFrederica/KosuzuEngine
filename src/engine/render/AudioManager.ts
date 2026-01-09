@@ -31,9 +31,38 @@ export class AudioManager {
   // 默认 BGM 通道（向后兼容）
   private readonly BGM_CHANNEL = 'default_bgm';
 
+  // 全局音量控制 (0-1)
+  private masterVolume: number = 0.8;
+  private bgmVolume: number = 0.8;
+  private sfxVolume: number = 0.8;
+  private voiceVolume: number = 1.0;
+
   constructor() {
     // 创建默认 BGM 通道
     this.createChannel(this.BGM_CHANNEL, { type: 'bgm', loop: true });
+
+    // 从 settings-store 加载音量设置（延迟初始化避免循环依赖）
+    void this.initSettingsSync();
+  }
+
+  private async initSettingsSync() {
+    try {
+      const { useSettingsStore } = await import('../../stores/settings-store');
+      const settingsStore = useSettingsStore();
+
+      // 加载初始音量
+      this.masterVolume = settingsStore.audioSettings.masterVolume / 100;
+      this.bgmVolume = settingsStore.audioSettings.bgmVolume / 100;
+      this.sfxVolume = settingsStore.audioSettings.sfxVolume / 100;
+      this.voiceVolume = settingsStore.audioSettings.voiceVolume / 100;
+
+      // Pinia store 已经通过 watch 自动持久化，不需要在这里监听变化
+      // settingsStore 的 setMasterVolume/setBgmVolume/setSfxVolume/setVoiceVolume 方法
+      // 会调用 applyAudioVolume 来更新 AudioManager 的音量
+      console.log('[AudioManager] 已连接到 settings-store');
+    } catch (e) {
+      console.warn('[AudioManager] 初始化 settingsStore 同步失败:', e);
+    }
   }
 
   /**
@@ -54,10 +83,15 @@ export class AudioManager {
       }
     }
 
+    // 计算初始音量（应用全局和分类音量）
+    const typeVolume = channelConfig.volume ?? 1.0;
+    const initialVolume = this.calculateVolume(channelConfig.type, typeVolume);
+    channelConfig.volume = initialVolume;
+
     const channel = new AudioChannel(id, channelConfig);
     this.channels.set(id, channel);
 
-    console.log(`[AudioManager] 创建音频通道: ${id}, 类型: ${channelConfig.type}`);
+    console.log(`[AudioManager] 创建音频通道: ${id}, 类型: ${channelConfig.type}, 初始音量: ${initialVolume.toFixed(2)}`);
     return id;
   }
 
@@ -184,7 +218,7 @@ export class AudioManager {
    */
   async play(name: string, options?: { fadeIn?: number; volume?: number }): Promise<boolean> {
     const fadeInMs = options?.fadeIn ?? 0;
-    const volume = options?.volume ?? 1.0;
+    const baseVolume = options?.volume ?? 1.0;
 
     const audioPath = `/assets/audio/bgm/${name}`;
     console.log('[AudioManager] 播放背景音乐:', name, '淡入:', fadeInMs);
@@ -192,7 +226,8 @@ export class AudioManager {
     // 确保 BGM 通道存在（热重载后可能被清空）
     if (!this.channels.has(this.BGM_CHANNEL)) {
       console.log('[AudioManager] BGM 通道不存在，重新创建');
-      this.createChannel(this.BGM_CHANNEL, { type: 'bgm', loop: true, volume });
+      const initialVolume = this.calculateVolume('bgm', baseVolume);
+      this.createChannel(this.BGM_CHANNEL, { type: 'bgm', loop: true, volume: initialVolume });
     }
 
     const channel = this.channels.get(this.BGM_CHANNEL);
@@ -201,8 +236,9 @@ export class AudioManager {
       return false;
     }
 
-    // 设置音量
-    void channel.setVolume(volume);
+    // 计算并设置最终音量
+    const finalVolume = this.calculateVolume('bgm', baseVolume);
+    void channel.setVolume(finalVolume);
 
     return await this.playOnChannel(this.BGM_CHANNEL, audioPath, fadeInMs);
   }
@@ -310,6 +346,103 @@ export class AudioManager {
       return false;
     }
     return await channel.setVolume(volume, fadeMs);
+  }
+
+  /**
+   * 计算通道的最终音量（应用全局和分类音量）
+   * @param channelType 通道类型
+   * @param baseVolume 基础音量 (0-1)
+   * @returns 最终音量 (0-1)
+   */
+  private calculateVolume(channelType: 'bgm' | 'sfx' | 'voice', baseVolume = 1.0): number {
+    let typeVolume = 1.0;
+    switch (channelType) {
+      case 'bgm':
+        typeVolume = this.bgmVolume;
+        break;
+      case 'sfx':
+        typeVolume = this.sfxVolume;
+        break;
+      case 'voice':
+        typeVolume = this.voiceVolume;
+        break;
+    }
+    return this.masterVolume * typeVolume * baseVolume;
+  }
+
+  /**
+   * 设置主音量
+   * @param volume 音量 (0-1)
+   */
+  setMasterVolume(volume: number) {
+    this.masterVolume = Math.max(0, Math.min(1, volume));
+    this.applyVolumeToAllChannels();
+  }
+
+  /**
+   * 设置 BGM 音量
+   * @param volume 音量 (0-1)
+   */
+  setBgmVolume(volume: number) {
+    this.bgmVolume = Math.max(0, Math.min(1, volume));
+    this.applyVolumeToAllChannels();
+  }
+
+  /**
+   * 设置音效音量
+   * @param volume 音量 (0-1)
+   */
+  setSfxVolume(volume: number) {
+    this.sfxVolume = Math.max(0, Math.min(1, volume));
+    this.applyVolumeToAllChannels();
+  }
+
+  /**
+   * 设置语音音量
+   * @param volume 音量 (0-1)
+   */
+  setVoiceVolume(volume: number) {
+    this.voiceVolume = Math.max(0, Math.min(1, volume));
+    this.applyVolumeToAllChannels();
+  }
+
+  /**
+   * 获取主音量
+   */
+  getMasterVolume(): number {
+    return this.masterVolume;
+  }
+
+  /**
+   * 获取 BGM 音量
+   */
+  getBgmVolume(): number {
+    return this.bgmVolume;
+  }
+
+  /**
+   * 获取音效音量
+   */
+  getSfxVolume(): number {
+    return this.sfxVolume;
+  }
+
+  /**
+   * 获取语音音量
+   */
+  getVoiceVolume(): number {
+    return this.voiceVolume;
+  }
+
+  /**
+   * 应用当前音量设置到所有通道
+   */
+  private applyVolumeToAllChannels() {
+    for (const channel of this.channels.values()) {
+      const status = channel.getStatus();
+      const finalVolume = this.calculateVolume(status.type, status.volume);
+      void channel.setVolume(finalVolume);
+    }
   }
 
   /**
