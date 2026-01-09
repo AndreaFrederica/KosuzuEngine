@@ -6,6 +6,9 @@
 import { gameRegistry } from './registry';
 import type { GameConfig } from './config';
 
+// 重新导出 gameRegistry
+export { gameRegistry };
+
 // 导出游戏组件
 export { default as SplashScreen } from './ui/SplashScreen.vue';
 export { default as TitleScreen } from './ui/TitleScreen.vue';
@@ -20,10 +23,10 @@ export { default as EndScreen } from './ui/EndScreen.vue';
 export function registerDefaultGame() {
   const config: GameConfig = {
     id: 'demo-vn',
-    name: 'DEMO VN',
+    name: 'Kosuzu Engine Demo',
     subtitle: 'A Visual Novel Demo',
     version: 'v0.1.0',
-    author: 'KosuzuEngine',
+    author: 'AndreaFrederica',
     description: 'KosuzuEngine 演示游戏',
     titleBackground: '/assets/bg/haikei_01_sora/jpg/sora_01.jpg',
   };

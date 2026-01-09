@@ -36,20 +36,38 @@
 
       <!-- 底部信息 -->
       <div class="footer-info">
-        <br />
         <!-- BGM 控制组件 -->
         <div v-if="hasInteracted" class="bgm-control-wrapper">
           <BGMControl />
         </div>
         <!-- 引擎品牌 (Logo + 文字) -->
         <div class="engine-brand">
-          <div class="engine-logo-section">
+          <!-- 引擎Logo和文字链接 -->
+          <a
+            href="https://github.com/AndreaFrederica/KosuzuEngine"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="engine-link"
+          >
             <img src="/logo.png" alt="KosuzuEngine" class="engine-logo" />
-          </div>
-          <div class="engine-text">
-            <p class="engine-info">Powered by</p>
-            <p class="engine-name">KosuzuEngine</p>
-          </div>
+            <div class="engine-text">
+              <p class="engine-info">Powered by</p>
+              <p class="engine-name">KosuzuEngine</p>
+            </div>
+          </a>
+          <!-- Patchouli 链接 -->
+          <a
+            href="https://github.com/AndreaFrederica/patchouli.js"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="patchouli-link"
+          >
+            <img src="/patchouli.js_logo.png" alt="patchouli.js" class="patchouli-icon" />
+            <div class="patchouli-text">
+              <p class="patchouli-info">inside</p>
+              <p class="patchouli-name">Patchouli.js</p>
+            </div>
+          </a>
           <!-- GitHub 链接 -->
           <a
             href="https://github.com/AndreaFrederica/KosuzuEngine"
@@ -95,7 +113,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { gameRegistry } from '../registry';
+import { gameRegistry } from '../index'; // 从 index 导入，确保 registerDefaultGame() 被执行
 import { bgm } from '../../engine/audio';
 import { audioManager } from '../../engine/render/AudioManager';
 import BGMControl from '../../engine/render/BGMControl.vue';
@@ -105,14 +123,8 @@ const showGallery = ref(false);
 const hasInteracted = ref(false);
 const showPrompt = ref(true);
 
-// 获取游戏配置
-const gameConfig = gameRegistry.getDefault() || {
-  name: 'KosuzuEngineDemo',
-  subtitle: 'A Visual Novel Demo',
-  version: 'v0.1.0',
-  author: 'AndreaFrederica',
-  titleBackground: '/assets/bg/haikei_01_sora/jpg/sora_01.jpg',
-};
+// 获取游戏配置（使用非空断言，因为 registerDefaultGame() 会在模块导入时执行）
+const gameConfig = gameRegistry.getDefault()!;
 
 // 使用自定义背景或默认背景
 const backgroundImage = gameConfig.titleBackground || '/assets/bg/haikei_01_sora/jpg/sora_01.jpg';
@@ -255,7 +267,7 @@ function goToSettings() {
 .menu-buttons {
   display: flex;
   flex-direction: column;
-  gap: clamp(8px, 2vw, 16px);
+  gap: clamp(4px, 1vw, 8px);
   width: 100%;
   max-width: 400px;
   animation: menu-fade-in 1s ease-out 0.5s both;
@@ -263,29 +275,74 @@ function goToSettings() {
 
 .menu-button {
   position: relative;
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
-  padding: clamp(12px, 3vw, 16px) clamp(24px, 5vw, 32px);
+  background: transparent;
+  border: none;
+  padding: clamp(6px, 1.5vw, 10px) clamp(24px, 5vw, 32px);
+  padding-left: 0;
   color: #fff;
   cursor: pointer;
   transition: all 0.3s ease;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
+  overflow: visible;
+}
+
+.menu-button::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.3) 50%,
+    transparent 100%
+  );
+  transition: all 0.3s ease;
+}
+
+.menu-button::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  right: 50%;
+  bottom: 0;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.6);
+  opacity: 0;
+  transition: all 0.3s ease;
+  transform: translateX(-50%);
 }
 
 .menu-button:hover {
-  background: rgba(255, 255, 255, 0.2);
-  border-color: rgba(255, 255, 255, 0.4);
-  transform: translateX(clamp(5px, 1.5vw, 10px));
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  /* 取消右移效果，保持居中 */
+  transform: none;
+}
+
+.menu-button:hover::before {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.5) 50%,
+    transparent 100%
+  );
+}
+
+.menu-button:hover::after {
+  opacity: 1;
+  left: 0;
+  right: 0;
+  transform: none;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
 }
 
 .menu-button:active {
-  transform: translateX(clamp(5px, 1.5vw, 10px)) scale(0.98);
+  /* 仅在按下时做轻微缩放，不偏移位置 */
+  transform: scale(0.98);
 }
 
 .button-text {
@@ -324,6 +381,22 @@ function goToSettings() {
   align-items: center;
 }
 
+.engine-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 10px;
+  color: rgba(255, 255, 255, 0.7);
+  text-decoration: none;
+  border-radius: 6px;
+  transition: all 0.3s ease;
+}
+
+.engine-link:hover {
+  color: rgba(255, 255, 255, 1);
+  background: rgba(255, 255, 255, 0.1);
+}
+
 .engine-logo {
   height: 50px;
   width: auto;
@@ -332,7 +405,7 @@ function goToSettings() {
   transition: opacity 0.3s ease;
 }
 
-.engine-logo:hover {
+.engine-link:hover .engine-logo {
   opacity: 1;
 }
 
@@ -348,7 +421,6 @@ function goToSettings() {
   margin: 0;
   opacity: 0.6;
   letter-spacing: 1px;
-  text-transform: uppercase;
 }
 
 .engine-name {
@@ -403,6 +475,74 @@ function goToSettings() {
 .github-text {
   font-size: 18px;
   font-weight: 500;
+}
+
+/* Patchouli 链接 */
+.patchouli-link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  margin-left: 12px;
+  color: rgba(255, 255, 255, 0.6);
+  text-decoration: none;
+  border-radius: 6px;
+  transition: all 0.3s ease;
+}
+
+.patchouli-link:hover {
+  color: rgba(255, 255, 255, 1);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.patchouli-icon {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  opacity: 0.9;
+  transition: opacity 0.3s ease;
+}
+
+.patchouli-link:hover .patchouli-icon {
+  opacity: 1;
+}
+
+.patchouli-link:hover .patchouli-name {
+  opacity: 1;
+}
+
+.patchouli-link:hover .patchouli-info {
+  opacity: 0.7;
+}
+
+.engine-link:hover .engine-name {
+  opacity: 1;
+}
+
+.engine-link:hover .engine-info {
+  opacity: 0.7;
+}
+
+.patchouli-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.patchouli-info {
+  font-size: 12px;
+  margin: 0;
+  opacity: 0.6;
+  letter-spacing: 1px;
+}
+
+.patchouli-name {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+  letter-spacing: 2px;
+  opacity: 0.9;
 }
 
 /* 图鉴面板 */
@@ -526,6 +666,10 @@ function goToSettings() {
     font-size: 10px;
   }
 
+  .engine-info {
+    font-size: 10px;
+  }
+
   .engine-name {
     font-size: 14px;
   }
@@ -546,6 +690,23 @@ function goToSettings() {
 
   .github-text {
     font-size: 11px;
+  }
+
+  .patchouli-link {
+    padding: 6px 10px;
+  }
+
+  .patchouli-icon {
+    width: 16px;
+    height: 16px;
+  }
+
+  .patchouli-info {
+    font-size: 10px;
+  }
+
+  .patchouli-name {
+    font-size: 14px;
   }
 }
 

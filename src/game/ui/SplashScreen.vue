@@ -1,8 +1,30 @@
 <template>
   <div class="splash-screen">
     <div class="logo-slide engine-logo-slide">
-      <img src="/logo.png" alt="KosuzuEngine Logo" class="engine-logo" />
-      <h2 class="engine-name">KosuzuEngine</h2>
+      <a
+        href="https://github.com/AndreaFrederica/KosuzuEngine"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="engine-link"
+      >
+        <img src="/logo.png" alt="KosuzuEngine Logo" class="engine-logo" />
+        <div class="engine-text">
+          <p class="engine-info">Powered by</p>
+          <h2 class="engine-name">KosuzuEngine</h2>
+        </div>
+      </a>
+      <a
+        href="https://github.com/AndreaFrederica/patchouli.js"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="patchouli-link"
+      >
+        <img src="/patchouli.js_logo.png" alt="patchouli.js" class="patchouli-icon" />
+        <div class="patchouli-text">
+          <p class="patchouli-info">inside</p>
+          <h2 class="patchouli-name">Patchouli.js</h2>
+        </div>
+      </a>
     </div>
 
     <div class="logo-slide game-logo-slide">
@@ -15,12 +37,12 @@
 <script setup lang="ts">
 import { onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { gameRegistry } from '../registry';
+import { gameRegistry } from '../index'; // 从 index 导入，确保 registerDefaultGame() 被执行
 
 const router = useRouter();
 
-// 获取游戏配置
-const gameConfig = gameRegistry.getDefault() || { name: 'DEMO VN', subtitle: 'Visual Novel Demo' };
+// 获取游戏配置（使用非空断言，因为 registerDefaultGame() 会在模块导入时执行）
+const gameConfig = gameRegistry.getDefault()!;
 
 async function runSplashSequence() {
   // 引擎 Logo: 淡入 1s -> 停留 1.5s -> 淡出 0.8s
@@ -110,20 +132,120 @@ onMounted(() => {
   }
 }
 
+.engine-logo-slide {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 40px;
+  animation: engine-logo-fade 3.3s ease-in-out forwards;
+}
+
 .engine-logo {
-  width: 200px;
-  height: 200px;
+  width: 80px;
+  height: 80px;
   object-fit: contain;
   filter: drop-shadow(0 4px 20px rgba(0, 0, 0, 0.2));
+  opacity: 0.9;
 }
 
 .engine-name {
-  margin-top: 30px;
-  font-size: 28px;
-  font-weight: 300;
+  font-size: 24px;
+  font-weight: 600;
   color: #333;
-  letter-spacing: 8px;
-  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin: 0;
+  opacity: 0.9;
+  line-height: 1;
+}
+
+.engine-info {
+  font-size: 14px;
+  color: #666;
+  letter-spacing: 1px;
+  margin: 0;
+  opacity: 0.6;
+  line-height: 1;
+}
+
+.engine-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  transition: all 0.3s ease;
+}
+
+.engine-link:hover .engine-logo {
+  opacity: 1;
+}
+
+.engine-link:hover .engine-name {
+  opacity: 1;
+}
+
+.engine-link:hover .engine-info {
+  opacity: 0.8;
+}
+
+.engine-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0; /* tighten vertical spacing between the two lines */
+}
+
+.patchouli-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  transition: all 0.3s ease;
+}
+
+.patchouli-icon {
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+  opacity: 0.9;
+}
+
+.patchouli-name {
+  font-size: 24px;
+  font-weight: 600;
+  color: #333;
+  letter-spacing: 0.5px;
+  margin: 0;
+  opacity: 0.9;
+  line-height: 1;
+}
+
+.patchouli-info {
+  font-size: 14px;
+  color: #666;
+  letter-spacing: 1px;
+  margin: 0;
+  opacity: 0.6;
+  text-transform: lowercase;
+  line-height: 1;
+}
+
+.patchouli-link:hover .patchouli-icon {
+  opacity: 1;
+}
+
+.patchouli-link:hover .patchouli-name {
+  opacity: 1;
+}
+
+.patchouli-link:hover .patchouli-info {
+  opacity: 0.8;
+}
+
+.patchouli-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0; /* tighten vertical spacing between the two lines */
 }
 
 .game-logo-slide {
