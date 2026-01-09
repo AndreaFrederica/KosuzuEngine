@@ -36,6 +36,11 @@
 
       <!-- 底部信息 -->
       <div class="footer-info">
+        <br />
+        <!-- BGM 控制组件 -->
+        <div v-if="hasInteracted" class="bgm-control-wrapper">
+          <BGMControl />
+        </div>
         <!-- 引擎品牌 (Logo + 文字) -->
         <div class="engine-brand">
           <div class="engine-logo-section">
@@ -46,6 +51,7 @@
             <p class="engine-name">KosuzuEngine</p>
           </div>
         </div>
+
         <!-- 游戏版本信息 -->
         <div class="game-version">
           <p class="version-info">{{ gameConfig.version }}</p>
@@ -53,6 +59,13 @@
         </div>
       </div>
     </div>
+
+    <!-- 点击提示 -->
+    <Transition name="prompt-fade">
+      <div v-if="showPrompt" class="click-prompt">
+        <span class="prompt-text">点击屏幕开始</span>
+      </div>
+    </Transition>
 
     <!-- 图鉴面板 -->
     <div v-if="showGallery" class="gallery-panel" @click="showGallery = false">
@@ -71,17 +84,19 @@ import { useRouter } from 'vue-router';
 import { gameRegistry } from '../registry';
 import { bgm } from '../../engine/audio';
 import { audioManager } from '../../engine/render/AudioManager';
+import BGMControl from '../../engine/render/BGMControl.vue';
 
 const router = useRouter();
 const showGallery = ref(false);
 const hasInteracted = ref(false);
+const showPrompt = ref(true);
 
 // 获取游戏配置
 const gameConfig = gameRegistry.getDefault() || {
-  name: 'DEMO VN',
+  name: 'KosuzuEngineDemo',
   subtitle: 'A Visual Novel Demo',
   version: 'v0.1.0',
-  author: 'KosuzuEngine',
+  author: 'AndreaFrederica',
   titleBackground: '/assets/bg/haikei_01_sora/jpg/sora_01.jpg',
 };
 
@@ -92,16 +107,22 @@ const backgroundImage = gameConfig.titleBackground || '/assets/bg/haikei_01_sora
 function handleFirstInteraction() {
   if (!hasInteracted.value) {
     hasInteracted.value = true;
-    // 解锁音频并播放
-    audioManager.handleUserInteraction();
-    void bgm.play('ようこそ.ogg', { fadeIn: 1000 });
+
+    // 先淡出提示
+    showPrompt.value = false;
+
+    // 延迟解锁音频并播放，等待淡出完成
+    setTimeout(() => {
+      audioManager.handleUserInteraction();
+      void bgm.play('ようこそ.ogg', { fadeIn: 1000 });
+    }, 300);
   }
 }
 
 // 组件挂载时添加全局交互监听
 onMounted(() => {
   const events = ['click', 'keydown', 'touchstart', 'mousedown'] as const;
-  events.forEach(event => {
+  events.forEach((event) => {
     window.addEventListener(event, handleFirstInteraction, { once: true, passive: true });
   });
 });
@@ -109,7 +130,7 @@ onMounted(() => {
 // 组件卸载时移除监听
 onUnmounted(() => {
   const events = ['click', 'keydown', 'touchstart', 'mousedown'] as const;
-  events.forEach(event => {
+  events.forEach((event) => {
     window.removeEventListener(event, handleFirstInteraction);
   });
 });
@@ -586,5 +607,80 @@ function goToSettings() {
   .button-text-en {
     font-size: clamp(9px, 1.5vw, 10px);
   }
+}
+
+/* 点击提示 */
+.click-prompt {
+  position: fixed;
+  bottom: 15%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  animation: prompt-fade-in 1s ease-out;
+}
+
+/* Vue Transition 淡入淡出 */
+.prompt-fade-enter-active {
+  animation: prompt-fade-in 1s ease-out;
+}
+
+.prompt-fade-leave-active {
+  animation: prompt-fade-out 0.3s ease-out forwards;
+}
+
+.prompt-fade-enter-from,
+.prompt-fade-leave-to {
+  opacity: 0;
+}
+
+.prompt-text {
+  display: inline-block;
+  padding: 12px 24px;
+  font-size: clamp(16px, 3vw, 20px);
+  color: rgba(255, 255, 255, 0.9);
+  letter-spacing: 3px;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(10px);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  animation: prompt-blink 2s ease-in-out infinite;
+}
+
+@keyframes prompt-fade-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+@keyframes prompt-fade-out {
+  from {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-10px);
+  }
+}
+
+@keyframes prompt-blink {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* BGM 控制组件容器 */
+.bgm-control-wrapper {
+  position: relative;
+  z-index: 50;
 }
 </style>

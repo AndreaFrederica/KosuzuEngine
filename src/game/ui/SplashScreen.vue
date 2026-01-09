@@ -30,11 +30,11 @@ async function runSplashSequence() {
   await sleep(3800);
 
   // 跳转到主界面
-  void router.replace('/title');
+  void router.push('/title');
 }
 
 function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 onMounted(() => {
