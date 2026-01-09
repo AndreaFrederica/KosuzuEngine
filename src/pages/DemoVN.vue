@@ -154,19 +154,26 @@ async function startSceneFromFrame(
   await store.dispatch('scene', sceneName);
 
   // 动态导入场景函数以获取最新的脚本内容（支持热重载）
-  // 使用 URL 参数强制绕过 Vite 的模块缓存
-  const timestamp = Date.now();
-  console.log('[HMR DemoVN] 动态导入脚本，时间戳:', timestamp);
+  // 只在开发环境使用 URL 参数强制绕过 Vite 的模块缓存
+  const isDev = import.meta.env.DEV;
+  const timestamp = isDev ? Date.now() : '';
+  if (isDev) {
+    console.log('[HMR DemoVN] 动态导入脚本，时间戳:', timestamp);
+  }
   let result: string | void;
 
   // 根据场景名称动态导入对应模块
   if (sceneName === 'scene1' || sceneName === 'scene2') {
-    const mod = await import(`../game/scenes/scene1?t=${timestamp}`);
-    console.log('[HMR DemoVN] scene1 模块导入完成');
+    const mod = await import(`../game/scenes/scene1${isDev ? `?t=${timestamp}` : ''}`);
+    if (isDev) {
+      console.log('[HMR DemoVN] scene1 模块导入完成');
+    }
     result = await (sceneName === 'scene1' ? mod.scene1() : mod.scene2());
   } else if (sceneName === 'sceneEffects') {
-    const mod = await import(`../game/scenes/sceneEffects?t=${timestamp}`);
-    console.log('[HMR DemoVN] sceneEffects 模块导入完成');
+    const mod = await import(`../game/scenes/sceneEffects${isDev ? `?t=${timestamp}` : ''}`);
+    if (isDev) {
+      console.log('[HMR DemoVN] sceneEffects 模块导入完成');
+    }
     result = await mod.sceneEffects();
   } else {
     // 使用场景注册表获取场景函数
