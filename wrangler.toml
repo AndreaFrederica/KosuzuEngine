@@ -1,4 +1,4 @@
 # Cloudflare Pages 配置（纯静态）
 # wrangler.toml
-name = 'KosuzuEngineDemo'
+name = "kosuzuenginedemo"
 pages_build_output_dir = "dist/spa"
