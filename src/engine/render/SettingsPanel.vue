@@ -91,6 +91,30 @@
             keep-color
           />
         </div>
+        <div class="setting-item">
+          <div class="setting-info">
+            <div class="setting-label">{{ uiText.hideContinueButton }}</div>
+            <div class="setting-desc">{{ uiText.hideContinueButtonDesc }}</div>
+          </div>
+          <q-toggle
+            :model-value="hideContinueButton"
+            @update:model-value="onHideContinueButtonChange"
+            color="primary"
+            keep-color
+          />
+        </div>
+        <div class="setting-item">
+          <div class="setting-info">
+            <div class="setting-label">{{ uiText.continueKeyBinding }}</div>
+            <div class="setting-desc">{{ uiText.continueKeyBindingDesc }}</div>
+          </div>
+          <q-btn
+            :label="continueKeyBinding || uiText.pressKeyToBind"
+            color="primary"
+            outline
+            @click="startKeyBinding"
+          />
+        </div>
       </div>
 
       <!-- 开发模式设置 -->
@@ -191,6 +215,11 @@ const uiText = computed(() => {
     dialogDiffDesc: t('dialog_diff_desc'),
     autoContinueAfterLoad: t('auto_continue_after_load'),
     autoContinueAfterLoadDesc: t('auto_continue_after_load_desc'),
+    hideContinueButton: t('hide_continue_button'),
+    hideContinueButtonDesc: t('hide_continue_button_desc'),
+    continueKeyBinding: t('continue_key_binding'),
+    continueKeyBindingDesc: t('continue_key_binding_desc'),
+    pressKeyToBind: t('press_key_to_bind'),
   };
 });
 
@@ -209,6 +238,15 @@ const dialogDiffEnabled = ref(localStorage.getItem(DIALOG_DIFF_KEY) !== 'false')
 // 读档后自动继续设置
 const AUTO_CONTINUE_AFTER_LOAD_KEY = 'engine:autoContinueAfterLoad';
 const autoContinueAfterLoad = ref(localStorage.getItem(AUTO_CONTINUE_AFTER_LOAD_KEY) === 'true'); // 默认禁用
+
+// 隐藏继续按钮设置
+const HIDE_CONTINUE_BUTTON_KEY = 'engine:hideContinueButton';
+const hideContinueButton = ref(localStorage.getItem(HIDE_CONTINUE_BUTTON_KEY) === 'true');
+
+// 继续按键绑定设置
+const CONTINUE_KEY_BINDING_KEY = 'engine:continueKeyBinding';
+const continueKeyBinding = ref(localStorage.getItem(CONTINUE_KEY_BINDING_KEY) || 'Enter');
+const isBindingKey = ref(false);
 // 初始化语音设置
 onMounted(() => {
   const voiceSettings = voiceManager.getSettings();
@@ -290,6 +328,35 @@ function onDialogDiffChange(value: boolean) {
 function onAutoContinueAfterLoadChange(value: boolean) {
   autoContinueAfterLoad.value = value;
   localStorage.setItem(AUTO_CONTINUE_AFTER_LOAD_KEY, String(value));
+}
+
+function onHideContinueButtonChange(value: boolean) {
+  hideContinueButton.value = value;
+  localStorage.setItem(HIDE_CONTINUE_BUTTON_KEY, String(value));
+  // 使用 CustomEvent 替代 StorageEvent
+  window.dispatchEvent(
+    new CustomEvent('engine-setting-changed', {
+      detail: { key: HIDE_CONTINUE_BUTTON_KEY, value: String(value) },
+    }),
+  );
+}
+
+function startKeyBinding() {
+  isBindingKey.value = true;
+  const handler = (e: KeyboardEvent) => {
+    e.preventDefault();
+    continueKeyBinding.value = e.key;
+    localStorage.setItem(CONTINUE_KEY_BINDING_KEY, e.key);
+    // 使用 CustomEvent 替代 StorageEvent
+    window.dispatchEvent(
+      new CustomEvent('engine-setting-changed', {
+        detail: { key: CONTINUE_KEY_BINDING_KEY, value: e.key },
+      }),
+    );
+    isBindingKey.value = false;
+    window.removeEventListener('keydown', handler);
+  };
+  window.addEventListener('keydown', handler);
 }
 </script>
 

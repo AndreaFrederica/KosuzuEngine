@@ -103,6 +103,21 @@ const enUS: LocaleData = {
   '@ui:auto_continue_after_load_desc': {
     text: 'When enabled, automatically execute continue once after loading save',
   },
+  '@ui:hide_continue_button': {
+    text: 'Hide Continue Button',
+  },
+  '@ui:hide_continue_button_desc': {
+    text: 'Hide the continue button in dialog box, click blank area or use key to continue',
+  },
+  '@ui:continue_key_binding': {
+    text: 'Continue Key',
+  },
+  '@ui:continue_key_binding_desc': {
+    text: 'Press this key to continue game dialog',
+  },
+  '@ui:press_key_to_bind': {
+    text: 'Press any key to bind...',
+  },
 
   // ==================== Scene 1 - Dialog Text ====================
   '今天天气真好。': {

@@ -27,7 +27,7 @@
     </div>
 
     <!-- 对话框主体 -->
-    <div class="dialog-content q-pa-md relative-position">
+    <div class="dialog-content q-pa-md relative-position" @click="onContentClick">
       <!-- 说话人名字 -->
       <div class="text-bold q-mb-sm text-subtitle1">{{ speaker }}</div>
 
@@ -36,15 +36,15 @@
       <div v-else class="dialog-text">{{ text }}</div>
 
       <!-- 继续按钮 (右下角) -->
-      <div class="absolute-bottom-right q-pa-md">
-        <q-btn label="继续" color="primary" @click="onNext" />
+      <div v-if="!hideContinueButton" class="absolute-bottom-right q-pa-md">
+        <q-btn label="继续" color="primary" @click.stop="onNext" />
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, ref, watch, onMounted, onUnmounted } from 'vue';
 import { useQuasar } from 'quasar';
 import { useEngineStore } from 'stores/engine-store';
 
@@ -55,6 +55,14 @@ const dialog = computed(() => store.dialog());
 // 文本 diff 设置（从 localStorage 读取）
 const DIALOG_DIFF_KEY = 'engine:dialogDiffEnabled';
 const dialogDiffEnabled = ref(localStorage.getItem(DIALOG_DIFF_KEY) !== 'false');
+
+// 隐藏继续按钮设置
+const HIDE_CONTINUE_BUTTON_KEY = 'engine:hideContinueButton';
+const hideContinueButton = ref(localStorage.getItem(HIDE_CONTINUE_BUTTON_KEY) === 'true');
+
+// 继续按键绑定设置
+const CONTINUE_KEY_BINDING_KEY = 'engine:continueKeyBinding';
+const continueKeyBinding = ref(localStorage.getItem(CONTINUE_KEY_BINDING_KEY) || 'Enter');
 
 // 用于 diff 检查的稳定引用
 const stableSpeaker = ref('');
@@ -98,6 +106,27 @@ watch(
   },
 );
 
+// 监听设置变化事件（使用 CustomEvent 因为 StorageEvent 只在跨标签页时触发）
+function onSettingChanged(e: Event) {
+  const customEvent = e as CustomEvent<{ key: string; value: string }>;
+  if (customEvent.detail?.key === HIDE_CONTINUE_BUTTON_KEY) {
+    hideContinueButton.value = customEvent.detail.value === 'true';
+  }
+  if (customEvent.detail?.key === CONTINUE_KEY_BINDING_KEY) {
+    continueKeyBinding.value = customEvent.detail.value || 'Enter';
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', onKeyDown);
+  window.addEventListener('engine-setting-changed', onSettingChanged);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', onKeyDown);
+  window.removeEventListener('engine-setting-changed', onSettingChanged);
+});
+
 const speaker = computed(() => stableSpeaker.value);
 const text = computed(() => stableText.value);
 const isHtml = computed(() => stableIsHtml.value);
@@ -124,6 +153,21 @@ const emit = defineEmits<{
 
 function onNext() {
   store.advance();
+}
+
+// 点击对话框内容区域继续（仅当隐藏按钮时）
+function onContentClick() {
+  if (hideContinueButton.value) {
+    onNext();
+  }
+}
+
+// 监听按键事件
+function onKeyDown(e: KeyboardEvent) {
+  if (e.key === continueKeyBinding.value) {
+    e.preventDefault();
+    onNext();
+  }
 }
 
 // 快速存档确认对话框

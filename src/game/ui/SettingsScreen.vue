@@ -195,6 +195,34 @@
                 />
               </div>
             </div>
+            <div class="setting-item">
+              <div class="setting-info">
+                <div class="setting-label">隐藏继续按钮</div>
+                <div class="setting-desc">Hide Continue Button</div>
+              </div>
+              <div class="setting-control">
+                <q-toggle
+                  :model-value="hideContinueButton"
+                  @update:model-value="setHideContinueButton"
+                  color="positive"
+                  size="md"
+                />
+              </div>
+            </div>
+            <div class="setting-item">
+              <div class="setting-info">
+                <div class="setting-label">继续按键</div>
+                <div class="setting-desc">Continue Key: {{ continueKeyBinding }}</div>
+              </div>
+              <div class="setting-control">
+                <q-btn
+                  :label="isBindingKey ? '按下任意键...' : '设置按键'"
+                  color="primary"
+                  outline
+                  @click="startKeyBinding"
+                />
+              </div>
+            </div>
           </div>
         </div>
 
@@ -236,10 +264,15 @@ const voiceEnabled = ref(false);
 const skipRead = ref(false);
 const dialogDiffEnabled = ref(true);
 const autoContinueAfterLoad = ref(false);
+const hideContinueButton = ref(false);
+const continueKeyBinding = ref('Enter');
+const isBindingKey = ref(false);
 
 // 对话框 diff 设置 key
 const DIALOG_DIFF_KEY = 'engine:dialogDiffEnabled';
 const AUTO_CONTINUE_AFTER_LOAD_KEY = 'engine:autoContinueAfterLoad';
+const HIDE_CONTINUE_BUTTON_KEY = 'engine:hideContinueButton';
+const CONTINUE_KEY_BINDING_KEY = 'engine:continueKeyBinding';
 
 // 加载设置
 onMounted(() => {
@@ -248,6 +281,10 @@ onMounted(() => {
   dialogDiffEnabled.value = localStorage.getItem(DIALOG_DIFF_KEY) !== 'false';
   // 加载读档后自动继续设置
   autoContinueAfterLoad.value = localStorage.getItem(AUTO_CONTINUE_AFTER_LOAD_KEY) === 'true';
+  // 加载隐藏继续按钮设置
+  hideContinueButton.value = localStorage.getItem(HIDE_CONTINUE_BUTTON_KEY) === 'true';
+  // 加载继续按键绑定设置
+  continueKeyBinding.value = localStorage.getItem(CONTINUE_KEY_BINDING_KEY) || 'Enter';
 });
 
 function loadSettings() {
@@ -265,14 +302,20 @@ function loadSettings() {
       skipRead.value = parsed.skipRead ?? false;
       dialogDiffEnabled.value = parsed.dialogDiffEnabled ?? true;
       autoContinueAfterLoad.value = parsed.autoContinueAfterLoad ?? false;
+      hideContinueButton.value = parsed.hideContinueButton ?? false;
+      continueKeyBinding.value = parsed.continueKeyBinding ?? 'Enter';
     } catch {
       // 使用默认值
     }
   }
-  // 同步对话框 diff 设置到专用 key
+  // 同步对话框 diff 设置到专用key
   dialogDiffEnabled.value = localStorage.getItem(DIALOG_DIFF_KEY) !== 'false';
   // 同步读档后自动继续设置到专用 key
   autoContinueAfterLoad.value = localStorage.getItem(AUTO_CONTINUE_AFTER_LOAD_KEY) === 'true';
+  // 同步隐藏继续按钮设置到专用 key
+  hideContinueButton.value = localStorage.getItem(HIDE_CONTINUE_BUTTON_KEY) === 'true';
+  // 同步继续按键绑定设置到专用 key
+  continueKeyBinding.value = localStorage.getItem(CONTINUE_KEY_BINDING_KEY) || 'Enter';
 }
 
 function saveSettings() {
@@ -287,6 +330,8 @@ function saveSettings() {
     voiceEnabled: voiceEnabled.value,
     skipRead: skipRead.value,
     dialogDiffEnabled: dialogDiffEnabled.value,
+    hideContinueButton: hideContinueButton.value,
+    continueKeyBinding: continueKeyBinding.value,
   };
   localStorage.setItem('game_settings', JSON.stringify(settings));
 }
@@ -359,6 +404,38 @@ function setAutoContinueAfterLoad(value: boolean) {
   saveSettings();
 }
 
+function setHideContinueButton(value: boolean) {
+  hideContinueButton.value = value;
+  localStorage.setItem(HIDE_CONTINUE_BUTTON_KEY, String(value));
+  // 使用 CustomEvent 替代 StorageEvent，因为 StorageEvent 只在跨标签页时触发
+  window.dispatchEvent(
+    new CustomEvent('engine-setting-changed', {
+      detail: { key: HIDE_CONTINUE_BUTTON_KEY, value: String(value) },
+    }),
+  );
+  // 立即更新到 game_settings
+  saveSettings();
+}
+
+function startKeyBinding() {
+  isBindingKey.value = true;
+  const handler = (e: KeyboardEvent) => {
+    e.preventDefault();
+    continueKeyBinding.value = e.key;
+    localStorage.setItem(CONTINUE_KEY_BINDING_KEY, e.key);
+    // 使用 CustomEvent 替代 StorageEvent
+    window.dispatchEvent(
+      new CustomEvent('engine-setting-changed', {
+        detail: { key: CONTINUE_KEY_BINDING_KEY, value: e.key },
+      }),
+    );
+    isBindingKey.value = false;
+    window.removeEventListener('keydown', handler);
+    saveSettings();
+  };
+  window.addEventListener('keydown', handler);
+}
+
 function resetToDefaults() {
   textSpeed.value = 50;
   autoSpeed.value = 50;
@@ -370,9 +447,24 @@ function resetToDefaults() {
   skipRead.value = false;
   dialogDiffEnabled.value = true;
   autoContinueAfterLoad.value = false;
+  hideContinueButton.value = false;
+  continueKeyBinding.value = 'Enter';
   // 同步到专用 key
   localStorage.setItem(DIALOG_DIFF_KEY, 'true');
   localStorage.setItem(AUTO_CONTINUE_AFTER_LOAD_KEY, 'false');
+  localStorage.setItem(HIDE_CONTINUE_BUTTON_KEY, 'false');
+  localStorage.setItem(CONTINUE_KEY_BINDING_KEY, 'Enter');
+  // 派发自定义事件通知 DialogBox
+  window.dispatchEvent(
+    new CustomEvent('engine-setting-changed', {
+      detail: { key: HIDE_CONTINUE_BUTTON_KEY, value: 'false' },
+    }),
+  );
+  window.dispatchEvent(
+    new CustomEvent('engine-setting-changed', {
+      detail: { key: CONTINUE_KEY_BINDING_KEY, value: 'Enter' },
+    }),
+  );
   saveSettings();
 }
 

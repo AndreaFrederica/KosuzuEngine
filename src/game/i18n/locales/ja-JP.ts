@@ -102,6 +102,21 @@ const jaJP: LocaleData = {
   '@ui:auto_continue_after_load_desc': {
     text: '有効にすると、セーブデータをロードした後に自動的に一度継続を実行します',
   },
+  '@ui:hide_continue_button': {
+    text: '継続ボタンを非表示',
+  },
+  '@ui:hide_continue_button_desc': {
+    text: 'ダイアログボックスの継続ボタンを非表示にし、空白エリアをクリックまたはキーを使用して継続',
+  },
+  '@ui:continue_key_binding': {
+    text: '継続キー',
+  },
+  '@ui:continue_key_binding_desc': {
+    text: 'このキーを押してゲームダイアログを継続',
+  },
+  '@ui:press_key_to_bind': {
+    text: 'キーを押してバインド...',
+  },
   // ==================== シーン1 - 会話テキスト ====================
   '今天天气真好。': {
     text: '今日は本当にいい天気ですね。',

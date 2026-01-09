@@ -103,6 +103,21 @@ const zhCN: LocaleData = {
   '@ui:auto_continue_after_load_desc': {
     text: '开启后，读档恢复时自动执行一次继续操作',
   },
+  '@ui:hide_continue_button': {
+    text: '隐藏继续按钮',
+  },
+  '@ui:hide_continue_button_desc': {
+    text: '隐藏对话框中的继续按钮，点击空白区域或使用按键继续游戏',
+  },
+  '@ui:continue_key_binding': {
+    text: '继续按键',
+  },
+  '@ui:continue_key_binding_desc': {
+    text: '按下此键继续游戏对话',
+  },
+  '@ui:press_key_to_bind': {
+    text: '按下任意键进行绑定...',
+  },
 
   // ==================== 场景1 - 对话文本 ====================
   '今天天气真好。': {
