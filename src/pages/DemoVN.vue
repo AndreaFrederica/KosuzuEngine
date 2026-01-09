@@ -91,6 +91,21 @@ async function runSceneLoop(initialScene: SceneName, initialFrame: number) {
   if (store.shouldSkipScript?.()) {
     console.log('[runSceneLoop] 跳过脚本执行，直接从保存状态恢复');
     store.clearSkipScript?.();
+    // 设置恢复回调，当用户点击"继续"时从当前帧开始执行脚本
+    defaultRuntime.setResumeCallback(() => {
+      console.log('[resumeCallback] 用户点击继续，从当前帧恢复脚本执行');
+      void runSceneLoop(initialScene, initialFrame);
+    });
+
+    // 检查是否启用了读档后自动继续
+    const autoContinue = localStorage.getItem('engine:autoContinueAfterLoad') === 'true';
+    if (autoContinue) {
+      console.log('[runSceneLoop] 读档后自动继续已启用，延迟触发继续');
+      // 延迟一小段时间让用户看到恢复的状态，然后自动继续
+      setTimeout(() => {
+        store.advance();
+      }, 300);
+    }
     return; // 不执行脚本，状态已在 load() 中通过 hydrate 恢复
   }
 
@@ -236,6 +251,30 @@ watch(
     const scene = (p.scene && validSceneIds.has(p.scene) ? p.scene : 'scene1') as SceneName; // eslint-disable-line @typescript-eslint/no-unnecessary-type-assertion
     const frame = typeof p.frame === 'number' ? p.frame : 0;
 
+    // 检查是否应该跳过脚本执行（直接从保存状态恢复）
+    // 与 runSceneLoop 的逻辑保持一致
+    if (store.shouldSkipScript?.()) {
+      console.log('[watch loadToken] 跳过脚本执行，直接从保存状态恢复');
+      store.clearSkipScript?.();
+      showDialog.value = true;
+      // 设置恢复回调，当用户点击"继续"时从当前帧开始执行脚本
+      defaultRuntime.setResumeCallback(() => {
+        console.log('[resumeCallback] 用户点击继续，从当前帧恢复脚本执行');
+        void runSceneLoop(scene, frame);
+      });
+
+      // 检查是否启用了读档后自动继续
+      const autoContinue = localStorage.getItem('engine:autoContinueAfterLoad') === 'true';
+      if (autoContinue) {
+        console.log('[watch loadToken] 读档后自动继续已启用，延迟触发继续');
+        // 延迟一小段时间让用户看到恢复的状态，然后自动继续
+        setTimeout(() => {
+          store.advance();
+        }, 300);
+      }
+      return; // 不执行脚本，状态已在 load() 中通过 hydrate 恢复
+    }
+
     showDialog.value = true;
     sceneLoopToken += 1;
     const token = sceneLoopToken;
@@ -300,7 +339,7 @@ function restartScene() {
 
   console.log('[HMR DemoVN] 重新运行场景', sceneName, '从帧', frame, '开始');
   showDialog.value = true;
-  void runSceneLoop(sceneName, frame);  // 保持进度
+  void runSceneLoop(sceneName, frame); // 保持进度
 };
 console.log('[HMR DemoVN] __reloadScene 函数已注册到 window 对象');
 
@@ -325,7 +364,7 @@ if (import.meta.hot) {
     }
 
     showDialog.value = true;
-    void runSceneLoop(sceneName, frame);  // 保持进度
+    void runSceneLoop(sceneName, frame); // 保持进度
   });
 }
 </script>

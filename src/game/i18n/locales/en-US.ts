@@ -88,6 +88,21 @@ const enUS: LocaleData = {
   '@ui:browser_voice': {
     text: 'Browser Voice',
   },
+  '@ui:display_settings': {
+    text: 'Display Settings',
+  },
+  '@ui:dialog_diff': {
+    text: 'Prevent Text Refresh',
+  },
+  '@ui:dialog_diff_desc': {
+    text: 'When enabled, identical text will not trigger re-rendering, improving visual experience',
+  },
+  '@ui:auto_continue_after_load': {
+    text: 'Auto Continue After Load',
+  },
+  '@ui:auto_continue_after_load_desc': {
+    text: 'When enabled, automatically execute continue once after loading save',
+  },
 
   // ==================== Scene 1 - Dialog Text ====================
   '今天天气真好。': {

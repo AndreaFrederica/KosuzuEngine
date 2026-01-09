@@ -167,6 +167,34 @@
                 />
               </div>
             </div>
+            <div class="setting-item">
+              <div class="setting-info">
+                <div class="setting-label">避免文本重复刷新</div>
+                <div class="setting-desc">Prevent Text Refresh</div>
+              </div>
+              <div class="setting-control">
+                <q-toggle
+                  :model-value="dialogDiffEnabled"
+                  @update:model-value="setDialogDiffEnabled"
+                  color="positive"
+                  size="md"
+                />
+              </div>
+            </div>
+            <div class="setting-item">
+              <div class="setting-info">
+                <div class="setting-label">读档后自动继续</div>
+                <div class="setting-desc">Auto Continue After Load</div>
+              </div>
+              <div class="setting-control">
+                <q-toggle
+                  :model-value="autoContinueAfterLoad"
+                  @update:model-value="setAutoContinueAfterLoad"
+                  color="positive"
+                  size="md"
+                />
+              </div>
+            </div>
           </div>
         </div>
 
@@ -175,9 +203,7 @@
           <button class="footer-button reset-button" @click="resetToDefaults">
             恢复默认 / Reset
           </button>
-          <button class="footer-button save-button" @click="goBack">
-            确定 / OK
-          </button>
+          <button class="footer-button save-button" @click="goBack">确定 / OK</button>
         </div>
       </div>
     </div>
@@ -208,10 +234,20 @@ const sfxVolume = ref(80);
 const voiceVolume = ref(100);
 const voiceEnabled = ref(false);
 const skipRead = ref(false);
+const dialogDiffEnabled = ref(true);
+const autoContinueAfterLoad = ref(false);
+
+// 对话框 diff 设置 key
+const DIALOG_DIFF_KEY = 'engine:dialogDiffEnabled';
+const AUTO_CONTINUE_AFTER_LOAD_KEY = 'engine:autoContinueAfterLoad';
 
 // 加载设置
 onMounted(() => {
   loadSettings();
+  // 加载对话框 diff 设置
+  dialogDiffEnabled.value = localStorage.getItem(DIALOG_DIFF_KEY) !== 'false';
+  // 加载读档后自动继续设置
+  autoContinueAfterLoad.value = localStorage.getItem(AUTO_CONTINUE_AFTER_LOAD_KEY) === 'true';
 });
 
 function loadSettings() {
@@ -227,10 +263,16 @@ function loadSettings() {
       voiceVolume.value = parsed.voiceVolume ?? 100;
       voiceEnabled.value = parsed.voiceEnabled ?? false;
       skipRead.value = parsed.skipRead ?? false;
+      dialogDiffEnabled.value = parsed.dialogDiffEnabled ?? true;
+      autoContinueAfterLoad.value = parsed.autoContinueAfterLoad ?? false;
     } catch {
       // 使用默认值
     }
   }
+  // 同步对话框 diff 设置到专用 key
+  dialogDiffEnabled.value = localStorage.getItem(DIALOG_DIFF_KEY) !== 'false';
+  // 同步读档后自动继续设置到专用 key
+  autoContinueAfterLoad.value = localStorage.getItem(AUTO_CONTINUE_AFTER_LOAD_KEY) === 'true';
 }
 
 function saveSettings() {
@@ -241,8 +283,10 @@ function saveSettings() {
     bgmVolume: bgmVolume.value,
     sfxVolume: sfxVolume.value,
     voiceVolume: voiceVolume.value,
+    autoContinueAfterLoad: autoContinueAfterLoad.value,
     voiceEnabled: voiceEnabled.value,
     skipRead: skipRead.value,
+    dialogDiffEnabled: dialogDiffEnabled.value,
   };
   localStorage.setItem('game_settings', JSON.stringify(settings));
 }
@@ -293,6 +337,28 @@ function setSkipRead(value: boolean) {
   saveSettings();
 }
 
+function setDialogDiffEnabled(value: boolean) {
+  dialogDiffEnabled.value = value;
+  // 保存到专用 key
+  localStorage.setItem(DIALOG_DIFF_KEY, String(value));
+  // 触发 storage 事件通知其他组件
+  window.dispatchEvent(
+    new StorageEvent('storage', {
+      key: DIALOG_DIFF_KEY,
+      newValue: String(value),
+      storageArea: localStorage,
+    }),
+  );
+  saveSettings();
+}
+
+function setAutoContinueAfterLoad(value: boolean) {
+  autoContinueAfterLoad.value = value;
+  // 保存到专用 key
+  localStorage.setItem(AUTO_CONTINUE_AFTER_LOAD_KEY, String(value));
+  saveSettings();
+}
+
 function resetToDefaults() {
   textSpeed.value = 50;
   autoSpeed.value = 50;
@@ -302,6 +368,11 @@ function resetToDefaults() {
   voiceVolume.value = 100;
   voiceEnabled.value = false;
   skipRead.value = false;
+  dialogDiffEnabled.value = true;
+  autoContinueAfterLoad.value = false;
+  // 同步到专用 key
+  localStorage.setItem(DIALOG_DIFF_KEY, 'true');
+  localStorage.setItem(AUTO_CONTINUE_AFTER_LOAD_KEY, 'false');
   saveSettings();
 }
 

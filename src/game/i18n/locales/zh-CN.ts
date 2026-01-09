@@ -88,6 +88,21 @@ const zhCN: LocaleData = {
   '@ui:browser_voice': {
     text: '浏览器语音',
   },
+  '@ui:display_settings': {
+    text: '显示设置',
+  },
+  '@ui:dialog_diff': {
+    text: '避免文本重复刷新',
+  },
+  '@ui:dialog_diff_desc': {
+    text: '开启后，相同文本不会触发重新渲染，提升视觉体验',
+  },
+  '@ui:auto_continue_after_load': {
+    text: '读档后自动继续',
+  },
+  '@ui:auto_continue_after_load_desc': {
+    text: '开启后，读档恢复时自动执行一次继续操作',
+  },
 
   // ==================== 场景1 - 对话文本 ====================
   '今天天气真好。': {

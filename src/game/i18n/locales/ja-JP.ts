@@ -87,8 +87,21 @@ const jaJP: LocaleData = {
   },
   '@ui:browser_voice': {
     text: 'ブラウザ音声',
+  },  '@ui:display_settings': {
+    text: '表示設定',
   },
-
+  '@ui:dialog_diff': {
+    text: 'テキストの再描画を防ぐ',
+  },
+  '@ui:dialog_diff_desc': {
+    text: '有効にすると、同じテキストは再レンダリングされず、視覚体験が向上します',
+  },
+  '@ui:auto_continue_after_load': {
+    text: 'ロード後に自動継続',
+  },
+  '@ui:auto_continue_after_load_desc': {
+    text: '有効にすると、セーブデータをロードした後に自動的に一度継続を実行します',
+  },
   // ==================== シーン1 - 会話テキスト ====================
   '今天天气真好。': {
     text: '今日は本当にいい天気ですね。',

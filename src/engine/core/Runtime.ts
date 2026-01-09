@@ -27,6 +27,8 @@ export class Runtime {
   private readonly progressKey: string;
   // 开发模式回调，用于检查设置面板的开发模式开关
   private isDevModeCallback: () => boolean = () => import.meta.env?.DEV === true;
+  // 恢复后的继续回调，用于在 hydrate 后等待用户点击继续
+  private resumeCallback: (() => void) | null = null;
 
   constructor() {
     this.state = { ...initialEngineState };
@@ -311,6 +313,11 @@ export class Runtime {
     if (this.pendingSay !== null) {
       this.pendingSay.resolve({ ok: true });
       this.pendingSay = null;
+    } else if (this.resumeCallback !== null) {
+      // 如果没有 pendingSay 但有恢复回调，触发恢复回调
+      const callback = this.resumeCallback;
+      this.resumeCallback = null;
+      callback();
     }
   }
 
@@ -325,8 +332,19 @@ export class Runtime {
     this.replayPlan = null;
     this.replayHistory = null;
     this.choiceTrail = [];
+    this.resumeCallback = null;
     this.emit();
     this.persistProgress(this.currentFrame());
+  }
+
+  // 设置恢复后的继续回调
+  setResumeCallback(callback: (() => void) | null) {
+    this.resumeCallback = callback;
+  }
+
+  // 检查是否有恢复回调等待
+  hasResumeCallback(): boolean {
+    return this.resumeCallback !== null;
   }
 
   isRestoring() {

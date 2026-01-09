@@ -40,14 +40,61 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useEngineStore } from 'stores/engine-store';
 
 const store = useEngineStore();
 const dialog = computed(() => store.dialog());
-const speaker = computed(() => dialog.value.speaker ?? '');
-const text = computed(() => dialog.value.text ?? '');
-const isHtml = computed(() => dialog.value.html === true);
+
+// 文本 diff 设置（从 localStorage 读取）
+const DIALOG_DIFF_KEY = 'engine:dialogDiffEnabled';
+const dialogDiffEnabled = ref(localStorage.getItem(DIALOG_DIFF_KEY) !== 'false');
+
+// 用于 diff 检查的稳定引用
+const stableSpeaker = ref('');
+const stableText = ref('');
+const stableIsHtml = ref(false);
+
+// 监听 dialog 变化，只在内容真正改变时更新
+watch(
+  dialog,
+  (newDialog) => {
+    const newSpeaker = newDialog.speaker ?? '';
+    const newText = newDialog.text ?? '';
+    const newIsHtml = newDialog.html === true;
+
+    if (dialogDiffEnabled.value) {
+      // 启用 diff：只在内容变化时更新
+      if (stableSpeaker.value !== newSpeaker) {
+        stableSpeaker.value = newSpeaker;
+      }
+      if (stableText.value !== newText) {
+        stableText.value = newText;
+      }
+      if (stableIsHtml.value !== newIsHtml) {
+        stableIsHtml.value = newIsHtml;
+      }
+    } else {
+      // 禁用 diff：总是更新
+      stableSpeaker.value = newSpeaker;
+      stableText.value = newText;
+      stableIsHtml.value = newIsHtml;
+    }
+  },
+  { immediate: true, deep: true },
+);
+
+// 监听设置变化
+watch(
+  () => localStorage.getItem(DIALOG_DIFF_KEY),
+  (value) => {
+    dialogDiffEnabled.value = value !== 'false';
+  },
+);
+
+const speaker = computed(() => stableSpeaker.value);
+const text = computed(() => stableText.value);
+const isHtml = computed(() => stableIsHtml.value);
 const canBack = computed(() => store.canBack());
 
 // 定义事件，方便父组件（如 DemoVN.vue）监听处理

@@ -64,6 +64,35 @@
         </div>
       </div>
 
+      <!-- 显示设置 -->
+      <div class="setting-section">
+        <div class="section-title">{{ uiText.displaySettings }}</div>
+        <div class="setting-item">
+          <div class="setting-info">
+            <div class="setting-label">{{ uiText.dialogDiff }}</div>
+            <div class="setting-desc">{{ uiText.dialogDiffDesc }}</div>
+          </div>
+          <q-toggle
+            :model-value="dialogDiffEnabled"
+            @update:model-value="onDialogDiffChange"
+            color="primary"
+            keep-color
+          />
+        </div>
+        <div class="setting-item">
+          <div class="setting-info">
+            <div class="setting-label">{{ uiText.autoContinueAfterLoad }}</div>
+            <div class="setting-desc">{{ uiText.autoContinueAfterLoadDesc }}</div>
+          </div>
+          <q-toggle
+            :model-value="autoContinueAfterLoad"
+            @update:model-value="onAutoContinueAfterLoadChange"
+            color="primary"
+            keep-color
+          />
+        </div>
+      </div>
+
       <!-- 开发模式设置 -->
       <div class="setting-section">
         <div class="section-title">开发 / Development</div>
@@ -157,6 +186,11 @@ const uiText = computed(() => {
     ttsEngineOpenai: t('tts_engine_openai'),
     ttsEngineAzure: t('tts_engine_azure'),
     ttsEngineGoogle: t('tts_engine_google'),
+    displaySettings: t('display_settings'),
+    dialogDiff: t('dialog_diff'),
+    dialogDiffDesc: t('dialog_diff_desc'),
+    autoContinueAfterLoad: t('auto_continue_after_load'),
+    autoContinueAfterLoadDesc: t('auto_continue_after_load_desc'),
   };
 });
 
@@ -169,6 +203,12 @@ const browserVoices = ref<SpeechSynthesisVoice[]>([]);
 // 开发模式设置
 const isDevMode = computed(() => store.devMode());
 
+// 对话框 diff 设置
+const DIALOG_DIFF_KEY = 'engine:dialogDiffEnabled';
+const dialogDiffEnabled = ref(localStorage.getItem(DIALOG_DIFF_KEY) !== 'false');
+// 读档后自动继续设置
+const AUTO_CONTINUE_AFTER_LOAD_KEY = 'engine:autoContinueAfterLoad';
+const autoContinueAfterLoad = ref(localStorage.getItem(AUTO_CONTINUE_AFTER_LOAD_KEY) === 'true'); // 默认禁用
 // 初始化语音设置
 onMounted(() => {
   const voiceSettings = voiceManager.getSettings();
@@ -233,6 +273,23 @@ function onBrowserVoiceChange(event: Event) {
 
 function onDevModeChange(value: boolean) {
   store.setDevMode(value);
+}
+
+function onDialogDiffChange(value: boolean) {
+  dialogDiffEnabled.value = value;
+  localStorage.setItem(DIALOG_DIFF_KEY, String(value));
+  window.dispatchEvent(
+    new StorageEvent('storage', {
+      key: DIALOG_DIFF_KEY,
+      newValue: String(value),
+      storageArea: localStorage,
+    }),
+  );
+}
+
+function onAutoContinueAfterLoadChange(value: boolean) {
+  autoContinueAfterLoad.value = value;
+  localStorage.setItem(AUTO_CONTINUE_AFTER_LOAD_KEY, String(value));
 }
 </script>
 
