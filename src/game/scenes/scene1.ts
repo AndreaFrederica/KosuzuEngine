@@ -44,7 +44,7 @@ export async function scene1(): Promise<void | string> {
   await bgm.play('朝の人々.ogg', { fadeIn: 600 });
   await ctx.wait(400);
 
-  await sailorA.say('今天天气真好。');
+  await sailorA.say('今天天气真好。我们去散步吧！');
   await sailorA.dim(0.75, 220);
   await sailorB.focus(220);
   await ctx.wait(220);
@@ -79,9 +79,9 @@ export async function scene1(): Promise<void | string> {
   await sailorB.say('好险，差点就掉了。');
   await sailorA.say(`喂……你现在看见的系统时间是：${new Date().toLocaleString()}。`);
 
-  await neko.show({ x: 0.02, y: 1.22, layer: 3, scale: 0.5, opacity: 0 });
+  await neko.show({ x: 0.02, y: 0.42, layer: 3, scale: 0.5, opacity: 0 });
   await ctx.wait(60);
-  await neko.move({ x: 0.02, y: 1.22, layer: 3, scale: 0.5, opacity: 0.9 }, { duration: 240 });
+  await neko.move({ x: 0.12, y: 0.42, layer: 3, scale: 0.5, opacity: 0.9 }, { duration: 240 });
   await ctx.wait(240);
   await neko.pose('g');
   await neko.jump(240, { height: 0.04 });
@@ -125,6 +125,7 @@ export async function scene1(): Promise<void | string> {
   await sailorA.focus(200);
   await ctx.wait(200);
   await sailorA.say('太好了，那就出发吧。1');
+  await neko.hide();
 
   // 新朋友加入，切换到春日阳光主题音乐
   await bgm.stop({ fadeOut: 500 });

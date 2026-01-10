@@ -321,6 +321,12 @@ export class Runtime {
     }
   }
 
+  /**
+   * 从存档恢复运行时状态
+   * TODO: 目前的实现会在 hydrate 后调用 emit()，这会导致视觉闪烁。
+   *       这是为了方便开发时调试（能看到状态恢复的过程）。
+   *       未来应该优化：在跳过重放模式时不调用 emit()，直接静默恢复状态。
+   */
   hydrate(state: EngineState) {
     this.state = { ...state };
     this.pendingChoice = null;

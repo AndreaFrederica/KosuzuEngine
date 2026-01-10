@@ -6,23 +6,44 @@
       <div class="row items-center q-gutter-sm">
         <q-btn flat dense color="white" label="返回" :disable="!canBack" @click="$emit('back')" />
         <q-btn flat dense color="white" label="回到开头" @click="$emit('restart')" />
+        <!-- 自动模式开关 -->
+        <q-btn flat dense :color="autoMode ? 'positive' : 'white'" label="自动" @click="toggleAutoMode">
+          <q-icon v-if="autoMode" name="play_circle" class="q-mr-xs" />
+          <q-icon v-else name="play_circle_outline" class="q-mr-xs" />
+        </q-btn>
       </div>
 
       <!-- 右侧功能按钮 -->
       <div class="row q-gutter-sm">
         <q-btn flat dense color="white" label="设置" @click="$emit('open-settings')" />
         <q-btn flat dense color="white" label="音频" @click="$emit('open-audio')" />
-        <q-btn flat dense color="white" label="上下文" @click="$emit('open-context')" />
-        <q-btn flat dense color="white" label="调试" @click="$emit('open-debug')" />
-        <q-btn flat dense color="white" label="控制台" @click="$emit('open-console')" />
         <q-btn flat dense color="white" label="历史" @click="$emit('open-history')" />
         <q-btn flat dense color="white" label="存档" @click="$emit('open-save')" />
         <q-btn flat dense color="white" label="读档" @click="$emit('open-load')" />
-        <q-btn flat dense color="white" label="回到主屏幕" @click="$emit('back-to-title')" />
         <q-btn flat dense color="white" label="隐藏" @click.stop="$emit('hide')" />
         <q-btn flat dense color="primary" label="QS1" @click="quickSaveWithConfirm(1)" />
         <q-btn flat dense color="primary" label="QS2" @click="quickSaveWithConfirm(2)" />
         <q-btn flat dense color="primary" label="QS3" @click="quickSaveWithConfirm(3)" />
+        <!-- 更多选项（二级菜单） -->
+        <q-btn flat dense color="white" icon="more_vert">
+          <q-menu>
+            <q-list style="min-width: 120px">
+              <q-item clickable v-close-popup @click="$emit('open-context')">
+                <q-item-section>上下文</q-item-section>
+              </q-item>
+              <q-item clickable v-close-popup @click="$emit('open-debug')">
+                <q-item-section>调试</q-item-section>
+              </q-item>
+              <q-item clickable v-close-popup @click="$emit('open-console')">
+                <q-item-section>控制台</q-item-section>
+              </q-item>
+              <q-separator />
+              <q-item clickable v-close-popup @click="$emit('back-to-title')">
+                <q-item-section>回到主屏幕</q-item-section>
+              </q-item>
+            </q-list>
+          </q-menu>
+        </q-btn>
       </div>
     </div>
 
@@ -90,7 +111,26 @@ const typewriterEnabled = computed(() => settingsStore.textSettings.typewriterEn
 const textSpeed = computed(() => settingsStore.textSettings.textSpeed);
 const autoSpeed = computed(() => settingsStore.textSettings.autoSpeed);
 
+// 自动模式设置
+const autoMode = computed(() => settingsStore.displaySettings.autoMode);
+const autoWaitDelay = computed(() => settingsStore.displaySettings.autoWaitDelay);
+
+function toggleAutoMode() {
+  settingsStore.setAutoMode(!autoMode.value);
+}
+
 const typewriterRef = ref<TypewriterPublicApi | null>(null);
+
+// 自动模式延迟定时器
+let autoModeTimer: ReturnType<typeof setTimeout> | null = null;
+
+// 清除自动模式定时器
+function clearAutoModeTimer() {
+  if (autoModeTimer !== null) {
+    clearTimeout(autoModeTimer);
+    autoModeTimer = null;
+  }
+}
 
 // 监听 isTyping 状态变化
 watch(
@@ -115,6 +155,9 @@ watch(
     const newText = newDialog.text ?? '';
     const newIsHtml = newDialog.html === true;
 
+    // 当对话框内容变化时，清除之前的自动模式定时器
+    clearAutoModeTimer();
+
     if (dialogDiffEnabled.value) {
       // 启用 diff：只在内容变化时更新
       if (stableSpeaker.value !== newSpeaker) {
@@ -136,9 +179,15 @@ watch(
   { immediate: true, deep: true },
 );
 
-// 打字机完成回调（预留，可用于自动继续等功能）
+// 打字机完成回调
 function onTypewriterComplete() {
-  // 预留：可以在这里添加逻辑，例如自动继续
+  // 如果启用了自动模式，打字机完成后等待指定时间再自动继续
+  if (autoMode.value) {
+    clearAutoModeTimer();
+    autoModeTimer = setTimeout(() => {
+      store.advance();
+    }, autoWaitDelay.value);
+  }
 }
 
 onMounted(() => {
@@ -147,6 +196,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener('keydown', onKeyDown);
+  clearAutoModeTimer();
 });
 
 const speaker = computed(() => stableSpeaker.value);

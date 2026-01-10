@@ -257,6 +257,35 @@
             keep-color
           />
         </div>
+        <div class="setting-item">
+          <div class="setting-info">
+            <div class="setting-label">跳过重放</div>
+            <div class="setting-desc">读档时直接恢复状态，不重放动作</div>
+          </div>
+          <q-toggle
+            :model-value="settingsStore.displaySettings.skipReplay"
+            @update:model-value="onSkipReplayChange"
+            color="primary"
+            keep-color
+          />
+        </div>
+        <div class="setting-item">
+          <div class="setting-info">
+            <div class="setting-label">自动播放等待</div>
+            <div class="setting-desc">自动模式下打字完成后的等待时间（毫秒）/ Auto-play wait delay (ms)</div>
+          </div>
+          <div class="setting-slider-control">
+            <q-slider
+              :model-value="settingsStore.displaySettings.autoWaitDelay"
+              @update:model-value="onAutoWaitDelayChange"
+              :min="0"
+              :max="5000"
+              :step="100"
+              color="primary"
+            />
+            <span class="slider-value">{{ settingsStore.displaySettings.autoWaitDelay }}ms</span>
+          </div>
+        </div>
       </div>
 
       <!-- 开发模式设置 -->
@@ -472,6 +501,16 @@ function onHideContinueButtonChange(value: boolean) {
 
 function onShowTypewriterDebugChange(value: boolean) {
   settingsStore.setShowTypewriterDebug(value);
+}
+
+function onSkipReplayChange(value: boolean) {
+  settingsStore.setSkipReplay(value);
+}
+
+function onAutoWaitDelayChange(value: number | null) {
+  if (value != null) {
+    settingsStore.setAutoWaitDelay(value);
+  }
 }
 
 // 音量控制函数

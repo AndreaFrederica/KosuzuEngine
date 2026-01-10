@@ -329,6 +329,14 @@ export class CharacterActor extends BaseActor {
   motion(id: string) {
     return this.action({ type: 'motion', payload: { id } });
   }
+
+  /** 彻底析构角色，从引擎状态和绑定中移除所有相关数据 */
+  async destroy() {
+    // 清理 Runtime state 中的角色数据
+    await this.action({ type: 'destroy', payload: { actorId: this.id } });
+    // 清理 bindings 中的角色相关绑定
+    await this.action({ type: 'clearActorBindings', payload: { actorId: this.id } });
+  }
 }
 
 /** 背景演员类，用于控制场景背景的切换和效果 */
@@ -356,6 +364,11 @@ export class BackgroundActor extends BaseActor {
     const name = this.runtime.state.bg?.name;
     if (!name) return this.action({ type: 'wait', payload: ms });
     return this.switch(name, { effect: 'fade', duration: ms });
+  }
+
+  /** 彻底析构背景演员，从引擎状态中移除所有相关数据 */
+  async destroy() {
+    await this.action({ type: 'destroy', payload: { actorId: this.id } });
   }
 }
 
@@ -387,6 +400,11 @@ export class AudioActor extends BaseActor {
   /** 渐变调整音量 */
   fadeTo(volume: number, ms: number) {
     return this.action({ type: 'bgm', payload: { volume }, options: { duration: ms } });
+  }
+
+  /** 彻底析构音频演员，从引擎状态中移除所有相关数据 */
+  async destroy() {
+    await this.action({ type: 'destroy', payload: { actorId: this.id } });
   }
 }
 

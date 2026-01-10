@@ -7,8 +7,10 @@ import {
   enablePersistence,
   loadPersistedProgress,
   loadPersistedState,
+  clearPersistedProgress,
   type PersistedProgress,
 } from '../engine/core/Persistence';
+import { useSettingsStore } from './settings-store';
 
 const DEV_MODE_KEY = 'engine:devMode';
 
@@ -43,12 +45,29 @@ export const useEngineStore = defineStore('engine', () => {
 
   enablePersistence(runtime);
   const progress = loadPersistedProgress();
-  if (!progress) {
+  const settingsStore = useSettingsStore();
+  const skipReplay = settingsStore.displaySettings.skipReplay;
+
+  if (skipReplay && progress) {
+    // 跳过重播模式：清除自动重放进度，直接从最后保存的状态恢复
+    console.log('[engine-store] 跳过重播模式已开启，清除自动重放进度');
+    clearPersistedProgress();
     const restored = loadPersistedState();
     if (restored) {
+      console.log('[engine-store] 从持久化状态恢复（跳过重播）');
       runtime.hydrate(restored);
       Object.assign(state, restored);
     }
+  } else if (!progress) {
+    // 没有进度记录：从持久化状态恢复
+    const restored = loadPersistedState();
+    if (restored) {
+      console.log('[engine-store] 从持久化状态恢复');
+      runtime.hydrate(restored);
+      Object.assign(state, restored);
+    }
+  } else {
+    console.log('[engine-store] 从进度记录恢复（将重放操作）');
   }
   let prevActors: EngineState['actors'] = {};
   let prevBgName: string | undefined = undefined;
@@ -135,14 +154,25 @@ export const useEngineStore = defineStore('engine', () => {
       return runtime.save(slot);
     },
     load(slot: string) {
+      console.log('[load] ========== 开始 load ==========');
+      console.log('[load] slot =', slot);
+      console.log('[load] 调用栈:', new Error().stack);
+
       const key = `save:${slot}`;
       const raw = localStorage.getItem(key);
-      if (!raw) return { ok: false } as ActionResult<void>;
+      if (!raw) {
+        console.log('[load] 没有找到存档数据');
+        return { ok: false } as ActionResult<void>;
+      }
+
       const parsed = JSON.parse(raw) as
         | { meta?: { scene?: string; frame?: number; time?: number }; state?: EngineState; actions?: unknown; choices?: unknown }
         | EngineState;
       const savedState: EngineState | null =
         parsed && typeof parsed === 'object' && 'state' in parsed && parsed.state ? (parsed.state) : null;
+
+      console.log('[load] savedState.scene =', savedState?.scene);
+      console.log('[load] runtime.state.scene =', runtime.state.scene);
       const scene =
         (parsed && typeof parsed === 'object' && 'meta' in parsed && parsed.meta && typeof parsed.meta.scene === 'string'
           ? parsed.meta.scene
@@ -155,13 +185,22 @@ export const useEngineStore = defineStore('engine', () => {
       loadProgress.scene = scene;
       loadProgress.frame = frame;
 
+      // 检查是否设置了跳过重放
+      const settingsStore = useSettingsStore();
+      const skipReplay = settingsStore.displaySettings.skipReplay;
+
+      console.log('[load] skipReplay =', skipReplay);
+      console.log('[load] skipReplay type =', typeof skipReplay);
+
       if (
+        !skipReplay &&
         parsed &&
         typeof parsed === 'object' &&
         'actions' in parsed &&
         Array.isArray(parsed.actions) &&
         parsed.actions.length > 0
       ) {
+        console.log('[load] 进入重放模式');
         const time =
           'meta' in parsed && parsed.meta && typeof parsed.meta.time === 'number' ? parsed.meta.time : Date.now();
         const out: PersistedProgress = { scene, frame, time, actions: parsed.actions as ActorAction<unknown>[] };
@@ -169,8 +208,9 @@ export const useEngineStore = defineStore('engine', () => {
         loadReplay.value = out;
         skipScript.value = false; // 有 actions，需要重新执行脚本
       } else {
+        console.log('[load] 进入 hydrate 模式');
         loadReplay.value = null;
-        skipScript.value = true; // 没有 actions，直接恢复状态，跳过脚本执行
+        skipScript.value = true; // 跳过重放或没有 actions，直接恢复状态
         if (savedState) {
           runtime.hydrate(savedState);
         }

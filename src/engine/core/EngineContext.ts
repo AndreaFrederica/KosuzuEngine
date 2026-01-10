@@ -205,6 +205,8 @@ export const reducer: Reducer = (state, action) => {
     action.type === 'show' ||
     action.type === 'move' ||
     action.type === 'hide' ||
+    action.type === 'destroy' ||
+    action.type === 'clearActorBindings' ||
     action.type === 'pose' ||
     action.type === 'motion' ||
     action.type === 'fx'
@@ -257,6 +259,28 @@ export const reducer: Reducer = (state, action) => {
       delete (nextActors as Record<string, unknown>)[p.actorId];
       const idx = nextActorIds.indexOf(p.actorId);
       if (idx >= 0) nextActorIds.splice(idx, 1);
+    } else if (action.type === 'destroy') {
+      const p = action.payload as { actorId: string };
+      // 从 actors 和 actorIds 中删除（与 hide 相同）
+      delete (nextActors as Record<string, unknown>)[p.actorId];
+      const idx = nextActorIds.indexOf(p.actorId);
+      if (idx >= 0) nextActorIds.splice(idx, 1);
+    } else if (action.type === 'clearActorBindings') {
+      const p = action.payload as { actorId: string };
+      const nextBindings = { ...(next.bindings || {}) };
+      // 清理语音库绑定
+      if (nextBindings.voiceBanks && p.actorId in (nextBindings.voiceBanks || {})) {
+        delete (nextBindings.voiceBanks as Record<string, unknown>)[p.actorId];
+      }
+      // 清理 Sprite Atlas 绑定
+      if (nextBindings.spriteAtlases && p.actorId in (nextBindings.spriteAtlases || {})) {
+        delete (nextBindings.spriteAtlases as Record<string, unknown>)[p.actorId];
+      }
+      // 清理 Live2D 绑定
+      if (nextBindings.live2d && p.actorId in (nextBindings.live2d || {})) {
+        delete (nextBindings.live2d as Record<string, unknown>)[p.actorId];
+      }
+      next.bindings = nextBindings;
     } else if (action.type === 'pose') {
       const p = action.payload as { actorId: string; key: string };
       const prevA = nextActors[p.actorId];

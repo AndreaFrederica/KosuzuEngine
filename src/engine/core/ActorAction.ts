@@ -5,6 +5,8 @@ export type ActionType =
   | 'wait'
   | 'show'
   | 'hide'
+  | 'destroy'
+  | 'clearActorBindings'
   | 'move'
   | 'emote'
   | 'pose'

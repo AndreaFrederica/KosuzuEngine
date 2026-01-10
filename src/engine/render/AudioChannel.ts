@@ -46,6 +46,8 @@ export class AudioChannel {
   private channelId: string;
   private channelType: ChannelType;
   private loop: boolean = false;
+  // 保存剧本指定的基准音量（用于计算：masterVolume × typeVolume × baseVolume）
+  private baseVolume: number = 1.0;
 
   // 实时电平分析
   private audioContext: AudioContext | null = null;
@@ -60,10 +62,12 @@ export class AudioChannel {
     this.channelId = channelId;
     this.channelType = config.type;
     this.loop = config.loop ?? false;
+    // 保存剧本指定的基准音量
+    this.baseVolume = config.volume ?? 1.0;
 
     // 延迟初始化音频元素
     if (typeof window !== 'undefined' && typeof Audio !== 'undefined') {
-      this.initAudioElement(config.volume);
+      this.initAudioElement(this.baseVolume);
     }
   }
 
@@ -449,6 +453,13 @@ export class AudioChannel {
    */
   getType(): ChannelType {
     return this.channelType;
+  }
+
+  /**
+   * 获取基准音量（剧本指定的音量）
+   */
+  getBaseVolume(): number {
+    return this.baseVolume;
   }
 
   /**

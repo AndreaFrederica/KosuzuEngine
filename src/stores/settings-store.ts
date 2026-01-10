@@ -53,6 +53,12 @@ export interface DisplaySettings {
   continueKeyBinding: string;
   /** 显示打字机调试面板 */
   showTypewriterDebug: boolean;
+  /** 跳过重放（读档时直接恢复状态） */
+  skipReplay: boolean;
+  /** 自动模式（打字完成后自动继续） */
+  autoMode: boolean;
+  /** 自动播放等待延迟（毫秒） */
+  autoWaitDelay: number;
 }
 
 /** 其他设置 */
@@ -104,6 +110,9 @@ const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = {
   hideContinueButton: false,
   continueKeyBinding: 'Enter',
   showTypewriterDebug: false,
+  skipReplay: false,
+  autoMode: false,
+  autoWaitDelay: 1000,
 };
 
 const DEFAULT_OTHER_SETTINGS: OtherSettings = {
@@ -139,6 +148,9 @@ const STORAGE_KEYS = {
     HIDE_CONTINUE: 'engine:hideContinueButton',
     CONTINUE_KEY: 'engine:continueKeyBinding',
     TYPEWRITER_DEBUG: 'engine:showTypewriterDebug',
+    SKIP_REPLAY: 'engine:skipReplay',
+    AUTO_MODE: 'engine:autoMode',
+    AUTO_WAIT_DELAY: 'engine:autoWaitDelay',
   },
   OTHER: {
     SKIP_READ: 'game:skipRead',
@@ -222,6 +234,9 @@ export const useSettingsStore = defineStore('settings', () => {
     displaySettings.value.hideContinueButton = localStorage.getItem(STORAGE_KEYS.DISPLAY.HIDE_CONTINUE) === 'true';
     displaySettings.value.continueKeyBinding = localStorage.getItem(STORAGE_KEYS.DISPLAY.CONTINUE_KEY) || 'Enter';
     displaySettings.value.showTypewriterDebug = localStorage.getItem(STORAGE_KEYS.DISPLAY.TYPEWRITER_DEBUG) === 'true';
+    displaySettings.value.skipReplay = localStorage.getItem(STORAGE_KEYS.DISPLAY.SKIP_REPLAY) === 'true';
+    displaySettings.value.autoMode = localStorage.getItem(STORAGE_KEYS.DISPLAY.AUTO_MODE) === 'true';
+    displaySettings.value.autoWaitDelay = parseInt(localStorage.getItem(STORAGE_KEYS.DISPLAY.AUTO_WAIT_DELAY) || '1000', 10);
 
     // 尝试从旧格式加载
     loadFromLegacy('dialogDiffEnabled', (v) => displaySettings.value.dialogDiffEnabled = Boolean(v));
@@ -301,6 +316,9 @@ export const useSettingsStore = defineStore('settings', () => {
     localStorage.setItem(STORAGE_KEYS.DISPLAY.HIDE_CONTINUE, String(displaySettings.value.hideContinueButton));
     localStorage.setItem(STORAGE_KEYS.DISPLAY.CONTINUE_KEY, displaySettings.value.continueKeyBinding);
     localStorage.setItem(STORAGE_KEYS.DISPLAY.TYPEWRITER_DEBUG, String(displaySettings.value.showTypewriterDebug));
+    localStorage.setItem(STORAGE_KEYS.DISPLAY.SKIP_REPLAY, String(displaySettings.value.skipReplay));
+    localStorage.setItem(STORAGE_KEYS.DISPLAY.AUTO_MODE, String(displaySettings.value.autoMode));
+    localStorage.setItem(STORAGE_KEYS.DISPLAY.AUTO_WAIT_DELAY, String(displaySettings.value.autoWaitDelay));
   }
 
   function saveOtherSettings(): void {
@@ -414,19 +432,15 @@ export const useSettingsStore = defineStore('settings', () => {
     // 音频设置快捷方法
     setMasterVolume(value: number) {
       audioSettings.value.masterVolume = value;
-      void applyAudioVolume();
     },
     setBgmVolume(value: number) {
       audioSettings.value.bgmVolume = value;
-      void applyAudioVolume();
     },
     setSfxVolume(value: number) {
       audioSettings.value.sfxVolume = value;
-      void applyAudioVolume();
     },
     setVoiceVolume(value: number) {
       audioSettings.value.voiceVolume = value;
-      void applyAudioVolume();
     },
 
     // 语音设置快捷方法
@@ -460,6 +474,15 @@ export const useSettingsStore = defineStore('settings', () => {
       displaySettings.value.showTypewriterDebug = value;
       dispatchSettingChanged(STORAGE_KEYS.DISPLAY.TYPEWRITER_DEBUG, String(value));
     },
+    setSkipReplay(value: boolean) {
+      displaySettings.value.skipReplay = value;
+    },
+    setAutoMode(value: boolean) {
+      displaySettings.value.autoMode = value;
+    },
+    setAutoWaitDelay(value: number) {
+      displaySettings.value.autoWaitDelay = value;
+    },
 
     // 其他设置快捷方法
     setSkipRead(value: boolean) {
@@ -485,22 +508,4 @@ function dispatchSettingChanged(key: string, value: string): void {
       detail: { key, value },
     }),
   );
-}
-
-/**
- * 应用音频音量到 AudioManager（只在初始化时调用一次）
- */
-async function applyAudioVolume(): Promise<void> {
-  try {
-    const { audioManager } = await import('../engine/render/AudioManager');
-    const settings = useSettingsStore();
-
-    // 只设置一次初始音量，后续通过调用 AudioManager 的 set*Volume 方法来更新
-    audioManager.setMasterVolume(settings.audioSettings.masterVolume / 100);
-    audioManager.setBgmVolume(settings.audioSettings.bgmVolume / 100);
-    audioManager.setSfxVolume(settings.audioSettings.sfxVolume / 100);
-    audioManager.setVoiceVolume(settings.audioSettings.voiceVolume / 100);
-  } catch (e) {
-    console.warn('[SettingsStore] 应用音频音量失败:', e);
-  }
 }

@@ -239,6 +239,38 @@
                 />
               </div>
             </div>
+            <div class="setting-item">
+              <div class="setting-info">
+                <div class="setting-label">跳过重放</div>
+                <div class="setting-desc">读档时直接恢复状态，不重放动作</div>
+              </div>
+              <div class="setting-control">
+                <q-toggle
+                  :model-value="skipReplay"
+                  @update:model-value="setSkipReplay"
+                  color="positive"
+                  size="md"
+                />
+              </div>
+            </div>
+            <div class="setting-item">
+              <div class="setting-info">
+                <div class="setting-label">自动播放等待</div>
+                <div class="setting-desc">Auto-play Wait Delay (ms)</div>
+              </div>
+              <div class="setting-control">
+                <input
+                  type="range"
+                  min="0"
+                  max="5000"
+                  step="100"
+                  v-model.number="autoWaitDelay"
+                  @input="(e: Event) => setAutoWaitDelay((e.target as HTMLInputElement).valueAsNumber)"
+                  class="setting-slider"
+                />
+                <div class="setting-value">{{ autoWaitDelay }}ms</div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -288,6 +320,8 @@ const hideContinueButton = ref(settingsStore.displaySettings.hideContinueButton)
 const continueKeyBinding = ref(settingsStore.displaySettings.continueKeyBinding);
 const isBindingKey = ref(false);
 const typewriterEnabled = ref(settingsStore.textSettings.typewriterEnabled);
+const skipReplay = ref(settingsStore.displaySettings.skipReplay);
+const autoWaitDelay = ref(settingsStore.displaySettings.autoWaitDelay);
 
 function setTypewriterEnabled(value: boolean) {
   typewriterEnabled.value = value;
@@ -357,6 +391,18 @@ function setHideContinueButton(value: boolean) {
   settingsStore.setHideContinueButton(value);
 }
 
+function setSkipReplay(value: boolean) {
+  skipReplay.value = value;
+  settingsStore.setSkipReplay(value);
+}
+
+function setAutoWaitDelay(value: number | null) {
+  if (value != null) {
+    autoWaitDelay.value = value;
+    settingsStore.setAutoWaitDelay(value);
+  }
+}
+
 function startKeyBinding() {
   isBindingKey.value = true;
   const handler = (e: KeyboardEvent) => {
@@ -383,6 +429,8 @@ function resetToDefaults() {
   autoContinueAfterLoad.value = false;
   hideContinueButton.value = false;
   continueKeyBinding.value = 'Enter';
+  skipReplay.value = false;
+  autoWaitDelay.value = 1000;
 
   // 使用 settings-store 重置所有设置
   settingsStore.setTextSpeed(50);
@@ -397,6 +445,8 @@ function resetToDefaults() {
   settingsStore.setAutoContinueAfterLoad(false);
   settingsStore.setHideContinueButton(false);
   settingsStore.setContinueKeyBinding('Enter');
+  settingsStore.setSkipReplay(false);
+  settingsStore.setAutoWaitDelay(1000);
 }
 
 function goBack() {

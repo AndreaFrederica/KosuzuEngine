@@ -48,6 +48,7 @@ export class AudioManager {
   private async initSettingsSync() {
     try {
       const { useSettingsStore } = await import('../../stores/settings-store');
+      const { watch } = await import('vue');
       const settingsStore = useSettingsStore();
 
       // 加载初始音量
@@ -56,10 +57,44 @@ export class AudioManager {
       this.sfxVolume = settingsStore.audioSettings.sfxVolume / 100;
       this.voiceVolume = settingsStore.audioSettings.voiceVolume / 100;
 
-      // Pinia store 已经通过 watch 自动持久化，不需要在这里监听变化
-      // settingsStore 的 setMasterVolume/setBgmVolume/setSfxVolume/setVoiceVolume 方法
-      // 会调用 applyAudioVolume 来更新 AudioManager 的音量
-      console.log('[AudioManager] 已连接到 settings-store');
+      // 监听音量变化，自动应用到所有通道
+      watch(
+        () => settingsStore.audioSettings.masterVolume,
+        (newValue) => {
+          this.masterVolume = newValue / 100;
+          this.applyVolumeToAllChannels();
+          console.log(`[AudioManager] 主音量已更新: ${newValue}%`);
+        }
+      );
+
+      watch(
+        () => settingsStore.audioSettings.bgmVolume,
+        (newValue) => {
+          this.bgmVolume = newValue / 100;
+          this.applyVolumeToAllChannels();
+          console.log(`[AudioManager] BGM 音量已更新: ${newValue}%`);
+        }
+      );
+
+      watch(
+        () => settingsStore.audioSettings.sfxVolume,
+        (newValue) => {
+          this.sfxVolume = newValue / 100;
+          this.applyVolumeToAllChannels();
+          console.log(`[AudioManager] 音效音量已更新: ${newValue}%`);
+        }
+      );
+
+      watch(
+        () => settingsStore.audioSettings.voiceVolume,
+        (newValue) => {
+          this.voiceVolume = newValue / 100;
+          this.applyVolumeToAllChannels();
+          console.log(`[AudioManager] 语音音量已更新: ${newValue}%`);
+        }
+      );
+
+      console.log('[AudioManager] 已连接到 settings-store，正在监听音量变化');
     } catch (e) {
       console.warn('[AudioManager] 初始化 settingsStore 同步失败:', e);
     }
@@ -436,11 +471,14 @@ export class AudioManager {
 
   /**
    * 应用当前音量设置到所有通道
+   * 使用 channel.getBaseVolume() 获取剧本指定的基准音量
+   * 公式：masterVolume × typeVolume × baseVolume
    */
   private applyVolumeToAllChannels() {
     for (const channel of this.channels.values()) {
       const status = channel.getStatus();
-      const finalVolume = this.calculateVolume(status.type, status.volume);
+      const baseVolume = channel.getBaseVolume();
+      const finalVolume = this.calculateVolume(status.type, baseVolume);
       void channel.setVolume(finalVolume);
     }
   }
