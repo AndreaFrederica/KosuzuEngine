@@ -1,0 +1,172 @@
+// ========================================
+// 选择面板样式 - 与对话框统一风格
+// ========================================
+
+// 选择面板容器
+.choice-panel {
+  background: rgba(0, 0, 0, 0.85) !important;
+  backdrop-filter: blur(20px) saturate(120%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(120%) !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 16px 24px !important;
+  min-width: 400px;
+  max-width: 600px;
+  animation: choiceFadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+// 强制移除 Quasar 卡片默认白底/阴影
+.choice-panel,
+.choice-panel * {
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  border-color: transparent !important;
+}
+
+.choice-panel .q-card,
+.choice-panel .q-card__section,
+.choice-panel .q-card__section * {
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+// 选择按钮 - 与对话框按钮风格统一
+.choice-panel .q-btn {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: rgba(255, 255, 255, 0.85) !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 6px 12px 8px !important;
+  margin: 2px !important;
+  position: relative !important;
+  font-size: 0.85rem !important;
+  font-weight: 400 !important;
+  text-align: center !important;
+  white-space: nowrap !important;
+  transition:
+    color 0.25s ease,
+    transform 0.2s ease !important;
+  min-height: 28px !important;
+  box-shadow: none !important;
+  outline: none !important;
+
+  // 彻底移除 Quasar 默认样式
+  .q-btn__wrapper,
+  .q-btn__content,
+  * {
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  &::before {
+    display: none !important;
+    opacity: 0 !important;
+  }
+
+  &.q-btn--outline,
+  &.q-btn--flat,
+  &.q-btn--unelevated,
+  &.q-btn--standard {
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+
+    &::before {
+      display: none !important;
+    }
+  }
+
+  // 装饰线 - 默认显示
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: 2px;
+    left: 50%;
+    width: calc(100% - 20px);
+    height: 1.5px;
+    background: rgba(255, 255, 255, 0.5);
+    transition:
+      width 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+      background 0.25s ease;
+    transform: translateX(-50%);
+  }
+
+  // 悬停状态
+  &:hover {
+    color: rgba(255, 255, 255, 1) !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    transform: translateY(-1px) !important;
+    box-shadow: none !important;
+    border: none !important;
+
+    &::before {
+      display: none !important;
+      opacity: 0 !important;
+    }
+
+    &::after {
+      width: calc(100% - 16px);
+      background: rgba(255, 255, 255, 0.9);
+    }
+  }
+
+  // 聚焦和激活状态
+  &:focus,
+  &:active {
+    background: transparent !important;
+    background-color: transparent !important;
+    box-shadow: none !important;
+    outline: none !important;
+    border: none !important;
+
+    &::before {
+      display: none !important;
+      opacity: 0 !important;
+    }
+  }
+}
+
+// 选择面板入场动画
+.choice-panel {
+  animation: choiceFadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+
+  .q-btn {
+    opacity: 0;
+    transform: translateY(10px);
+    animation: choiceItemFadeIn 0.4s ease-out forwards;
+
+    @for $i from 1 through 10 {
+      &:nth-child(#{$i}) {
+        animation-delay: #{0.08 + $i * 0.04}s;
+      }
+    }
+  }
+}
+
+@keyframes choiceFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes choiceItemFadeIn {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

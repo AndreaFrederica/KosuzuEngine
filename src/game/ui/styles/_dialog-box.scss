@@ -1,0 +1,183 @@
+// ========================================
+// 对话框样式
+// ========================================
+
+// 打字机文本区域强制透明
+.typewriter-container {
+  background: transparent !important;
+  border: none !important;
+}
+
+.typewriter-container .text-content {
+  background: transparent !important;
+  color: inherit !important;
+}
+
+.typewriter-container .hidden-tester {
+  background: transparent !important;
+}
+
+// 强制覆盖对话框内容区域的背景色
+.dialog-content {
+  background: transparent !important;
+}
+
+.dialog-content.q-pa-md {
+  background: transparent !important;
+}
+
+.dialog-content.relative-position {
+  background: transparent !important;
+}
+
+// 覆盖所有可能的白色背景
+.q-pa-md {
+  background: transparent !important;
+}
+
+.relative-position {
+  background: transparent !important;
+}
+
+// 对话框区域整体背景控制
+.dialog-box .dialog-content {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.dialog-box .dialog-content * {
+  background: transparent !important;
+}
+
+// 说话人名字 - 下划线装饰 + 动画
+.dialog-content .text-bold {
+  position: relative;
+  display: inline-block;
+  opacity: 0;
+  animation: speakerFadeIn 0.3s ease-out 0.1s forwards;
+
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: -4px;
+    left: 0;
+    width: 0;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.6);
+    animation: speakerUnderline 0.6s ease-out 0.3s forwards;
+  }
+}
+
+@keyframes speakerFadeIn {
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes speakerUnderline {
+  to {
+    width: 100%;
+  }
+}
+
+// 文本内容动画
+.dialog-text {
+  animation: textFadeIn 0.3s ease-out 0.2s both;
+}
+
+@keyframes textFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// 对话框入场动画
+.dialog-box {
+  animation: dialogSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes dialogSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// 继续指示器动画（替代继续按钮）
+.dialog-content::after {
+  content: '';
+  position: absolute;
+  bottom: 20px;
+  right: 24px;
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 8px solid rgba(255, 255, 255, 0.6);
+  animation: continueBounce 1.2s ease-in-out infinite;
+  animation-delay: 0.5s;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.dialog-box:not(.typing)::after {
+  opacity: 1;
+}
+
+@keyframes continueBounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(6px);
+  }
+}
+
+// 响应式优化
+@media (max-width: 768px) {
+  .dialog-content {
+    padding: 20px 24px 24px 24px !important;
+  }
+
+  :root {
+    --ke-dialog-text-font-size: 0.95rem;
+    --ke-dialog-speaker-font-size: 0.95rem;
+    --ke-dialog-box-margin: 12px;
+  }
+
+  .dialog-content::after {
+    bottom: 16px;
+    right: 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .dialog-content {
+    padding: 16px 20px 20px 20px !important;
+  }
+
+  :root {
+    --ke-dialog-text-font-size: 0.9rem;
+    --ke-dialog-speaker-font-size: 0.9rem;
+    --ke-dialog-box-margin: 8px;
+  }
+
+  .dialog-content::after {
+    bottom: 12px;
+    right: 16px;
+    border-left-width: 5px;
+    border-top-width: 3px;
+    border-bottom-width: 3px;
+  }
+}

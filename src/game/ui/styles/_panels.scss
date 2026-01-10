@@ -1,0 +1,217 @@
+// ========================================
+// 其他面板样式 - 设置、历史、存档、BGM 等
+// ========================================
+
+// 整体毛玻璃效果
+.dialog-box,
+.choice-panel,
+.settings-panel,
+.save-load-panel,
+.history-panel,
+.audio-prompt-content {
+  backdrop-filter: blur(20px) saturate(120%);
+  -webkit-backdrop-filter: blur(20px) saturate(120%);
+}
+
+// ========================================
+// 设置面板样式
+// ========================================
+.settings-panel {
+  background: rgba(0, 0, 0, 0.85) !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 32px !important;
+  min-width: 400px;
+  max-width: 500px;
+
+  // 移除 Quasar 默认样式
+  * {
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .q-card,
+  .q-card__section {
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+}
+
+.settings-header {
+  color: rgba(255, 255, 255, 0.95) !important;
+  font-size: 1.25rem !important;
+  font-weight: 500 !important;
+  margin-bottom: 24px !important;
+}
+
+.settings-item {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+  padding: 16px 0 !important;
+
+  .settings-label {
+    color: rgba(255, 255, 255, 0.9) !important;
+    font-size: 0.95rem !important;
+  }
+
+  .settings-desc {
+    color: rgba(255, 255, 255, 0.6) !important;
+    font-size: 0.85rem !important;
+    margin-top: 4px !important;
+  }
+}
+
+// ========================================
+// BGM 控制器样式
+// ========================================
+.bgm-control {
+  background: rgba(0, 0, 0, 0.5) !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 8px 12px !important;
+
+  * {
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+}
+
+.bgm-label {
+  color: rgba(255, 255, 255, 0.8) !important;
+  font-size: 0.875rem !important;
+}
+
+.bgm-panel {
+  background: rgba(0, 0, 0, 0.8) !important;
+  border: none !important;
+  border-radius: 0 !important;
+
+  * {
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+}
+
+.bgm-btn {
+  background: transparent !important;
+  color: rgba(255, 255, 255, 0.8) !important;
+  border-radius: 0 !important;
+
+  &:hover {
+    background: transparent !important;
+  }
+}
+
+// ========================================
+// 历史记录面板样式
+// ========================================
+.history-panel {
+  background: rgba(0, 0, 0, 0.85) !important;
+  border: none !important;
+  border-radius: 0 !important;
+
+  // 移除 Quasar 默认样式
+  * {
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .q-card,
+  .q-card__section {
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+}
+
+.history-item {
+  background: transparent !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+  padding: 16px 24px !important;
+
+  .history-speaker {
+    color: rgba(255, 255, 255, 0.95) !important;
+    font-weight: 500 !important;
+  }
+
+  .history-text {
+    color: rgba(255, 255, 255, 0.8) !important;
+    margin-top: 4px !important;
+  }
+}
+
+// ========================================
+// 存档/读档面板样式
+// ========================================
+.save-load-panel {
+  background: rgba(0, 0, 0, 0.85) !important;
+  border: none !important;
+  border-radius: 0 !important;
+
+  // 移除 Quasar 默认样式
+  * {
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .q-card,
+  .q-card__section {
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+}
+
+.save-card {
+  background: transparent !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 0 !important;
+  padding: 16px !important;
+  margin: 8px 0 !important;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.05) !important;
+  }
+}
+
+.save-title {
+  color: rgba(255, 255, 255, 0.95) !important;
+}
+
+.save-date {
+  color: rgba(255, 255, 255, 0.6) !important;
+  font-size: 0.85rem !important;
+}
+
+// ========================================
+// 音频提示框样式
+// ========================================
+.audio-prompt-content {
+  background: rgba(0, 0, 0, 0.85) !important;
+  color: rgba(255, 255, 255, 0.95) !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 32px !important;
+  min-width: 300px;
+
+  // 移除 Quasar 默认样式
+  * {
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .q-card,
+  .q-card__section {
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+}
+
+.audio-prompt-title {
+  color: rgba(255, 255, 255, 0.95) !important;
+  font-size: 1.1rem !important;
+  font-weight: 500 !important;
+  margin-bottom: 16px !important;
+}
+
+.audio-prompt-text {
+  color: rgba(255, 255, 255, 0.85) !important;
+  font-size: 0.95rem !important;
+}

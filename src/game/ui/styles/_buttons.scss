@@ -1,0 +1,286 @@
+// ========================================
+// 工具栏按钮样式 - 现代响应式设计
+// ========================================
+
+// 工具栏布局修复 - 自适应多层按钮高度
+.dialog-toolbar {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 4px !important;
+  padding: 8px 16px !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  background: rgba(0, 0, 0, 0.2) !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  min-height: auto !important;
+  height: auto !important;
+}
+
+// 工具栏左右分组
+.dialog-toolbar .row {
+  display: flex !important;
+  gap: 4px !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  flex-shrink: 1 !important;
+  min-width: 0 !important;
+}
+
+.dialog-toolbar .row:first-child {
+  justify-content: flex-start !important;
+}
+
+.dialog-toolbar .row:last-child {
+  justify-content: flex-end !important;
+}
+
+// 工具栏按钮样式
+.dialog-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 16px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.dialog-toolbar .q-btn {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: rgba(255, 255, 255, 0.85) !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 6px 12px 8px !important;
+  font-size: 0.8rem !important;
+  font-weight: 400 !important;
+  position: relative !important;
+  transition:
+    color 0.25s ease,
+    transform 0.2s ease !important;
+  min-height: 28px !important;
+  white-space: nowrap !important;
+  margin: 2px !important;
+  box-shadow: none !important;
+  outline: none !important;
+
+  // 彻底移除 Quasar 默认样式
+  .q-btn__wrapper,
+  .q-btn__content,
+  * {
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  // 隐藏 Quasar 背景层
+  &::before {
+    display: none !important;
+    opacity: 0 !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  &.q-btn--outline,
+  &.q-btn--flat,
+  &.q-btn--unelevated,
+  &.q-btn--standard {
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+
+    &::before {
+      display: none !important;
+    }
+  }
+
+  // 装饰线 - 文字下方
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: 2px;
+    left: 50%;
+    width: 0;
+    height: 1.5px;
+    background: rgba(255, 255, 255, 0.9);
+    transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    transform: translateX(-50%);
+  }
+
+  &:hover {
+    color: rgba(255, 255, 255, 1) !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    transform: translateY(-1px) !important;
+    box-shadow: none !important;
+    border: none !important;
+
+    &::before {
+      display: none !important;
+      opacity: 0 !important;
+    }
+
+    &::after {
+      width: calc(100% - 16px);
+    }
+  }
+
+  &:focus,
+  &:active {
+    background: transparent !important;
+    background-color: transparent !important;
+    box-shadow: none !important;
+    outline: none !important;
+    border: none !important;
+
+    &::before {
+      display: none !important;
+      opacity: 0 !important;
+    }
+  }
+}
+
+// 快速存档按钮特殊样式
+.dialog-toolbar .q-btn[label^='QS'] {
+  color: rgba(100, 181, 246, 0.9) !important;
+  font-weight: 500 !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+
+  &::before {
+    display: none !important;
+    opacity: 0 !important;
+  }
+
+  &::after {
+    background: rgba(100, 181, 246, 0.9);
+    height: 1.5px;
+  }
+
+  &:hover {
+    color: rgba(100, 181, 246, 1) !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
+
+    &::before {
+      display: none !important;
+      opacity: 0 !important;
+    }
+  }
+
+  &:focus,
+  &:active {
+    background: transparent !important;
+    background-color: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
+    outline: none !important;
+
+    &::before {
+      display: none !important;
+      opacity: 0 !important;
+    }
+  }
+}
+
+// 全局移除所有 Quasar 按钮圆角
+.q-btn {
+  border-radius: 0 !important;
+
+  .q-btn__wrapper {
+    border-radius: 0 !important;
+  }
+
+  &::before {
+    border-radius: 0 !important;
+  }
+}
+
+// 对话框中的所有按钮
+.dialog-box .q-btn,
+.dialog-toolbar .q-btn {
+  border-radius: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+
+  * {
+    border-radius: 0 !important;
+  }
+}
+
+// 响应式布局 - 智能换行判断
+@media (max-width: 600px) {
+  .dialog-toolbar {
+    gap: 6px !important;
+    padding: 10px 12px !important;
+    // 不强制居中，保留左右分布
+  }
+
+  .dialog-toolbar .row {
+    flex: 1 1 auto !important;
+    justify-content: center !important;
+    width: auto !important; // 不强制100%，允许自然换行
+    min-height: auto !important;
+  }
+
+  // 当某一行按钮太多时允许换行，但不要强行把两行都变100%
+  .dialog-toolbar .row:first-child,
+  .dialog-toolbar .row:last-child {
+    justify-content: center !important;
+    flex-wrap: wrap !important;
+  }
+
+  .dialog-toolbar .q-btn {
+    font-size: 0.75rem !important;
+    padding: 5px 8px !important;
+    min-height: 26px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .dialog-toolbar {
+    padding: 8px 10px !important;
+    gap: 4px !important;
+  }
+
+  .dialog-toolbar .row {
+    gap: 4px !important;
+    justify-content: center !important;
+  }
+
+  .dialog-toolbar .q-btn {
+    font-size: 0.7rem !important;
+    padding: 4px 7px !important;
+    min-height: 24px !important;
+  }
+}
+
+@media (max-width: 360px) {
+  .dialog-toolbar {
+    padding: 6px 8px !important;
+    gap: 3px !important;
+  }
+
+  .dialog-toolbar .row {
+    gap: 3px !important;
+  }
+
+  .dialog-toolbar .q-btn {
+    font-size: 0.65rem !important;
+    padding: 3px 5px !important;
+    min-height: 22px !important;
+    flex: 0 0 auto !important;
+  }
+}

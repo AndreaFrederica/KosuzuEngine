@@ -15,7 +15,13 @@ export default defineConfig((ctx) => {
     boot: ['i18n', 'axios'],
 
     // https://v2.quasar.dev/quasar-cli-vite/quasar-config-file#css
-    css: ['app.scss'],
+    css: [
+      'app.scss',
+      // 引擎基础样式系统（必须在游戏自定义样式之前加载）
+      '../engine/styles/engine-base.scss',
+      // 游戏自定义样式（会覆盖引擎默认样式）
+      '../game/ui/game-custom-styles.scss',
+    ],
 
     // https://github.com/quasarframework/quasar/tree/dev/extras
     extras: [

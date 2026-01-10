@@ -1,0 +1,229 @@
+// ========================================
+// KosuzuEngine 样式变量系统
+// ========================================
+// 游戏开发者可以通过在自己的游戏 UI 样式文件中覆盖这些变量来自定义引擎组件样式
+// ========================================
+
+// ----------------------------------------
+// 对话框样式变量
+// ----------------------------------------
+:root {
+  // 对话框容器
+  --ke-dialog-box-bg: rgba(0, 0, 0, 0.8);
+  --ke-dialog-box-border: 2px solid rgba(255, 255, 255, 0.3);
+  --ke-dialog-box-border-radius: 8px;
+  --ke-dialog-box-padding: 16px;
+  --ke-dialog-box-margin: 20px;
+  --ke-dialog-box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+
+  // 对话框工具栏
+  --ke-dialog-toolbar-bg: rgba(0, 0, 0, 0.5);
+  --ke-dialog-toolbar-border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  --ke-dialog-toolbar-height: 48px;
+
+  // 对话框内容区
+  --ke-dialog-content-bg: rgba(0, 0, 0, 0.6);
+  --ke-dialog-content-padding: 16px;
+
+  // 说话人名字
+  --ke-dialog-speaker-color: #ffffff;
+  --ke-dialog-speaker-font-size: 1.25rem;
+  --ke-dialog-speaker-font-weight: bold;
+  --ke-dialog-speaker-margin: 0 0 0.5rem 0;
+
+  // 对话文本
+  --ke-dialog-text-color: #ffffff;
+  --ke-dialog-text-font-size: 1rem;
+  --ke-dialog-text-line-height: 1.6;
+
+  // 继续按钮
+  --ke-continue-btn-bg: #1976d2;
+  --ke-continue-btn-color: #ffffff;
+  --ke-continue-btn-border-radius: 4px;
+  --ke-continue-btn-padding: 8px 16px;
+  --ke-continue-btn-hover-bg: #1565c0;
+}
+
+// ----------------------------------------
+// 打字机文本样式变量
+// ----------------------------------------
+:root {
+  // 容器
+  --ke-typewriter-container-bg: transparent;
+  --ke-typewriter-container-border: none;
+  --ke-typewriter-container-border-radius: 0;
+  --ke-typewriter-container-padding: 0;
+
+  // 文本内容
+  --ke-typewriter-text-color: inherit;
+  --ke-typewriter-text-font-size: inherit;
+  --ke-typewriter-text-line-height: inherit;
+
+  // 光标效果
+  --ke-typewriter-cursor-color: #ffffff;
+  --ke-typewriter-cursor-width: 2px;
+  --ke-typewriter-cursor-blink: true;
+
+  // 调试面板
+  --ke-typewriter-debug-bg: rgba(0, 0, 0, 0.9);
+  --ke-typewriter-debug-color: #00ff00;
+  --ke-typewriter-debug-border: 1px solid #00ff00;
+  --ke-typewriter-debug-padding: 8px;
+
+  // 分页指示器
+  --ke-typewriter-page-dot-bg: rgba(255, 255, 255, 0.3);
+  --ke-typewriter-page-dot-active-bg: #ffffff;
+  --ke-typewriter-page-dot-size: 10px;
+  --ke-typewriter-page-dot-margin: 2px;
+
+  // 分页导航
+  --ke-typewriter-nav-btn-bg: rgba(0, 0, 0, 0.5);
+  --ke-typewriter-nav-btn-color: #ffffff;
+  --ke-typewriter-nav-btn-border-radius: 50%;
+  --ke-typewriter-nav-btn-size: 32px;
+}
+
+// ----------------------------------------
+// 选择面板样式变量
+// ----------------------------------------
+:root {
+  // 容器
+  --ke-choice-panel-bg: rgba(0, 0, 0, 0.9);
+  --ke-choice-panel-border: 2px solid rgba(255, 255, 255, 0.3);
+  --ke-choice-panel-border-radius: 8px;
+  --ke-choice-panel-padding: 16px;
+
+  // 选项按钮
+  --ke-choice-btn-bg: rgba(255, 255, 255, 0.1);
+  --ke-choice-btn-color: #ffffff;
+  --ke-choice-btn-border: 1px solid rgba(255, 255, 255, 0.3);
+  --ke-choice-btn-border-radius: 4px;
+  --ke-choice-btn-padding: 12px 24px;
+  --ke-choice-btn-margin: 8px 0;
+  --ke-choice-btn-hover-bg: rgba(255, 255, 255, 0.2);
+  --ke-choice-btn-hover-border-color: rgba(255, 255, 255, 0.5);
+}
+
+// ----------------------------------------
+// 设置面板样式变量
+// ----------------------------------------
+:root {
+  // 容器
+  --ke-settings-panel-bg: rgba(0, 0, 0, 0.95);
+  --ke-settings-panel-border: 2px solid rgba(255, 255, 255, 0.3);
+  --ke-settings-panel-border-radius: 8px;
+  --ke-settings-panel-padding: 20px;
+
+  // 标题
+  --ke-settings-header-color: #ffffff;
+  --ke-settings-header-font-size: 1.5rem;
+  --ke-settings-header-font-weight: bold;
+
+  // 设置项
+  --ke-settings-label-color: #ffffff;
+  --ke-settings-desc-color: rgba(255, 255, 255, 0.7);
+  --ke-settings-border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+// ----------------------------------------
+// 存档/读档面板样式变量
+// ----------------------------------------
+:root {
+  // 容器
+  --ke-save-load-panel-bg: rgba(0, 0, 0, 0.95);
+  --ke-save-load-panel-border: 2px solid rgba(255, 255, 255, 0.3);
+  --ke-save-load-panel-border-radius: 8px;
+
+  // 存档卡片
+  --ke-save-card-bg: rgba(255, 255, 255, 0.1);
+  --ke-save-card-border: 1px solid rgba(255, 255, 255, 0.2);
+  --ke-save-card-border-radius: 4px;
+  --ke-save-card-padding: 12px;
+  --ke-save-card-margin: 8px;
+  --ke-save-card-hover-bg: rgba(255, 255, 255, 0.15);
+}
+
+// ----------------------------------------
+// BGM 控制器样式变量
+// ----------------------------------------
+:root {
+  // 容器
+  --ke-bgm-control-bg: rgba(0, 0, 0, 0.8);
+  --ke-bgm-control-border: 1px solid rgba(255, 255, 255, 0.2);
+  --ke-bgm-control-border-radius: 4px;
+  --ke-bgm-control-padding: 8px 12px;
+
+  // 标签
+  --ke-bgm-label-color: #ffffff;
+  --ke-bgm-label-font-size: 0.875rem;
+
+  // 控制面板
+  --ke-bgm-panel-bg: rgba(0, 0, 0, 0.9);
+  --ke-bgm-panel-border: 1px solid rgba(255, 255, 255, 0.2);
+  --ke-bgm-panel-border-radius: 4px;
+
+  // 按钮
+  --ke-bgm-btn-bg: rgba(255, 255, 255, 0.1);
+  --ke-bgm-btn-color: #ffffff;
+  --ke-bgm-btn-border-radius: 50%;
+  --ke-bgm-btn-hover-bg: rgba(255, 255, 255, 0.2);
+}
+
+// ----------------------------------------
+// 历史记录面板样式变量
+// ----------------------------------------
+:root {
+  // 容器
+  --ke-history-panel-bg: rgba(0, 0, 0, 0.95);
+  --ke-history-panel-border: 2px solid rgba(255, 255, 255, 0.3);
+  --ke-history-panel-border-radius: 8px;
+
+  // 历史记录项
+  --ke-history-item-bg: rgba(255, 255, 255, 0.05);
+  --ke-history-item-border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  --ke-history-item-padding: 12px;
+
+  // 历史记录文本
+  --ke-history-speaker-color: #1976d2;
+  --ke-history-speaker-font-weight: bold;
+  --ke-history-text-color: #ffffff;
+}
+
+// ----------------------------------------
+// 舞台视图样式变量
+// ----------------------------------------
+:root {
+  // 容器
+  --ke-stage-view-bg: #000000;
+  --ke-stage-view-overlay: none;
+
+  // 角色层
+  --ke-character-layer-transition: transform 0.3s ease-in-out;
+}
+
+// ----------------------------------------
+// 音频通道面板样式变量
+// ----------------------------------------
+:root {
+  // 容器
+  --ke-audio-panel-bg: rgba(0, 0, 0, 0.95);
+  --ke-audio-panel-border: 2px solid rgba(255, 255, 255, 0.3);
+  --ke-audio-panel-border-radius: 8px;
+
+  // 音频滑块
+  --ke-audio-slider-bg: rgba(255, 255, 255, 0.2);
+  --ke-audio-slider-fill: #1976d2;
+  --ke-audio-slider-handle: #ffffff;
+}
+
+// ----------------------------------------
+// 音频提示框样式变量
+// ----------------------------------------
+:root {
+  // 容器
+  --ke-audio-prompt-bg: rgba(0, 0, 0, 0.9);
+  --ke-audio-prompt-color: #ffffff;
+  --ke-audio-prompt-border: 2px solid #1976d2;
+  --ke-audio-prompt-border-radius: 8px;
+  --ke-audio-prompt-padding: 20px;
+}

@@ -1,0 +1,287 @@
+// ========================================
+// KosuzuEngine 基础样式系统
+// ========================================
+// 应用引擎样式变量到组件
+// ========================================
+
+@import './engine-variables.scss';
+
+// ----------------------------------------
+// 对话框样式
+// ----------------------------------------
+.dialog-box {
+  background: var(--ke-dialog-box-bg);
+  border: var(--ke-dialog-box-border);
+  border-radius: var(--ke-dialog-box-border-radius);
+  padding: var(--ke-dialog-box-padding);
+  margin: var(--ke-dialog-box-margin);
+  box-shadow: var(--ke-dialog-box-shadow);
+}
+
+.dialog-toolbar {
+  background: var(--ke-dialog-toolbar-bg);
+  border-bottom: var(--ke-dialog-toolbar-border-bottom);
+  height: var(--ke-dialog-toolbar-height);
+}
+
+.dialog-content {
+  background: var(--ke-dialog-content-bg);
+  padding: var(--ke-dialog-content-padding);
+}
+
+.dialog-content .text-bold {
+  color: var(--ke-dialog-speaker-color);
+  font-size: var(--ke-dialog-speaker-font-size);
+  font-weight: var(--ke-dialog-speaker-font-weight);
+  margin: var(--ke-dialog-speaker-margin);
+}
+
+.dialog-text {
+  color: var(--ke-dialog-text-color);
+  font-size: var(--ke-dialog-text-font-size);
+  line-height: var(--ke-dialog-text-line-height);
+}
+
+.dialog-content .q-btn {
+  background: var(--ke-continue-btn-bg);
+  color: var(--ke-continue-btn-color);
+  border-radius: var(--ke-continue-btn-border-radius);
+  padding: var(--ke-continue-btn-padding);
+
+  &:hover {
+    background: var(--ke-continue-btn-hover-bg);
+  }
+}
+
+// ----------------------------------------
+// 打字机文本样式
+// ----------------------------------------
+.typewriter-container {
+  background: var(--ke-typewriter-container-bg);
+  border: var(--ke-typewriter-container-border);
+  border-radius: var(--ke-typewriter-container-border-radius);
+  padding: var(--ke-typewriter-container-padding);
+}
+
+.typewriter-container .text-content {
+  color: var(--ke-typewriter-text-color);
+  font-size: var(--ke-typewriter-text-font-size);
+  line-height: var(--ke-typewriter-text-line-height);
+}
+
+// 光标效果
+.typewriter-container .text-content .cursor {
+  color: var(--ke-typewriter-cursor-color);
+  width: var(--ke-typewriter-cursor-width);
+}
+
+.debug-panel {
+  background: var(--ke-typewriter-debug-bg);
+  color: var(--ke-typewriter-debug-color);
+  border: var(--ke-typewriter-debug-border);
+  padding: var(--ke-typewriter-debug-padding);
+}
+
+.page-indicator .page-dot {
+  background: var(--ke-typewriter-page-dot-bg);
+  width: var(--ke-typewriter-page-dot-size);
+  height: var(--ke-typewriter-page-dot-size);
+  margin: var(--ke-typewriter-page-dot-margin);
+
+  &.active {
+    background: var(--ke-typewriter-page-dot-active-bg);
+  }
+}
+
+.page-navigation .nav-btn {
+  background: var(--ke-typewriter-nav-btn-bg);
+  color: var(--ke-typewriter-nav-btn-color);
+  border-radius: var(--ke-typewriter-nav-btn-border-radius);
+  width: var(--ke-typewriter-nav-btn-size);
+  height: var(--ke-typewriter-nav-btn-size);
+}
+
+// ----------------------------------------
+// 选择面板样式
+// ----------------------------------------
+.choice-panel {
+  background: var(--ke-choice-panel-bg);
+  border: var(--ke-choice-panel-border);
+  border-radius: var(--ke-choice-panel-border-radius);
+  padding: var(--ke-choice-panel-padding);
+}
+
+.choice-panel .q-btn {
+  background: var(--ke-choice-btn-bg);
+  color: var(--ke-choice-btn-color);
+  border: var(--ke-choice-btn-border);
+  border-radius: var(--ke-choice-btn-border-radius);
+  padding: var(--ke-choice-btn-padding);
+  margin: var(--ke-choice-btn-margin);
+
+  &:hover {
+    background: var(--ke-choice-btn-hover-bg);
+    border-color: var(--ke-choice-btn-hover-border-color);
+  }
+}
+
+// ----------------------------------------
+// 设置面板样式
+// ----------------------------------------
+.settings-panel {
+  background: var(--ke-settings-panel-bg);
+  border: var(--ke-settings-panel-border);
+  border-radius: var(--ke-settings-panel-border-radius);
+  padding: var(--ke-settings-panel-padding);
+}
+
+.settings-header .title {
+  color: var(--ke-settings-header-color);
+  font-size: var(--ke-settings-header-font-size);
+  font-weight: var(--ke-settings-header-font-weight);
+}
+
+.settings-body .setting-label {
+  color: var(--ke-settings-label-color);
+}
+
+.settings-body .setting-desc {
+  color: var(--ke-settings-desc-color);
+}
+
+.settings-body .setting-section {
+  border-bottom: var(--ke-settings-border-bottom);
+}
+
+// ----------------------------------------
+// 存档/读档面板样式
+// ----------------------------------------
+.save-load-panel {
+  background: var(--ke-save-load-panel-bg);
+  border: var(--ke-save-load-panel-border);
+  border-radius: var(--ke-save-load-panel-border-radius);
+}
+
+.save-card {
+  background: var(--ke-save-card-bg);
+  border: var(--ke-save-card-border);
+  border-radius: var(--ke-save-card-border-radius);
+  padding: var(--ke-save-card-padding);
+  margin: var(--ke-save-card-margin);
+
+  &:hover {
+    background: var(--ke-save-card-hover-bg);
+  }
+}
+
+// ----------------------------------------
+// BGM 控制器样式
+// ----------------------------------------
+.bgm-control-container {
+  background: var(--ke-bgm-control-bg);
+  border: var(--ke-bgm-control-border);
+  border-radius: var(--ke-bgm-control-border-radius);
+  padding: var(--ke-bgm-control-padding);
+}
+
+.bgm-control-wrapper .bgm-label {
+  color: var(--ke-bgm-label-color);
+  font-size: var(--ke-bgm-label-font-size);
+}
+
+.bgm-control-panel {
+  background: var(--ke-bgm-panel-bg);
+  border: var(--ke-bgm-panel-border);
+  border-radius: var(--ke-bgm-panel-border-radius);
+}
+
+.bgm-controls .control-btn {
+  background: var(--ke-bgm-btn-bg);
+  color: var(--ke-bgm-btn-color);
+  border-radius: var(--ke-bgm-btn-border-radius);
+
+  &:hover {
+    background: var(--ke-bgm-btn-hover-bg);
+  }
+}
+
+// ----------------------------------------
+// 历史记录面板样式
+// ----------------------------------------
+.history-panel {
+  background: var(--ke-history-panel-bg);
+  border: var(--ke-history-panel-border);
+  border-radius: var(--ke-history-panel-border-radius);
+}
+
+.history-item {
+  background: var(--ke-history-item-bg);
+  border-bottom: var(--ke-history-item-border-bottom);
+  padding: var(--ke-history-item-padding);
+}
+
+.history-item .speaker {
+  color: var(--ke-history-speaker-color);
+  font-weight: var(--ke-history-speaker-font-weight);
+}
+
+.history-item .text {
+  color: var(--ke-history-text-color);
+}
+
+// ----------------------------------------
+// 舞台视图样式
+// ----------------------------------------
+.stage-view {
+  background: var(--ke-stage-view-bg);
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: var(--ke-stage-view-overlay);
+    pointer-events: none;
+  }
+}
+
+.character-layer {
+  transition: var(--ke-character-layer-transition);
+}
+
+// ----------------------------------------
+// 音频通道面板样式
+// ----------------------------------------
+.audio-channel-panel {
+  background: var(--ke-audio-panel-bg);
+  border: var(--ke-audio-panel-border);
+  border-radius: var(--ke-audio-panel-border-radius);
+}
+
+.audio-slider {
+  background: var(--ke-audio-slider-bg);
+}
+
+.audio-slider-fill {
+  background: var(--ke-audio-slider-fill);
+}
+
+.audio-slider-handle {
+  background: var(--ke-audio-slider-handle);
+}
+
+// ----------------------------------------
+// 音频提示框样式
+// ----------------------------------------
+.audio-prompt-overlay {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.audio-prompt-content {
+  background: var(--ke-audio-prompt-bg);
+  color: var(--ke-audio-prompt-color);
+  border: var(--ke-audio-prompt-border);
+  border-radius: var(--ke-audio-prompt-border-radius);
+  padding: var(--ke-audio-prompt-padding);
+}

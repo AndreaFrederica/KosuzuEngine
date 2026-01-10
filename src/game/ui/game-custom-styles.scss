@@ -1,0 +1,13 @@
+// ========================================
+// Kosuzu Engine 游戏自定义样式
+// ========================================
+// 设计理念：优雅统一的半透明设计 + 动画效果
+// 模块化结构：按功能拆分为多个 SCSS 文件
+// ========================================
+
+// 导入所有样式模块
+@use 'styles/variables' as *;
+@use 'styles/dialog-box' as *;
+@use 'styles/choice-panel' as *;
+@use 'styles/buttons' as *;
+@use 'styles/panels' as *;
