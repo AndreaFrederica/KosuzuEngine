@@ -19,5 +19,8 @@
     "haikei",
     "Josei",
     "neko"
-  ]
+  ],
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  }
 }

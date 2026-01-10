@@ -12,6 +12,7 @@
     "test": "echo \"No test specified\" && exit 0",
     "dev": "quasar dev",
     "build": "quasar build",
+    "build:no-split": "cross-env ENABLE_CODE_SPLITTING=false quasar build",
     "postinstall": "quasar prepare"
   },
   "dependencies": {
@@ -33,6 +34,7 @@
     "@vue/eslint-config-prettier": "^10.1.0",
     "@vue/eslint-config-typescript": "^14.4.0",
     "autoprefixer": "^10.4.2",
+    "cross-env": "^7.0.3",
     "eslint": "^9.14.0",
     "eslint-plugin-vue": "^10.4.0",
     "globals": "^16.4.0",

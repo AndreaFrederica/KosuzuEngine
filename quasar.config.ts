@@ -63,6 +63,43 @@ export default defineConfig((ctx) => {
       // extendViteConf (viteConf) {},
       // viteVuePluginOptions: {},
 
+      // 配置 Vite 构建选项，对 game 文件夹进行代码分割
+      extendViteConf(viteConf) {
+        // 只有在非 bundle 模式下才启用代码分割
+        const enableCodeSplitting = process.env.ENABLE_CODE_SPLITTING !== 'false';
+
+        if (!viteConf.build) {
+          viteConf.build = {};
+        }
+        if (!viteConf.build.rollupOptions) {
+          viteConf.build.rollupOptions = {};
+        }
+
+        // 设置 output 为对象并配置手动代码分割
+        if (enableCodeSplitting) {
+          viteConf.build.rollupOptions.output = {
+            manualChunks: (id: string) => {
+              // 将 game 文件夹中的文件分割成独立的 chunk
+              if (id.includes('/src/game/')) {
+                // 提取相对路径，保留原始文件结构
+                const match = id.match(/\/src\/game\/(.+)\.(ts|js|vue)$/);
+                if (match) {
+                  // 保留原始路径结构，包括文件夹层级
+                  return `game/${match[1]}`;
+                }
+                // 如果不匹配特定模式，将整个 game 文件夹作为一个 chunk
+                return 'game/index';
+              }
+
+              // node_modules 中的依赖分割到 vendor chunk
+              if (id.includes('node_modules')) {
+                return 'vendor';
+              }
+            },
+          };
+        }
+      },
+
       vitePlugins: [
         [
           '@intlify/unplugin-vue-i18n/vite',
