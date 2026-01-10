@@ -125,28 +125,29 @@
 // ========================================
 // BGM 控制器样式变量
 // ========================================
-:root {
-  // 容器
-  --ke-bgm-control-bg: rgba(0, 0, 0, 0.5);
-  --ke-bgm-control-border: none;
-  --ke-bgm-control-border-radius: 0;
-  --ke-bgm-control-padding: 8px 12px;
+// 注释：BGM控制器使用引擎默认样式，不覆盖以保持原有外观
+// :root {
+//   // 容器
+//   --ke-bgm-control-bg: rgba(0, 0, 0, 0.5);
+//   --ke-bgm-control-border: none;
+//   --ke-bgm-control-border-radius: 0;
+//   --ke-bgm-control-padding: 8px 12px;
 
-  // 标签
-  --ke-bgm-label-color: rgba(255, 255, 255, 0.8);
-  --ke-bgm-label-font-size: 0.875rem;
+//   // 标签
+//   --ke-bgm-label-color: rgba(255, 255, 255, 0.8);
+//   --ke-bgm-label-font-size: 0.875rem;
 
-  // 控制面板
-  --ke-bgm-panel-bg: rgba(0, 0, 0, 0.8);
-  --ke-bgm-panel-border: none;
-  --ke-bgm-panel-border-radius: 0;
+//   // 控制面板
+//   --ke-bgm-panel-bg: rgba(0, 0, 0, 0.8);
+//   --ke-bgm-panel-border: none;
+//   --ke-bgm-panel-border-radius: 0;
 
-  // 按钮
-  --ke-bgm-btn-bg: transparent;
-  --ke-bgm-btn-color: rgba(255, 255, 255, 0.8);
-  --ke-bgm-btn-border-radius: 0;
-  --ke-bgm-btn-hover-bg: transparent;
-}
+//   // 按钮
+//   --ke-bgm-btn-bg: transparent;
+//   --ke-bgm-btn-color: rgba(255, 255, 255, 0.8);
+//   --ke-bgm-btn-border-radius: 0;
+//   --ke-bgm-btn-hover-bg: transparent;
+// }
 
 // ========================================
 // 历史记录面板样式变量

@@ -3,39 +3,36 @@
 // ========================================
 
 // 打字机文本区域强制透明
-.typewriter-container {
+.dialog-box .typewriter-container {
   background: transparent !important;
   border: none !important;
 }
 
-.typewriter-container .text-content {
+.dialog-box .typewriter-container .text-content {
   background: transparent !important;
   color: inherit !important;
 }
 
-.typewriter-container .hidden-tester {
+.dialog-box .typewriter-container .hidden-tester {
   background: transparent !important;
 }
 
 // 强制覆盖对话框内容区域的背景色
-.dialog-content {
+.dialog-box .dialog-content {
   background: transparent !important;
 }
 
-.dialog-content.q-pa-md {
+.dialog-box .dialog-content.q-pa-md {
   background: transparent !important;
 }
 
-.dialog-content.relative-position {
+.dialog-box .dialog-content.relative-position {
   background: transparent !important;
 }
 
-// 覆盖所有可能的白色背景
-.q-pa-md {
-  background: transparent !important;
-}
-
-.relative-position {
+// 只在对话框内容区域内覆盖白色背景，不影响全局
+.dialog-box .dialog-content .q-pa-md,
+.dialog-box .dialog-content.relative-position {
   background: transparent !important;
 }
 
@@ -46,12 +43,18 @@
   -webkit-backdrop-filter: none !important;
 }
 
-.dialog-box .dialog-content * {
+.dialog-box .dialog-content .q-card,
+.dialog-box .dialog-content .q-card__section,
+.dialog-box .dialog-content .q-btn__wrapper,
+.dialog-box .dialog-content .q-btn__content,
+.dialog-box .dialog-content .q-icon,
+.dialog-box .dialog-content .q-avatar,
+.dialog-box .dialog-content .q-layout {
   background: transparent !important;
 }
 
 // 说话人名字 - 下划线装饰 + 动画
-.dialog-content .text-bold {
+.dialog-box .dialog-content .text-bold {
   position: relative;
   display: inline-block;
   opacity: 0;
@@ -82,7 +85,7 @@
 }
 
 // 文本内容动画
-.dialog-text {
+.dialog-box .dialog-text {
   animation: textFadeIn 0.3s ease-out 0.2s both;
 }
 

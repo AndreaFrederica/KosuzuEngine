@@ -16,8 +16,7 @@
 }
 
 // 强制移除 Quasar 卡片默认白底/阴影
-.choice-panel,
-.choice-panel * {
+.choice-panel {
   background: transparent !important;
   background-color: transparent !important;
   box-shadow: none !important;
@@ -25,8 +24,7 @@
 }
 
 .choice-panel .q-card,
-.choice-panel .q-card__section,
-.choice-panel .q-card__section * {
+.choice-panel .q-card__section {
   background: transparent !important;
   background-color: transparent !important;
   box-shadow: none !important;
@@ -56,8 +54,7 @@
 
   // 彻底移除 Quasar 默认样式
   .q-btn__wrapper,
-  .q-btn__content,
-  * {
+  .q-btn__content {
     background: transparent !important;
     background-color: transparent !important;
     border: none !important;

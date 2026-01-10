@@ -66,8 +66,7 @@
 
   // 彻底移除 Quasar 默认样式
   .q-btn__wrapper,
-  .q-btn__content,
-  * {
+  .q-btn__content {
     background: transparent !important;
     background-color: transparent !important;
     border: none !important;
@@ -195,27 +194,16 @@
   }
 }
 
-// 全局移除所有 Quasar 按钮圆角
-.q-btn {
-  border-radius: 0 !important;
-
-  .q-btn__wrapper {
-    border-radius: 0 !important;
-  }
-
-  &::before {
-    border-radius: 0 !important;
-  }
-}
-
-// 对话框中的所有按钮
+// 只在游戏界面容器内移除按钮圆角
 .dialog-box .q-btn,
-.dialog-toolbar .q-btn {
+.dialog-toolbar .q-btn,
+.choice-panel .q-btn {
   border-radius: 0 !important;
   border: none !important;
   box-shadow: none !important;
 
-  * {
+  .q-btn__wrapper,
+  .q-btn__content {
     border-radius: 0 !important;
   }
 }

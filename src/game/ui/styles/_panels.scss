@@ -25,13 +25,15 @@
   max-width: 500px;
 
   // 移除 Quasar 默认样式
-  * {
-    background: transparent !important;
-    box-shadow: none !important;
-  }
-
   .q-card,
-  .q-card__section {
+  .q-card__section,
+  .q-btn,
+  .q-btn__wrapper,
+  .q-btn__content,
+  .q-icon,
+  .q-slider,
+  .q-slider__track,
+  .q-slider__thumb {
     background: transparent !important;
     box-shadow: none !important;
   }
@@ -61,37 +63,28 @@
 }
 
 // ========================================
-// BGM 控制器样式
-// ========================================
-.bgm-control {
+// BGM 控制器样式 - 只影响游戏面板内的 BGM 元素
+// ====================================
+// 注意：只限定在 .dialog-box 等游戏容器内，不影响全局 BGM 组件
+
+.dialog-box .bgm-control,
+.dialog-box .bgm-panel,
+.settings-panel .bgm-control,
+.settings-panel .bgm-panel {
   background: rgba(0, 0, 0, 0.5) !important;
   border: none !important;
   border-radius: 0 !important;
   padding: 8px 12px !important;
-
-  * {
-    background: transparent !important;
-    box-shadow: none !important;
-  }
 }
 
-.bgm-label {
+.dialog-box .bgm-label,
+.settings-panel .bgm-label {
   color: rgba(255, 255, 255, 0.8) !important;
   font-size: 0.875rem !important;
 }
 
-.bgm-panel {
-  background: rgba(0, 0, 0, 0.8) !important;
-  border: none !important;
-  border-radius: 0 !important;
-
-  * {
-    background: transparent !important;
-    box-shadow: none !important;
-  }
-}
-
-.bgm-btn {
+.dialog-box .bgm-btn,
+.settings-panel .bgm-btn {
   background: transparent !important;
   color: rgba(255, 255, 255, 0.8) !important;
   border-radius: 0 !important;
@@ -110,13 +103,15 @@
   border-radius: 0 !important;
 
   // 移除 Quasar 默认样式
-  * {
-    background: transparent !important;
-    box-shadow: none !important;
-  }
-
   .q-card,
-  .q-card__section {
+  .q-card__section,
+  .q-btn,
+  .q-btn__wrapper,
+  .q-btn__content,
+  .q-icon,
+  .q-slider,
+  .q-slider__track,
+  .q-slider__thumb {
     background: transparent !important;
     box-shadow: none !important;
   }
@@ -147,13 +142,15 @@
   border-radius: 0 !important;
 
   // 移除 Quasar 默认样式
-  * {
-    background: transparent !important;
-    box-shadow: none !important;
-  }
-
   .q-card,
-  .q-card__section {
+  .q-card__section,
+  .q-btn,
+  .q-btn__wrapper,
+  .q-btn__content,
+  .q-icon,
+  .q-slider,
+  .q-slider__track,
+  .q-slider__thumb {
     background: transparent !important;
     box-shadow: none !important;
   }
@@ -192,13 +189,15 @@
   min-width: 300px;
 
   // 移除 Quasar 默认样式
-  * {
-    background: transparent !important;
-    box-shadow: none !important;
-  }
-
   .q-card,
-  .q-card__section {
+  .q-card__section,
+  .q-btn,
+  .q-btn__wrapper,
+  .q-btn__content,
+  .q-icon,
+  .q-slider,
+  .q-slider__track,
+  .q-slider__thumb {
     background: transparent !important;
     box-shadow: none !important;
   }
