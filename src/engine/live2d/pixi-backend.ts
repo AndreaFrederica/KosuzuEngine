@@ -137,6 +137,23 @@ export class PixiLive2DBackend implements ILive2DBackend {
     this.app?.renderer.resize(width, height);
   }
 
+  dispose() {
+    const app = this.app;
+    if (!app) return;
+
+    for (const actorId of [...this.models.keys()]) {
+      this.unload(actorId);
+    }
+
+    this.modelSources.clear();
+
+    app.ticker.stop();
+    app.destroy(false, { children: true, texture: true, baseTexture: true });
+    this.app = null;
+    this.viewport = new PIXI.Container();
+    this.root = new PIXI.Container();
+  }
+
   registerSource(actorId: string, source: Live2DSource) {
     this.modelSources.set(actorId, this.normalizeSource(source));
   }

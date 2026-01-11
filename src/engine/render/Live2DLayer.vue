@@ -52,6 +52,11 @@ watch(
 onBeforeUnmount(() => {
   resizeObserver?.disconnect();
   resizeObserver = null;
+  for (const actorId of Object.keys(store.state.actors || {})) {
+    debugStore.clearActor(actorId);
+  }
+  system = null;
+  backend.dispose();
 });
 </script>
 

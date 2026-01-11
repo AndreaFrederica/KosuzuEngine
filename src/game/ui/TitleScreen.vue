@@ -32,6 +32,10 @@
           <span class="button-text">图鉴</span>
           <span class="button-text-en">Gallery</span>
         </button>
+        <button class="menu-button" @click="goToPlayground">
+          <span class="button-text">Live2D游乐场</span>
+          <span class="button-text-en">Playground</span>
+        </button>
       </div>
 
       <!-- 底部信息 -->
@@ -203,6 +207,14 @@ function goToSaveLoad() {
 function goToSettings() {
   playClickSound();
   void router.push('/settings');
+}
+
+function goToPlayground() {
+  playClickSound();
+  console.log('[TitleScreen] 开始停止BGM...');
+  // 停止背景音乐并切换到游戏界面
+  void bgm.stop({ fadeOut: 500 });
+  void router.push('/playground');
 }
 </script>
 
