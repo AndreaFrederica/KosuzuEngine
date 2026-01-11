@@ -31,6 +31,7 @@ export interface PoseState {
 export interface Live2DState {
   modelId?: string;
   expressionId?: string;
+  expressionSeq?: number;
   motionId?: string;
   params?: Record<string, number>;
   lookAt?: { x: number; y: number };
@@ -77,6 +78,7 @@ export class BaseActor {
 /** 角色演员类，用于控制角色在场景中的显示、动作和对话 */
 export class CharacterActor extends BaseActor {
   private static readonly defaultTransitionMs = 200;
+  private live2dExpressionSeq = 0;
 
   /** 创建一个角色演员实例 */
   constructor(name: string, id?: string, runtime?: Runtime) {
@@ -403,7 +405,11 @@ export class CharacterActor extends BaseActor {
 
   /** 播放Live2D表情 */
   expression(id: string) {
-    return this.action({ type: 'live2d', payload: { actorId: this.id, expressionId: id } });
+    this.live2dExpressionSeq += 1;
+    return this.action({
+      type: 'live2d',
+      payload: { actorId: this.id, expressionId: id, expressionSeq: this.live2dExpressionSeq },
+    });
   }
 
   /** 彻底析构角色，从引擎状态和绑定中移除所有相关数据 */

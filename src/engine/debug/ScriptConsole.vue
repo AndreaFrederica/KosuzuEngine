@@ -549,11 +549,17 @@ watch(
 .script-console {
   position: absolute;
   left: 12px;
-  right: 12px;
   top: 56px;
-  bottom: 260px;
+  width: calc(100% - 24px);
+  height: calc(100% - 56px - 260px);
+  max-width: calc(100% - 24px);
+  max-height: calc(100% - 56px - 12px);
+  min-width: 360px;
+  min-height: 240px;
   z-index: 3000;
   pointer-events: auto;
+  resize: both;
+  overflow: hidden;
 }
 .panel {
   height: 100%;

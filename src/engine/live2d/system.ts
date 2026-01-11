@@ -11,6 +11,7 @@ type PrevActorState = {
   motionId?: string;
   controlBanExpressions?: boolean;
   expressionId?: string;
+  expressionSeq?: number;
   controlBanIdle?: boolean;
   controlBanMotions?: boolean;
   controlBanFocus?: boolean;
@@ -86,7 +87,10 @@ export class Live2DSystem {
       const motionChanged = !!motionId && (!prev || prev.motionId !== motionId);
       const controlBanExpressions = actor.live2d?.controlBanExpressions;
       const expressionId = actor.live2d?.expressionId;
-      const expressionChanged = typeof expressionId === 'string' && (!prev || prev.expressionId !== expressionId);
+      const expressionSeq = actor.live2d?.expressionSeq;
+      const expressionChanged =
+        typeof expressionId === 'string' &&
+        (!prev || prev.expressionId !== expressionId || (typeof expressionSeq === 'number' && prev.expressionSeq !== expressionSeq));
       const banIdle = actor.live2d?.controlBanIdle;
       const banMotions = actor.live2d?.controlBanMotions;
       const banFocus = actor.live2d?.controlBanFocus;
@@ -170,6 +174,7 @@ export class Live2DSystem {
       if (typeof controlBanExpressions === 'boolean') nextPrev.controlBanExpressions = controlBanExpressions;
       if (motionId) nextPrev.motionId = motionId;
       if (typeof expressionId === 'string') nextPrev.expressionId = expressionId;
+      if (typeof expressionSeq === 'number') nextPrev.expressionSeq = expressionSeq;
       if (typeof banIdle === 'boolean') nextPrev.controlBanIdle = banIdle;
       if (typeof banMotions === 'boolean') nextPrev.controlBanMotions = banMotions;
       if (typeof banFocus === 'boolean') nextPrev.controlBanFocus = banFocus;

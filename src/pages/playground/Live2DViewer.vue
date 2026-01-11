@@ -1,100 +1,177 @@
 <template>
-  <div class="live2d-playground row no-wrap window-height" @drop.prevent="onDrop" @dragover.prevent>
-    <!-- Left: Preview -->
-    <div
-      class="col-8 relative-position overflow-hidden"
-      :style="{
-        backgroundColor: bgColor,
-        backgroundImage: bgImage ? `url(${bgImage})` : 'none',
-        backgroundSize: 'cover',
-      }"
+  <div class="live2d-playground window-height" @drop.prevent="onDrop" @dragover.prevent>
+    <q-splitter
+      v-model="viewerSplitterModel"
+      class="fit"
+      :limits="[0, 100]"
+      :disable="!toolsVisible"
+      :separator-style="toolsVisible ? undefined : 'display:none;'"
     >
-      <!-- Canvas Wrapper for Pan/Zoom -->
-      <div
-        class="full-width full-height"
-        @wheel.prevent="onWheel"
-        @mousedown="startDrag"
-        @mousemove="onMouseMoveWrapper"
-        @mouseup="stopDrag"
-        @mouseleave="stopDrag"
-      >
-        <Live2DLayer />
-      </div>
-
-      <!-- Overlay Controls -->
-      <div class="absolute-top-left q-pa-sm row q-gutter-sm" style="z-index: 10">
-        <q-btn round dense color="primary" icon="add" @click="loaderOpen = true">
-          <q-tooltip>Load Model</q-tooltip>
-        </q-btn>
-        <q-btn round dense color="info" icon="data_object" @click="ctxOpen = !ctxOpen">
-          <q-tooltip>Context</q-tooltip>
-        </q-btn>
-        <q-btn
-          round
-          dense
-          color="teal"
-          :icon="showDialogBox ? 'chat_bubble' : 'chat_bubble_outline'"
-          @click="showDialogBox = !showDialogBox"
+      <template #before>
+        <div
+          class="relative-position overflow-hidden fit"
+          :style="{
+            backgroundColor: bgColor,
+            backgroundImage: bgImage ? `url(${bgImage})` : 'none',
+            backgroundSize: 'cover',
+          }"
         >
-          <q-tooltip>Dialog Box</q-tooltip>
-        </q-btn>
-        <q-btn round dense color="secondary" icon="image" @click="bgOpen = true">
-          <q-tooltip>Change Background</q-tooltip>
-        </q-btn>
-        <q-btn round dense color="warning" icon="restart_alt" @click="resetView">
-          <q-tooltip>Reset View</q-tooltip>
-        </q-btn>
-      </div>
+          <!-- Canvas Wrapper for Pan/Zoom -->
+          <div
+            class="full-width full-height"
+            @wheel.prevent="onWheel"
+            @mousedown="startDrag"
+            @mousemove="onMouseMoveWrapper"
+            @mouseup="stopDrag"
+            @mouseleave="stopDrag"
+          >
+            <Live2DLayer />
+          </div>
 
-      <!-- Debug info overlay -->
-      <div
-        class="absolute-bottom-left text-white q-pa-sm"
-        style="pointer-events: none; text-shadow: 1px 1px 2px black"
-      >
-        <div>Model: {{ currentModelId }}</div>
-        <div>
-          View: {{ view.scale.toFixed(2) }}x ({{ view.x.toFixed(0) }}, {{ view.y.toFixed(0) }})
+          <!-- Overlay Controls -->
+          <div class="absolute-top-left q-pa-sm row q-gutter-sm" style="z-index: 10">
+            <q-btn round dense color="primary" icon="add" @click="loaderOpen = true">
+              <q-tooltip>Load Model</q-tooltip>
+            </q-btn>
+            <q-btn round dense color="info" icon="data_object" @click="ctxOpen = !ctxOpen">
+              <q-tooltip>Context</q-tooltip>
+            </q-btn>
+            <q-btn
+              round
+              dense
+              color="grey-7"
+              :icon="toolsVisible ? 'chevron_right' : 'chevron_left'"
+              @click="toggleTools"
+            >
+              <q-tooltip>{{ toolsVisible ? '隐藏侧边栏' : '显示侧边栏' }}</q-tooltip>
+            </q-btn>
+            <q-btn
+              round
+              dense
+              color="teal"
+              :icon="showDialogBox ? 'chat_bubble' : 'chat_bubble_outline'"
+              @click="showDialogBox = !showDialogBox"
+            >
+              <q-tooltip>Dialog Box</q-tooltip>
+            </q-btn>
+            <q-btn round dense color="secondary" icon="image" @click="bgOpen = true">
+              <q-tooltip>Change Background</q-tooltip>
+            </q-btn>
+            <q-btn round dense color="warning" icon="restart_alt" @click="resetView">
+              <q-tooltip>Reset View</q-tooltip>
+            </q-btn>
+          </div>
+
+          <!-- Debug info overlay -->
+          <div
+            class="absolute-bottom-left text-white q-pa-sm"
+            style="pointer-events: none; text-shadow: 1px 1px 2px black"
+          >
+            <div>Model: {{ currentModelId }}</div>
+            <div>
+              View: {{ view.scale.toFixed(2) }}x ({{ view.x.toFixed(0) }}, {{ view.y.toFixed(0) }})
+            </div>
+          </div>
+
+          <ContextWindow v-model="ctxOpen" :actor-id="currentModelId" />
+
+          <AudioPrompt />
+          <ScriptConsole :visible="showConsole" @close="showConsole = false" />
+          <SaveLoadPanel :visible="showSL" :mode="slMode" @close="showSL = false" />
+          <SettingsPanel :visible="showSettings" @close="showSettings = false" />
+          <AudioChannelsPanel :visible="showAudioChannels" @close="showAudioChannels = false" />
+          <HistoryPanel :visible="showHistory" @close="showHistory = false" />
+
+          <div v-if="showDialogBox" class="absolute-bottom full-width" style="z-index: 20">
+            <DialogBox
+              @back="store.back?.()"
+              @restart="store.reset()"
+              @open-settings="showSettings = !showSettings"
+              @open-audio="showAudioChannels = !showAudioChannels"
+              @open-context="ctxOpen = !ctxOpen"
+              @open-console="showConsole = !showConsole"
+              @open-history="showHistory = !showHistory"
+              @open-save="
+                slMode = 'save';
+                showSL = true;
+              "
+              @open-load="
+                slMode = 'load';
+                showSL = true;
+              "
+              @quick-save-1="store.save('quicksave:1')"
+              @quick-save-2="store.save('quicksave:2')"
+              @quick-save-3="store.save('quicksave:3')"
+              @hide="showDialogBox = false"
+            />
+          </div>
         </div>
-      </div>
+      </template>
 
-      <ContextWindow v-model="ctxOpen" :actor-id="currentModelId" />
+      <template #after>
+        <div class="column bg-grey-9 text-white fit" style="min-width: 0" v-show="toolsVisible">
+          <div class="q-pa-xs">
+            <q-btn-toggle
+              v-model="panelMode"
+              dense
+              unelevated
+              color="grey-8"
+              toggle-color="primary"
+              text-color="white"
+              :options="[
+                { label: 'Tabs', value: 'tabs' },
+                { label: 'Both', value: 'both' },
+              ]"
+            />
+          </div>
 
-      <div v-if="showDialogBox" class="absolute-bottom full-width" style="z-index: 20">
-        <DialogBox @hide="showDialogBox = false" />
-      </div>
-    </div>
+          <q-tabs
+            v-if="panelMode === 'tabs'"
+            v-model="tab"
+            dense
+            class="text-grey"
+            active-color="primary"
+            indicator-color="primary"
+            align="justify"
+          >
+            <q-tab name="control" label="Controls" />
+            <q-tab name="editor" label="Script" />
+          </q-tabs>
 
-    <!-- Right: Tools -->
-    <div class="col-4 column bg-grey-9 text-white">
-      <q-tabs
-        v-model="tab"
-        dense
-        class="text-grey"
-        active-color="primary"
-        indicator-color="primary"
-        align="justify"
-      >
-        <q-tab name="control" label="Controls" />
-        <q-tab name="editor" label="Script" />
-      </q-tabs>
+          <q-separator />
 
-      <q-separator />
+          <q-splitter
+            v-model="splitterModel"
+            horizontal
+            class="bg-grey-9 text-white col"
+            :limits="[0, 100]"
+            :disable="panelMode === 'tabs'"
+            :separator-style="panelMode === 'tabs' ? 'display:none;' : undefined"
+          >
+            <template #before>
+              <div class="fit q-pa-none" v-show="panelMode === 'both' || tab === 'control'">
+                <ControlPanel
+                  ref="controlPanel"
+                  :model-id="currentModelId"
+                  :actor="actor"
+                  @copy="copyCode"
+                />
+              </div>
+            </template>
 
-      <q-tab-panels v-model="tab" animated class="bg-grey-9 text-white col">
-        <q-tab-panel name="control" class="q-pa-none">
-          <ControlPanel
-            ref="controlPanel"
-            :model-id="currentModelId"
-            :actor="actor"
-            @copy="copyCode"
-          />
-        </q-tab-panel>
-
-        <q-tab-panel name="editor" class="q-pa-none">
-          <ScriptEditor ref="scriptEditor" :actor="actor" />
-        </q-tab-panel>
-      </q-tab-panels>
-    </div>
+            <template #after>
+              <div
+                class="fit q-pa-none"
+                style="min-width: 0"
+                v-show="panelMode === 'both' || tab === 'editor'"
+              >
+                <ScriptEditor ref="scriptEditor" :actor="actor" />
+              </div>
+            </template>
+          </q-splitter>
+        </div>
+      </template>
+    </q-splitter>
 
     <!-- Dialogs -->
     <ModelLoader v-model="loaderOpen" @load="loadModelSource" />
@@ -122,12 +199,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, reactive, watch, computed } from 'vue';
+import { ref, onMounted, onBeforeUnmount, reactive, watch, computed, nextTick } from 'vue';
 import { useEngineStore } from 'stores/engine-store';
 import { getLive2DBackend } from '../../engine/live2d/runtime';
 import Live2DLayer from '../../engine/render/Live2DLayer.vue';
 import { CharacterActor } from '../../engine/core/BaseActor';
 import { defaultRuntime } from '../../engine/core/Runtime';
+import SettingsPanel from '../../engine/render/SettingsPanel.vue';
+import AudioChannelsPanel from '../../engine/render/AudioChannelsPanel.vue';
+import HistoryPanel from '../../engine/render/HistoryPanel.vue';
+import SaveLoadPanel from '../../engine/render/SaveLoadPanel.vue';
+import AudioPrompt from '../../engine/render/AudioPrompt.vue';
+import ScriptConsole from '../../engine/debug/ScriptConsole.vue';
 import ModelLoader from './ModelLoader.vue';
 import ControlPanel from './ControlPanel.vue';
 import ScriptEditor from './ScriptEditor.vue';
@@ -138,14 +221,25 @@ const store = useEngineStore();
 const backend = getLive2DBackend();
 
 // State
+const panelMode = ref<'tabs' | 'both'>('tabs');
 const tab = ref('control');
 const loaderOpen = ref(false);
 const bgOpen = ref(false);
 const ctxOpen = ref(false);
 const showDialogBox = ref(false);
+const showConsole = ref(false);
+const showSettings = ref(false);
+const showAudioChannels = ref(false);
+const showHistory = ref(false);
+const showSL = ref(false);
+const slMode = ref<'save' | 'load'>('save');
 const currentModelId = ref('playground_actor');
 const bgColor = ref('#333333');
 const bgImage = ref('');
+const splitterModel = ref(50);
+const toolsVisible = ref(true);
+const viewerSplitterModel = ref(70);
+const viewerSplitterModelBackup = ref(70);
 
 // View State (Pan/Zoom)
 const view = reactive({ x: 0, y: 0, scale: 1 });
@@ -164,8 +258,21 @@ const followMouse = computed(() => {
 const controlPanel = ref<InstanceType<typeof ControlPanel> | null>(null);
 const scriptEditor = ref<InstanceType<typeof ScriptEditor> | null>(null);
 
+type ScriptEditorExposed = {
+  layout?: () => void;
+};
+
+function layoutScriptEditor() {
+  void nextTick(() => {
+    requestAnimationFrame(() => {
+      (scriptEditor.value as unknown as ScriptEditorExposed | null)?.layout?.();
+    });
+  });
+}
+
 // Lifecycle
 onMounted(() => {
+  defaultRuntime.setSaveKeyPrefix('playground:save:');
   store.reset();
   // Initialize actor position to center
   void actor.show({ x: 0.5, y: 0.5 });
@@ -178,6 +285,7 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  defaultRuntime.setSaveKeyPrefix('save:');
   void actor.hide();
   // Reset container transform
   const container = backend.getViewportContainer();
@@ -191,6 +299,50 @@ watch(view, () => {
   container.position.set(view.x, view.y);
   container.scale.set(view.scale, view.scale);
 });
+
+watch(
+  [panelMode, tab],
+  ([mode, t]) => {
+    if (mode === 'tabs') {
+      splitterModel.value = t === 'control' ? 100 : 0;
+      layoutScriptEditor();
+      return;
+    }
+
+    if (splitterModel.value <= 0 || splitterModel.value >= 100) {
+      splitterModel.value = 50;
+    }
+    layoutScriptEditor();
+  },
+  { immediate: true },
+);
+
+watch(
+  viewerSplitterModel,
+  (v) => {
+    if (toolsVisible.value && v < 100) viewerSplitterModelBackup.value = v;
+    layoutScriptEditor();
+  },
+  { immediate: true },
+);
+
+watch(
+  toolsVisible,
+  (visible) => {
+    if (visible) {
+      viewerSplitterModel.value =
+        viewerSplitterModelBackup.value >= 100 ? 70 : viewerSplitterModelBackup.value;
+    } else {
+      viewerSplitterModel.value = 100;
+    }
+    layoutScriptEditor();
+  },
+  { immediate: true },
+);
+
+function toggleTools() {
+  toolsVisible.value = !toolsVisible.value;
+}
 
 // Logic
 async function loadModelSource(source: string | File[]) {
@@ -290,3 +442,9 @@ function resetView() {
   view.scale = 1;
 }
 </script>
+
+<style scoped>
+:deep(.q-splitter__panel) {
+  min-width: 0;
+}
+</style>

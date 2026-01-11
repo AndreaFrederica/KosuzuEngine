@@ -49,6 +49,7 @@ export interface EngineState {
       live2d?: {
         modelId?: string;
         expressionId?: string;
+        expressionSeq?: number;
         motionId?: string;
         params?: Record<string, number>;
         lookAt?: { x: number; y: number };
@@ -327,6 +328,7 @@ export const reducer: Reducer = (state, action) => {
         followMouse?: boolean;
         controlBanExpressions?: boolean;
         expressionId?: string;
+        expressionSeq?: number;
         controlBanIdle?: boolean;
         controlBanMotions?: boolean;
         controlBanFocus?: boolean;
@@ -343,6 +345,7 @@ export const reducer: Reducer = (state, action) => {
         const l2d = { ...(a.live2d || {}) };
         if (p.model) l2d.modelId = p.model;
         if (typeof p.expressionId === 'string') l2d.expressionId = p.expressionId;
+        if (typeof p.expressionSeq === 'number') l2d.expressionSeq = p.expressionSeq;
         if (p.params) l2d.params = { ...(l2d.params || {}), ...p.params };
         if (p.lookAt) {
           const nx = (p.lookAt.x >= 0 && p.lookAt.x <= 1) ? (p.lookAt.x * 2 - 1) : p.lookAt.x;

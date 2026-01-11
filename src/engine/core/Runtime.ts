@@ -25,6 +25,7 @@ export class Runtime {
     }
     | null;
   private readonly progressKey: string;
+  private saveKeyPrefix: string;
   // 开发模式回调，用于检查设置面板的开发模式开关
   private isDevModeCallback: () => boolean = () => import.meta.env?.DEV === true;
   // 恢复后的继续回调，用于在 hydrate 后等待用户点击继续
@@ -45,6 +46,7 @@ export class Runtime {
     this.choiceTrail = [];
     this.replayPlan = null;
     this.progressKey = 'kosuzu_engine_progress';
+    this.saveKeyPrefix = 'save:';
   }
 
   reset() {
@@ -362,6 +364,14 @@ export class Runtime {
     this.isDevModeCallback = callback;
   }
 
+  setSaveKeyPrefix(prefix: string) {
+    this.saveKeyPrefix = prefix && prefix.length > 0 ? prefix : 'save:';
+  }
+
+  getSaveStorageKey(slot: string) {
+    return `${this.saveKeyPrefix}${slot}`;
+  }
+
   back() {
     const curr = JSON.parse(JSON.stringify(this.state)) as EngineState;
     if (this.past.length > 0) {
@@ -404,7 +414,7 @@ export class Runtime {
     const time = Date.now();
     const defaultSlot = `${scene}_${new Date(time).toLocaleString()}`;
     const useSlot = slot && slot.trim().length > 0 ? slot : defaultSlot;
-    const key = `save:${useSlot}`;
+    const key = this.getSaveStorageKey(useSlot);
     const snapshot = JSON.stringify({
       meta: { scene, text, time, slot: useSlot, frame: this.currentFrame() },
       state: this.state,
@@ -416,7 +426,7 @@ export class Runtime {
   }
 
   load(slot: string) {
-    const key = `save:${slot}`;
+    const key = this.getSaveStorageKey(slot);
     const raw = localStorage.getItem(key);
     if (!raw) return { ok: false, error: 'missing_save' } as ActionResult<void>;
     const parsed = JSON.parse(raw) as
@@ -437,11 +447,11 @@ export class Runtime {
     const slotNames: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i) || '';
-      if (k.startsWith('save:')) slotNames.push(k.substring(5));
+      if (k.startsWith(this.saveKeyPrefix)) slotNames.push(k.substring(this.saveKeyPrefix.length));
     }
     return slotNames
       .map((slot) => {
-        const raw = localStorage.getItem(`save:${slot}`);
+        const raw = localStorage.getItem(this.getSaveStorageKey(slot));
         try {
           const obj = JSON.parse(raw || '{}') as { meta?: { scene?: string; text?: string; time?: number } };
           const entry: { slot: string; scene?: string; text?: string; time?: number } = { slot };
@@ -457,7 +467,7 @@ export class Runtime {
   }
 
   deleteSave(slot: string) {
-    const key = `save:${slot}`;
+    const key = this.getSaveStorageKey(slot);
     localStorage.removeItem(key);
     return { ok: true } as ActionResult<void>;
   }

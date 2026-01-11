@@ -168,7 +168,7 @@ export const useEngineStore = defineStore('engine', () => {
       console.log('[load] slot =', slot);
       console.log('[load] 调用栈:', new Error().stack);
 
-      const key = `save:${slot}`;
+      const key = runtime.getSaveStorageKey(slot);
       const raw = localStorage.getItem(key);
       if (!raw) {
         console.log('[load] 没有找到存档数据');

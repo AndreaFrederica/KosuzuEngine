@@ -633,8 +633,14 @@ watch(
   async (newText) => {
     stopTypewriter();
 
-    if (!newText || !textRef.value) {
-      textRef.value!.innerHTML = '';
+    if (!textRef.value) {
+      pages.value = [];
+      currentPage.value = 0;
+      return;
+    }
+
+    if (!newText) {
+      textRef.value.innerHTML = '';
       pages.value = [];
       currentPage.value = 0;
       return;
