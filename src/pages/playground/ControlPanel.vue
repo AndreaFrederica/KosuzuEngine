@@ -84,9 +84,10 @@
                 dense
                 icon="content_copy"
                 size="sm"
-                @click.stop="$emit('copy', `await actor.motion('${m}');`)"
+                @click.stop="$emit('copy', motionCopyCmd(m))"
               />
             </q-item-section>
+            <q-tooltip style="white-space: nowrap">{{ motionCopyCmd(m) }}</q-tooltip>
           </q-item>
           <q-item v-if="motionList.length === 0" class="text-grey italic">
             <q-item-section>No motions found</q-item-section>
@@ -112,14 +113,40 @@
                 dense
                 icon="content_copy"
                 size="sm"
-                @click.stop="$emit('copy', `await actor.expression('${e}');`)"
-              >
-                <q-tooltip>await actor.expression('{{ e }}');</q-tooltip>
-              </q-btn>
+                @click.stop="$emit('copy', expressionCopyCmd(e))"
+              />
             </q-item-section>
+            <q-tooltip style="white-space: nowrap">{{ expressionCopyCmd(e) }}</q-tooltip>
           </q-item>
           <q-item v-if="expressionList.length === 0" class="text-grey italic">
             <q-item-section>No expressions found</q-item-section>
+          </q-item>
+        </q-list>
+      </q-expansion-item>
+
+      <q-expansion-item label="Hit Areas" header-class="text-primary">
+        <q-list dense separator dark>
+          <q-item clickable v-ripple v-for="h in hitAreaList" :key="h" @click="triggerHitArea(h)">
+            <q-item-section>
+              <div class="row items-center">
+                <q-icon name="ads_click" size="xs" class="q-mr-xs" />
+                <span>{{ h }}</span>
+              </div>
+            </q-item-section>
+            <q-item-section side>
+              <q-btn
+                flat
+                round
+                dense
+                icon="content_copy"
+                size="sm"
+                @click.stop="$emit('copy', hitAreaCopyCmd(h))"
+              />
+            </q-item-section>
+            <q-tooltip style="white-space: nowrap">{{ hitAreaCopyCmd(h) }}</q-tooltip>
+          </q-item>
+          <q-item v-if="hitAreaList.length === 0" class="text-grey italic">
+            <q-item-section>No hit areas found</q-item-section>
           </q-item>
         </q-list>
       </q-expansion-item>
@@ -144,10 +171,11 @@
                     dense
                     icon="content_copy"
                     size="xs"
-                    @click="
-                      $emit('copy', `await actor.setParam('${p.id}', ${p.value.toFixed(2)});`)
-                    "
+                    @click="$emit('copy', paramCopyCmd(p.id, p.value))"
                   />
+                  <q-tooltip style="white-space: nowrap">{{
+                    paramCopyCmd(p.id, p.value)
+                  }}</q-tooltip>
                 </div>
                 <q-slider
                   v-if="typeof p.min === 'number' && typeof p.max === 'number'"
@@ -231,6 +259,7 @@ const inspection = computed(() => live2dStore.inspections[props.modelId]);
 const snapshot = computed(() => live2dStore.snapshots[props.modelId]);
 const motionList = computed(() => inspection.value?.motions ?? []);
 const expressionList = computed(() => inspection.value?.expressions ?? []);
+const hitAreaList = computed(() => inspection.value?.hitAreas ?? []);
 const currentMotion = computed(
   () => engineStore.state.actors?.[props.modelId]?.live2d?.motionId ?? '',
 );
@@ -518,6 +547,46 @@ async function playMotion(m: string) {
 async function playExpression(e: string) {
   if (props.actor) {
     await props.actor.expression(e);
+  }
+}
+
+function motionCopyCmd(m: string) {
+  return `await actor.motion('${m}');`;
+}
+
+function expressionCopyCmd(e: string) {
+  return `await actor.expression('${e}');`;
+}
+
+function hitAreaCopyCmd(h: string) {
+  return `await runtime.dispatch({ type: 'var', payload: { key: 'live2d.hitArea', value: { actorId: '${props.modelId}', name: '${h}', ts: Date.now() } } });`;
+}
+
+function paramCopyCmd(id: string, value: number) {
+  return `await actor.setParam('${id}', ${value.toFixed(2)});`;
+}
+
+function normalizeKey(s: string) {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, '');
+}
+
+function findMotionForHitArea(hitAreaName: string) {
+  const area = normalizeKey(hitAreaName);
+  const motions = motionList.value.filter((m) => m !== '__CONTROL__');
+  const byArea = motions.filter((m) => normalizeKey(m).includes(area));
+  const byTapAndArea = byArea.filter((m) => normalizeKey(m).includes('tap'));
+  return byTapAndArea[0] ?? byArea[0] ?? null;
+}
+
+async function triggerHitArea(hitAreaName: string) {
+  void engineStore.dispatch('var', {
+    key: 'live2d.hitArea',
+    value: { actorId: props.modelId, name: hitAreaName, ts: Date.now() },
+  });
+
+  const motion = findMotionForHitArea(hitAreaName);
+  if (motion && props.actor?.motion) {
+    await props.actor.motion(motion);
   }
 }
 

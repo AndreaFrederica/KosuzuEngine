@@ -13,6 +13,11 @@ type CoreModelLike = {
   getParameterMinimumValues?: () => number[];
   getParameterMaximumValues?: () => number[];
   getParameterValues?: () => number[];
+  getParameterIndex?: (id: string) => number;
+  getParameterMinimumValue?: (index: number) => number;
+  getParameterMaximumValue?: (index: number) => number;
+  getParameterValueByIndex?: (index: number) => number;
+  getParameterValueById?: (id: string) => number;
   getParamCount?: () => number;
   getParamID?: (index: number) => string;
   getParamMin?: (index: number) => number;
@@ -27,6 +32,9 @@ type CoreModelLike = {
   getDrawableRenderOrder?: (index: number) => number;
   getDrawableOpacity?: (index: number) => number;
   getDrawableDynamicFlagIsVisible?: (index: number) => boolean;
+  _parameterIds?: unknown;
+  _model?: unknown;
+  _parameterValues?: unknown;
 };
 
 type InternalModelEmitter = {
@@ -74,6 +82,9 @@ export class PixiLive2DBackend implements ILive2DBackend {
 
   private models: Map<string, Live2DModel> = new Map();
   private actorContainers: Map<string, PIXI.Container> = new Map();
+  private hitAreaOverlays: Map<string, PIXI.Container> = new Map();
+  private hitAreaGraphics: Map<string, PIXI.Graphics> = new Map();
+  private hitAreaVisible: Map<string, boolean> = new Map();
   private modelSources: Map<string, Live2DSource> = new Map();
   private loadedSourceKeys: Map<string, string> = new Map();
   private paramIdSets: Map<string, Set<string>> = new Map();
@@ -340,6 +351,87 @@ export class PixiLive2DBackend implements ILive2DBackend {
     return c;
   }
 
+  private ensureHitAreaOverlay(actorId: string) {
+    const existed = this.hitAreaOverlays.get(actorId);
+    if (existed) return existed;
+    const overlay = new PIXI.Container();
+    overlay.sortableChildren = true;
+    overlay.visible = false;
+    overlay.eventMode = 'none';
+    overlay.zIndex = 1_000_000_000;
+
+    const gfx = new PIXI.Graphics();
+    gfx.eventMode = 'none';
+    overlay.addChild(gfx);
+
+    this.hitAreaOverlays.set(actorId, overlay);
+    this.hitAreaGraphics.set(actorId, gfx);
+    this.hitAreaVisible.set(actorId, false);
+    return overlay;
+  }
+
+  private syncHitAreaOverlayTransform(actorId: string) {
+    const model = this.models.get(actorId);
+    const overlay = this.hitAreaOverlays.get(actorId);
+    if (!model || !overlay) return;
+    overlay.position.copyFrom(model.position);
+    overlay.scale.copyFrom(model.scale);
+    overlay.pivot.copyFrom(model.pivot);
+    overlay.skew.copyFrom(model.skew);
+    overlay.rotation = model.rotation;
+  }
+
+  private updateHitAreaOverlay(actorId: string) {
+    const model = this.models.get(actorId);
+    const gfx = this.hitAreaGraphics.get(actorId);
+    if (!model || !gfx) return;
+
+    const internal = (model as unknown as { internalModel?: unknown }).internalModel as
+      | undefined
+      | {
+        hitAreas?: Record<string, { index: number }>;
+        getDrawableBounds?: (index: number, bounds?: { x: number; y: number; width: number; height: number }) => {
+          x: number;
+          y: number;
+          width: number;
+          height: number;
+        };
+        localTransform?: PIXI.Matrix;
+      };
+    if (!internal?.hitAreas || !internal.getDrawableBounds || !internal.localTransform) {
+      gfx.clear();
+      return;
+    }
+
+    gfx.clear();
+    gfx.lineStyle(2, 0xff3b30, 0.9);
+
+    for (const def of Object.values(internal.hitAreas)) {
+      const idx = def?.index;
+      if (typeof idx !== 'number' || idx < 0) continue;
+      const b = internal.getDrawableBounds(idx);
+      if (!b || !Number.isFinite(b.x) || !Number.isFinite(b.y) || !Number.isFinite(b.width) || !Number.isFinite(b.height)) continue;
+
+      const x0 = b.x;
+      const y0 = b.y;
+      const x1 = b.x + b.width;
+      const y1 = b.y + b.height;
+
+      const p0 = internal.localTransform.apply(new PIXI.Point(x0, y0));
+      const p1 = internal.localTransform.apply(new PIXI.Point(x1, y0));
+      const p2 = internal.localTransform.apply(new PIXI.Point(x1, y1));
+      const p3 = internal.localTransform.apply(new PIXI.Point(x0, y1));
+
+      gfx.beginFill(0xff3b30, 0.08);
+      gfx.moveTo(p0.x, p0.y);
+      gfx.lineTo(p1.x, p1.y);
+      gfx.lineTo(p2.x, p2.y);
+      gfx.lineTo(p3.x, p3.y);
+      gfx.closePath();
+      gfx.endFill();
+    }
+  }
+
   async load(actorId: string, source?: Live2DSource) {
     const actualSource = this.normalizeSource(this.modelSources.get(actorId) ?? source ?? '');
     if (!actualSource) throw new Error(`[PixiLive2DBackend] No source for ${actorId}`);
@@ -371,14 +463,23 @@ export class PixiLive2DBackend implements ILive2DBackend {
 
     const c = this.ensureActorContainer(actorId);
     c.addChild(model);
+    const overlay = this.ensureHitAreaOverlay(actorId);
+    c.addChild(overlay);
+    this.syncHitAreaOverlayTransform(actorId);
 
     this.desiredParams.set(actorId, {});
     this.controlModes.set(actorId, 'default');
 
     const core = this.getCore(model);
     const ids: string[] = [];
-    if (core?.getParameterCount && core.getParameterIds) {
-      ids.push(...(core.getParameterIds() ?? []));
+    if (core?.getParameterCount) {
+      const raw =
+        (typeof core.getParameterIds === 'function' && core.getParameterIds()) ||
+        (Array.isArray(core._parameterIds) ? core._parameterIds : undefined) ||
+        ((core._model as { parameters?: { ids?: unknown } } | undefined)?.parameters?.ids);
+      if (Array.isArray(raw)) {
+        for (const x of raw) ids.push(String(x));
+      }
     } else if (core?.getParamCount && core.getParamID) {
       const count = core.getParamCount() ?? 0;
       for (let i = 0; i < count; i++) ids.push(core.getParamID(i));
@@ -421,8 +522,8 @@ export class PixiLive2DBackend implements ILive2DBackend {
     if (internal) {
       const hook = () => {
         const desired = this.desiredParams.get(actorId);
-        if (!desired) return;
-        this.applyParamsToModel(actorId, desired);
+        if (desired) this.applyParamsToModel(actorId, desired);
+        if (this.hitAreaVisible.get(actorId)) this.updateHitAreaOverlay(actorId);
       };
       this.beforeUpdateHooks.set(actorId, hook);
       internal.on('beforeModelUpdate', hook);
@@ -449,6 +550,9 @@ export class PixiLive2DBackend implements ILive2DBackend {
     }
     this.models.delete(actorId);
     this.actorContainers.delete(actorId);
+    this.hitAreaOverlays.delete(actorId);
+    this.hitAreaGraphics.delete(actorId);
+    this.hitAreaVisible.delete(actorId);
     this.loadedSourceKeys.delete(actorId);
     this.paramIdSets.delete(actorId);
     this.profiles.delete(actorId);
@@ -567,6 +671,7 @@ export class PixiLive2DBackend implements ILive2DBackend {
     const sx = (typeof transform.scaleX === 'number' ? transform.scaleX : 1) * base;
     const sy = (typeof transform.scaleY === 'number' ? transform.scaleY : 1) * base;
     model.scale.set(sx, sy);
+    this.syncHitAreaOverlayTransform(actorId);
   }
 
   setParams(actorId: string, params: Record<string, number>) {
@@ -637,30 +742,41 @@ export class PixiLive2DBackend implements ILive2DBackend {
     if (!model) return null;
     const internal = (model as unknown as {
       internalModel?: {
-        motionManager?: { groups?: Record<string, unknown>; definitions?: Record<string, unknown> };
-        settings?: { motions?: Record<string, unknown>; expressions?: Array<{ name?: string }> };
+        motionManager?: {
+          groups?: Record<string, unknown>;
+          definitions?: unknown;
+          expressionManager?: { definitions?: unknown };
+        };
+        settings?: { motions?: unknown; expressions?: unknown };
+        hitAreas?: Record<string, unknown>;
       };
     }).internalModel;
     const core = this.getCore(model);
     if (!internal || !core) return null;
 
-    const motions: string[] = [PixiLive2DBackend.CONTROL_MOTION_ID];
-    if (internal.motionManager) {
-      const groups = internal.motionManager.groups;
-      const definitions = internal.motionManager.definitions;
-      if (groups) motions.push(...Object.keys(groups));
-      else if (definitions) motions.push(...Object.keys(definitions));
+    const motionSet = new Set<string>([PixiLive2DBackend.CONTROL_MOTION_ID]);
+    const motionDefs = internal.motionManager?.definitions ?? internal.settings?.motions;
+    if (motionDefs instanceof Map) {
+      for (const k of motionDefs.keys()) motionSet.add(String(k));
+    } else if (motionDefs && typeof motionDefs === 'object') {
+      for (const k of Object.keys(motionDefs as Record<string, unknown>)) motionSet.add(k);
     }
-    if (motions.length === 0 && internal.settings?.motions) {
-      motions.push(...Object.keys(internal.settings.motions));
-    }
+    const motions = [...motionSet];
 
     const expressions: string[] = [];
-    const exps = internal.settings?.expressions;
+    const exps = internal.motionManager?.expressionManager?.definitions ?? internal.settings?.expressions;
     if (Array.isArray(exps)) {
       for (const e of exps) {
-        if (typeof e?.name === 'string') expressions.push(e.name);
+        const name =
+          (e as { name?: unknown; Name?: unknown } | undefined)?.name ??
+          (e as { Name?: unknown } | undefined)?.Name;
+        if (typeof name === 'string' && name.length > 0) expressions.push(name);
       }
+    }
+
+    const hitAreas: string[] = [];
+    if (internal.hitAreas && typeof internal.hitAreas === 'object') {
+      hitAreas.push(...Object.keys(internal.hitAreas));
     }
 
     const parameters: Live2DInspection['parameters'] = [];
@@ -674,6 +790,26 @@ export class PixiLive2DBackend implements ILive2DBackend {
         const base = { id: ids[i] ?? String(i), value: values?.[i] ?? 0 } as Live2DInspection['parameters'][number];
         const min = mins?.[i];
         const max = maxs?.[i];
+        if (typeof min === 'number') base.min = min;
+        if (typeof max === 'number') base.max = max;
+        parameters.push(base);
+      }
+    } else if (core.getParameterCount && core.getParameterMinimumValue && core.getParameterMaximumValue) {
+      const count = core.getParameterCount() ?? 0;
+      const raw =
+        (typeof core.getParameterIds === 'function' && core.getParameterIds()) ||
+        (Array.isArray(core._parameterIds) ? core._parameterIds : undefined) ||
+        ((core._model as { parameters?: { ids?: unknown } } | undefined)?.parameters?.ids);
+      const ids = Array.isArray(raw) ? raw.map((x) => String(x)) : [];
+      for (let i = 0; i < count; i++) {
+        const id = ids[i] ?? String(i);
+        const value =
+          (typeof core.getParameterValueByIndex === 'function' && core.getParameterValueByIndex(i)) ??
+          (typeof core.getParameterValueById === 'function' ? core.getParameterValueById(id) : undefined) ??
+          0;
+        const base = { id, value } as Live2DInspection['parameters'][number];
+        const min = core.getParameterMinimumValue(i);
+        const max = core.getParameterMaximumValue(i);
         if (typeof min === 'number') base.min = min;
         if (typeof max === 'number') base.max = max;
         parameters.push(base);
@@ -730,7 +866,7 @@ export class PixiLive2DBackend implements ILive2DBackend {
     if (typeof active === 'boolean') expr.active = active;
     debug.expression = expr;
 
-    return { motions, expressions, parameters, debug };
+    return { motions, expressions, hitAreas, parameters, debug };
   }
 
   snapshot(actorId: string): Live2DSnapshot | null {
@@ -750,6 +886,26 @@ export class PixiLive2DBackend implements ILive2DBackend {
         const base = { id: ids[i] ?? String(i), value: values?.[i] ?? 0 } as Live2DSnapshot['parameters'][number];
         const min = mins?.[i];
         const max = maxs?.[i];
+        if (typeof min === 'number') base.min = min;
+        if (typeof max === 'number') base.max = max;
+        parameters.push(base);
+      }
+    } else if (core.getParameterCount && core.getParameterMinimumValue && core.getParameterMaximumValue) {
+      const count = core.getParameterCount() ?? 0;
+      const raw =
+        (typeof core.getParameterIds === 'function' && core.getParameterIds()) ||
+        (Array.isArray(core._parameterIds) ? core._parameterIds : undefined) ||
+        ((core._model as { parameters?: { ids?: unknown } } | undefined)?.parameters?.ids);
+      const ids = Array.isArray(raw) ? raw.map((x) => String(x)) : [];
+      for (let i = 0; i < count; i++) {
+        const id = ids[i] ?? String(i);
+        const value =
+          (typeof core.getParameterValueByIndex === 'function' && core.getParameterValueByIndex(i)) ??
+          (typeof core.getParameterValueById === 'function' ? core.getParameterValueById(id) : undefined) ??
+          0;
+        const base = { id, value } as Live2DSnapshot['parameters'][number];
+        const min = core.getParameterMinimumValue(i);
+        const max = core.getParameterMaximumValue(i);
         if (typeof min === 'number') base.min = min;
         if (typeof max === 'number') base.max = max;
         parameters.push(base);
@@ -806,7 +962,15 @@ export class PixiLive2DBackend implements ILive2DBackend {
   setHitAreasVisible(actorId: string, visible: boolean) {
     const model = this.models.get(actorId);
     if (!model) return;
-    const anyModel = model as unknown as { hitAreaFrames?: { visible: boolean } };
-    if (anyModel.hitAreaFrames) anyModel.hitAreaFrames.visible = visible;
+    const c = this.actorContainers.get(actorId);
+    if (!c) return;
+
+    const overlay = this.hitAreaOverlays.get(actorId) ?? this.ensureHitAreaOverlay(actorId);
+    if (!c.children.includes(overlay)) c.addChild(overlay);
+
+    this.hitAreaVisible.set(actorId, visible);
+    overlay.visible = visible;
+    this.syncHitAreaOverlayTransform(actorId);
+    if (visible) this.updateHitAreaOverlay(actorId);
   }
 }

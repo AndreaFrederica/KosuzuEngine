@@ -26,7 +26,7 @@ export type PlaygroundLive2DProfile = {
 
 type Persisted = {
   version: 1;
-  activeProfileId?: string;
+  activeProfileId: string;
   profiles: Record<string, PlaygroundLive2DProfile>;
   paramRangesByModel: Record<string, Record<string, ParamRange>>;
 };
@@ -54,17 +54,25 @@ function clampRange(r: ParamRange) {
 }
 
 export const usePlaygroundLive2DStore = defineStore('playground-live2d', () => {
-  const activeProfileId = ref<string | undefined>(undefined);
-  const profiles = ref<Record<string, PlaygroundLive2DProfile>>({});
+  const defaultProfile: PlaygroundLive2DProfile = {
+    id: 'default',
+    name: 'Default',
+    createdAt: now(),
+    updatedAt: now(),
+    settings: {},
+    paramRangesByModel: {},
+  };
+  const activeProfileId = ref<string>('default');
+  const profiles = ref<Record<string, PlaygroundLive2DProfile>>({ default: defaultProfile });
   const paramRangesByModel = ref<Record<string, Record<string, ParamRange>>>({});
 
   function persist() {
     const payload: Persisted = {
       version: 1,
+      activeProfileId: activeProfileId.value,
       profiles: profiles.value,
       paramRangesByModel: paramRangesByModel.value,
     };
-    if (typeof activeProfileId.value === 'string') payload.activeProfileId = activeProfileId.value;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
   }
 
@@ -79,6 +87,13 @@ export const usePlaygroundLive2DStore = defineStore('playground-live2d', () => {
       if (parsed.paramRangesByModel) paramRangesByModel.value = parsed.paramRangesByModel;
     } catch {
       return;
+    }
+
+    if (!profiles.value.default) {
+      profiles.value = { default: defaultProfile, ...profiles.value };
+    }
+    if (!activeProfileId.value || !profiles.value[activeProfileId.value]) {
+      activeProfileId.value = 'default';
     }
   }
 
@@ -109,7 +124,11 @@ export const usePlaygroundLive2DStore = defineStore('playground-live2d', () => {
   }
 
   function setActiveProfile(id?: string) {
-    activeProfileId.value = id;
+    if (typeof id === 'string' && profiles.value[id]) {
+      activeProfileId.value = id;
+    } else {
+      activeProfileId.value = 'default';
+    }
     persist();
   }
 
@@ -149,7 +168,10 @@ export const usePlaygroundLive2DStore = defineStore('playground-live2d', () => {
     if (!(id in next)) return;
     delete next[id];
     profiles.value = next;
-    if (activeProfileId.value === id) activeProfileId.value = undefined;
+    if (!profiles.value.default) {
+      profiles.value = { default: defaultProfile, ...profiles.value };
+    }
+    if (activeProfileId.value === id) activeProfileId.value = 'default';
     persist();
   }
 

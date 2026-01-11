@@ -169,22 +169,57 @@
         <!-- Local Tab -->
         <q-tab-panel name="local">
           <div class="text-body2 q-mb-md">
-            Select <b>ALL</b> files in the model folder (model3.json, moc3, textures, etc.).
+            Select a <b>folder</b> containing your model files (model3.json/model.json, moc3/moc,
+            textures, etc.).
             <br />
             <span class="text-caption text-grey">
-              Note: You must select all related files at once so the engine can read them.
+              We will list detected model setting files in that folder.
             </span>
           </div>
 
           <div class="row justify-center">
             <input
               type="file"
+              webkitdirectory
+              directory
               multiple
               ref="fileInput"
               style="display: none"
               @change="onFileChange"
             />
-            <q-btn color="primary" icon="folder_open" label="Select Files" @click="pickFiles" />
+            <q-btn color="primary" icon="folder_open" label="Select Folder" @click="pickFiles" />
+          </div>
+
+          <div v-if="localFiles.length > 0" class="q-mt-md">
+            <div class="text-caption text-grey-8 q-mb-sm">
+              Selected {{ localFiles.length }} files, found {{ localModelSettings.length }} model
+              setting file(s).
+            </div>
+
+            <q-list bordered separator dense>
+              <q-item v-if="localModelSettings.length === 0" class="text-grey italic">
+                <q-item-section>No .model3.json / .model.json found in this folder</q-item-section>
+              </q-item>
+
+              <q-item
+                v-for="m in localModelSettings"
+                :key="m.path"
+                clickable
+                v-ripple
+                @click="loadLocalSetting(m.path)"
+              >
+                <q-item-section avatar>
+                  <q-icon name="smart_toy" color="primary" />
+                </q-item-section>
+                <q-item-section>
+                  <q-item-label class="text-weight-bold">{{ m.name }}</q-item-label>
+                  <q-item-label caption>{{ m.path }}</q-item-label>
+                </q-item-section>
+                <q-item-section side>
+                  <q-btn flat round dense icon="play_circle" size="md" color="primary" />
+                </q-item-section>
+              </q-item>
+            </q-list>
           </div>
         </q-tab-panel>
       </q-tab-panels>
@@ -212,6 +247,32 @@ const isOpen = computed({
 const tab = ref('network');
 const url = ref('');
 const fileInput = ref<HTMLInputElement | null>(null);
+const localFiles = ref<File[]>([]);
+
+function relPathOfFile(f: File) {
+  return (
+    (f as unknown as { webkitRelativePath?: string }).webkitRelativePath ||
+    (f as unknown as { path?: string }).path ||
+    f.name
+  );
+}
+
+const localModelSettings = computed(() => {
+  const list = localFiles.value
+    .map((f) => ({ file: f, path: relPathOfFile(f) }))
+    .filter(
+      (x) =>
+        x.path.toLowerCase().endsWith('.model3.json') ||
+        x.path.toLowerCase().endsWith('.model.json'),
+    )
+    .map((x) => {
+      const parts = x.path.split('/').filter(Boolean);
+      const name = parts[parts.length - 1] ?? x.path;
+      return { name, path: x.path };
+    });
+  list.sort((a, b) => a.path.localeCompare(b.path));
+  return list;
+});
 
 const presets = [
   {
@@ -408,11 +469,22 @@ function pickFiles() {
 function onFileChange(event: Event) {
   const input = event.target as HTMLInputElement;
   if (input.files && input.files.length > 0) {
-    // Convert FileList to Array
-    const files = Array.from(input.files);
-    emit('load', files);
-    isOpen.value = false;
+    localFiles.value = Array.from(input.files);
+    if (localModelSettings.value.length === 1) {
+      loadLocalSetting(localModelSettings.value[0]!.path);
+    }
   }
+}
+
+function loadLocalSetting(settingPath: string) {
+  const files = [...localFiles.value];
+  const idx = files.findIndex((f) => relPathOfFile(f) === settingPath);
+  if (idx > 0) {
+    const picked = files.splice(idx, 1)[0]!;
+    files.unshift(picked);
+  }
+  emit('load', files);
+  isOpen.value = false;
 }
 </script>
 

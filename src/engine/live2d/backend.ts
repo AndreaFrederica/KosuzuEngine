@@ -26,6 +26,7 @@ export type Live2DDrawableSnapshot = {
 export type Live2DInspection = {
   motions: string[];
   expressions: string[];
+  hitAreas: string[];
   parameters: Live2DParameterSnapshot[];
   debug?: {
     controlMode?: 'default' | 'control';

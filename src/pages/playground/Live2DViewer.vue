@@ -29,6 +29,15 @@
         <q-btn round dense color="info" icon="data_object" @click="ctxOpen = !ctxOpen">
           <q-tooltip>Context</q-tooltip>
         </q-btn>
+        <q-btn
+          round
+          dense
+          color="teal"
+          :icon="showDialogBox ? 'chat_bubble' : 'chat_bubble_outline'"
+          @click="showDialogBox = !showDialogBox"
+        >
+          <q-tooltip>Dialog Box</q-tooltip>
+        </q-btn>
         <q-btn round dense color="secondary" icon="image" @click="bgOpen = true">
           <q-tooltip>Change Background</q-tooltip>
         </q-btn>
@@ -49,6 +58,10 @@
       </div>
 
       <ContextWindow v-model="ctxOpen" :actor-id="currentModelId" />
+
+      <div v-if="showDialogBox" class="absolute-bottom full-width" style="z-index: 20">
+        <DialogBox @hide="showDialogBox = false" />
+      </div>
     </div>
 
     <!-- Right: Tools -->
@@ -119,6 +132,7 @@ import ModelLoader from './ModelLoader.vue';
 import ControlPanel from './ControlPanel.vue';
 import ScriptEditor from './ScriptEditor.vue';
 import ContextWindow from './ContextWindow.vue';
+import DialogBox from '../../engine/render/DialogBox.vue';
 
 const store = useEngineStore();
 const backend = getLive2DBackend();
@@ -128,6 +142,7 @@ const tab = ref('control');
 const loaderOpen = ref(false);
 const bgOpen = ref(false);
 const ctxOpen = ref(false);
+const showDialogBox = ref(false);
 const currentModelId = ref('playground_actor');
 const bgColor = ref('#333333');
 const bgImage = ref('');
@@ -187,15 +202,19 @@ async function loadModelSource(source: string | File[]) {
       typeof source === 'string'
         ? source
             .trim()
-            .replace(/^`+/, '')
-            .replace(/`+$/, '')
-            .replace(/^"+/, '')
-            .replace(/"+$/, '')
+            .replace(/^[`"']+/, '')
+            .replace(/[`"']+$/, '')
             .trim()
         : source;
     backend.registerSource(id, normalizedSource);
 
-    await actor.show({ opacity: 1 });
+    const curr = store.state.actors?.[id]?.transform ?? {};
+    await actor.show({
+      x: typeof curr.x === 'number' ? curr.x : 0.5,
+      y: typeof curr.y === 'number' ? curr.y : 0.5,
+      scale: typeof curr.scale === 'number' ? curr.scale : 1,
+      opacity: 1,
+    });
 
     await actor.setLive2DModel(
       typeof normalizedSource === 'string' ? normalizedSource : 'local_files',

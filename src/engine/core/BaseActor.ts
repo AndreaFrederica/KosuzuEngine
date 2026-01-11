@@ -341,7 +341,12 @@ export class CharacterActor extends BaseActor {
 
   /** 设置Live2D模型 */
   setLive2DModel(path: string) {
-    return this.action({ type: 'live2d', payload: { actorId: this.id, model: path, mode: 'live2d' } });
+    const normalized = path
+      .trim()
+      .replace(/^[`"']+/, '')
+      .replace(/[`"']+$/, '')
+      .trim();
+    return this.action({ type: 'live2d', payload: { actorId: this.id, model: normalized, mode: 'live2d' } });
   }
 
   /** 设置Live2D参数 */
