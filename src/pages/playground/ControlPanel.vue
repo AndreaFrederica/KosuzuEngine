@@ -10,12 +10,53 @@
       <!-- Motions -->
       <q-expansion-item label="Settings" header-class="text-primary">
         <div class="q-pa-sm">
+          <q-select
+            v-model="profileId"
+            dense
+            filled
+            emit-value
+            map-options
+            label="Playground Profile"
+            :options="profileOptions"
+          />
+          <div class="row q-gutter-sm q-mt-sm">
+            <q-input v-model="profileName" dense filled class="col" label="Profile Name" />
+            <q-btn dense color="primary" label="Save New" @click="saveNewProfile" />
+            <q-btn
+              dense
+              color="primary"
+              outline
+              label="Overwrite"
+              @click="overwriteSelectedProfile"
+            />
+            <q-btn dense color="negative" outline label="Delete" @click="deleteSelectedProfile" />
+            <q-btn dense color="secondary" outline label="Apply" @click="applySelectedProfile" />
+          </div>
           <q-toggle
             v-model="showHitArea"
             label="Show Hit Areas"
             @update:model-value="updateHitArea"
           />
           <q-toggle v-model="followMouse" label="Follow Mouse (Context Driven)" />
+          <q-toggle v-model="banExpressionsInControl" label="Ban Expressions in __CONTROL__" />
+          <q-toggle v-model="banIdleInControl" label="Ban Auto Idle in __CONTROL__" />
+          <q-toggle v-model="banMotionsInControl" label="Ban Motions in __CONTROL__" />
+          <q-toggle v-model="banFocusInControl" label="Ban Focus in __CONTROL__" />
+          <q-toggle v-model="banNaturalInControl" label="Ban Natural Move in __CONTROL__" />
+          <q-toggle v-model="banEyeBlinkInControl" label="Ban EyeBlink in __CONTROL__" />
+          <q-toggle v-model="banBreathInControl" label="Ban Breath in __CONTROL__" />
+          <q-toggle v-model="banPhysicsInControl" label="Ban Physics in __CONTROL__" />
+          <q-toggle v-model="banPoseInControl" label="Ban Pose in __CONTROL__" />
+          <div class="q-mt-sm text-caption">
+            <div>Control Mode: {{ debugControlMode }}</div>
+            <div>Idle Group: {{ debugIdleGroup }}</div>
+            <div>
+              Expression: available={{ debugExprAvailable }},
+              {{ debugExprPresent ? 'present' : 'none' }}, active={{ debugExprActive }}, finished={{
+                debugExprFinished
+              }}, reserve={{ debugExprReserve }}
+            </div>
+          </div>
         </div>
       </q-expansion-item>
 
@@ -71,7 +112,7 @@
                 dense
                 icon="content_copy"
                 size="sm"
-                @click.stop="$emit('copy', `await actor.pose('${e}');`)"
+                @click.stop="$emit('copy', `await actor.expression('${e}');`)"
               />
             </q-item-section>
           </q-item>
@@ -115,14 +156,45 @@
                   dense
                   @update:model-value="(val) => setParam(p.id, val)"
                 />
-                <q-input
-                  v-else
-                  filled
-                  dense
-                  type="number"
-                  v-model.number="p.value"
-                  @update:model-value="(val) => setParam(p.id, val as number | null)"
-                />
+                <div v-else class="row items-center q-gutter-sm">
+                  <q-input
+                    dense
+                    filled
+                    type="number"
+                    style="width: 90px"
+                    :model-value="getCustomRange(p).min"
+                    @update:model-value="
+                      (val) =>
+                        setCustomRange(p, {
+                          min: Number(val),
+                          max: getCustomRange(p).max,
+                        })
+                    "
+                  />
+                  <q-slider
+                    class="col"
+                    v-model="p.value"
+                    :min="getCustomRange(p).min"
+                    :max="getCustomRange(p).max"
+                    :step="0.01"
+                    dense
+                    @update:model-value="(val) => setParam(p.id, val)"
+                  />
+                  <q-input
+                    dense
+                    filled
+                    type="number"
+                    style="width: 90px"
+                    :model-value="getCustomRange(p).max"
+                    @update:model-value="
+                      (val) =>
+                        setCustomRange(p, {
+                          min: getCustomRange(p).min,
+                          max: Number(val),
+                        })
+                    "
+                  />
+                </div>
               </div>
             </div>
           </q-expansion-item>
@@ -136,6 +208,7 @@
 import { ref, computed, watch } from 'vue';
 import { useEngineStore } from 'stores/engine-store';
 import { useLive2DDebugStore } from 'stores/live2d-debug-store';
+import { usePlaygroundLive2DStore } from 'stores/playground-live2d-store';
 import { getLive2DBackend } from '../../engine/live2d/runtime';
 
 const props = defineProps<{
@@ -151,6 +224,7 @@ defineEmits<{
 const backend = getLive2DBackend();
 const engineStore = useEngineStore();
 const live2dStore = useLive2DDebugStore();
+const playgroundStore = usePlaygroundLive2DStore();
 const inspection = computed(() => live2dStore.inspections[props.modelId]);
 const snapshot = computed(() => live2dStore.snapshots[props.modelId]);
 const motionList = computed(() => inspection.value?.motions ?? []);
@@ -167,6 +241,178 @@ const followMouse = computed({
     }
   },
 });
+const banExpressionsInControl = computed({
+  get: () => engineStore.state.actors?.[props.modelId]?.live2d?.controlBanExpressions ?? true,
+  set: (val: boolean) => {
+    if (props.actor?.setControlBanExpressions) {
+      void props.actor.setControlBanExpressions(val);
+    }
+  },
+});
+const banIdleInControl = computed({
+  get: () => engineStore.state.actors?.[props.modelId]?.live2d?.controlBanIdle ?? true,
+  set: (val: boolean) => {
+    if (props.actor?.setControlBanIdle) void props.actor.setControlBanIdle(val);
+  },
+});
+const banMotionsInControl = computed({
+  get: () => engineStore.state.actors?.[props.modelId]?.live2d?.controlBanMotions ?? true,
+  set: (val: boolean) => {
+    if (props.actor?.setControlBanMotions) void props.actor.setControlBanMotions(val);
+  },
+});
+const banFocusInControl = computed({
+  get: () => engineStore.state.actors?.[props.modelId]?.live2d?.controlBanFocus ?? true,
+  set: (val: boolean) => {
+    if (props.actor?.setControlBanFocus) void props.actor.setControlBanFocus(val);
+  },
+});
+const banNaturalInControl = computed({
+  get: () => engineStore.state.actors?.[props.modelId]?.live2d?.controlBanNatural ?? true,
+  set: (val: boolean) => {
+    if (props.actor?.setControlBanNatural) void props.actor.setControlBanNatural(val);
+  },
+});
+const banEyeBlinkInControl = computed({
+  get: () => engineStore.state.actors?.[props.modelId]?.live2d?.controlBanEyeBlink ?? true,
+  set: (val: boolean) => {
+    if (props.actor?.setControlBanEyeBlink) void props.actor.setControlBanEyeBlink(val);
+  },
+});
+const banBreathInControl = computed({
+  get: () => engineStore.state.actors?.[props.modelId]?.live2d?.controlBanBreath ?? true,
+  set: (val: boolean) => {
+    if (props.actor?.setControlBanBreath) void props.actor.setControlBanBreath(val);
+  },
+});
+const banPhysicsInControl = computed({
+  get: () => engineStore.state.actors?.[props.modelId]?.live2d?.controlBanPhysics ?? true,
+  set: (val: boolean) => {
+    if (props.actor?.setControlBanPhysics) void props.actor.setControlBanPhysics(val);
+  },
+});
+const banPoseInControl = computed({
+  get: () => engineStore.state.actors?.[props.modelId]?.live2d?.controlBanPose ?? true,
+  set: (val: boolean) => {
+    if (props.actor?.setControlBanPose) void props.actor.setControlBanPose(val);
+  },
+});
+
+const debugControlMode = computed(() => inspection.value?.debug?.controlMode ?? '-');
+const debugIdleGroup = computed(() => inspection.value?.debug?.motion?.idleGroup ?? '-');
+const debugExprPresent = computed(() => inspection.value?.debug?.expression?.present ?? false);
+const debugExprAvailable = computed(() => inspection.value?.debug?.expression?.available ?? false);
+const debugExprActive = computed(() => inspection.value?.debug?.expression?.active ?? '-');
+const debugExprFinished = computed(() => inspection.value?.debug?.expression?.isFinished ?? '-');
+const debugExprReserve = computed(() => inspection.value?.debug?.expression?.reserveIndex ?? '-');
+
+const modelKey = computed(
+  () => engineStore.state.actors?.[props.modelId]?.live2d?.modelId ?? props.modelId,
+);
+
+const profileId = computed({
+  get: () => playgroundStore.activeProfileId,
+  set: (val: string | undefined) => playgroundStore.setActiveProfile(val),
+});
+
+const profileName = ref('');
+const profileOptions = computed(() =>
+  playgroundStore.profileList.map((p) => ({ label: p.name, value: p.id })),
+);
+
+function currentSettingsForProfile() {
+  const a = engineStore.state.actors?.[props.modelId]?.live2d;
+  return {
+    showHitArea: showHitArea.value,
+    followMouse: a?.followMouse ?? false,
+    controlBanExpressions: a?.controlBanExpressions ?? true,
+    controlBanIdle: a?.controlBanIdle ?? true,
+    controlBanMotions: a?.controlBanMotions ?? true,
+    controlBanFocus: a?.controlBanFocus ?? true,
+    controlBanNatural: a?.controlBanNatural ?? true,
+    controlBanEyeBlink: a?.controlBanEyeBlink ?? true,
+    controlBanBreath: a?.controlBanBreath ?? true,
+    controlBanPhysics: a?.controlBanPhysics ?? true,
+    controlBanPose: a?.controlBanPose ?? true,
+  };
+}
+
+function saveNewProfile() {
+  const name = profileName.value.trim() || `Profile ${new Date().toLocaleString()}`;
+  playgroundStore.saveNewProfile({ name, settings: currentSettingsForProfile() });
+}
+
+function overwriteSelectedProfile() {
+  const id = profileId.value;
+  if (!id) return;
+  const name = profileName.value.trim();
+  const input: { name?: string; settings: ReturnType<typeof currentSettingsForProfile> } = {
+    settings: currentSettingsForProfile(),
+  };
+  if (name) input.name = name;
+  playgroundStore.overwriteProfile(id, input);
+}
+
+function deleteSelectedProfile() {
+  const id = profileId.value;
+  if (!id) return;
+  playgroundStore.deleteProfile(id);
+}
+
+function applySelectedProfile() {
+  const id = profileId.value;
+  if (!id) return;
+  const p = playgroundStore.applyProfile(id);
+  if (!p) return;
+  profileName.value = p.name;
+  if (typeof p.settings.followMouse === 'boolean' && props.actor?.setFollowMouse) {
+    void props.actor.setFollowMouse(p.settings.followMouse);
+  }
+  if (
+    typeof p.settings.controlBanExpressions === 'boolean' &&
+    props.actor?.setControlBanExpressions
+  ) {
+    void props.actor.setControlBanExpressions(p.settings.controlBanExpressions);
+  }
+  if (typeof p.settings.controlBanIdle === 'boolean' && props.actor?.setControlBanIdle) {
+    void props.actor.setControlBanIdle(p.settings.controlBanIdle);
+  }
+  if (typeof p.settings.controlBanMotions === 'boolean' && props.actor?.setControlBanMotions) {
+    void props.actor.setControlBanMotions(p.settings.controlBanMotions);
+  }
+  if (typeof p.settings.controlBanFocus === 'boolean' && props.actor?.setControlBanFocus) {
+    void props.actor.setControlBanFocus(p.settings.controlBanFocus);
+  }
+  if (typeof p.settings.controlBanNatural === 'boolean' && props.actor?.setControlBanNatural) {
+    void props.actor.setControlBanNatural(p.settings.controlBanNatural);
+  }
+  if (typeof p.settings.controlBanEyeBlink === 'boolean' && props.actor?.setControlBanEyeBlink) {
+    void props.actor.setControlBanEyeBlink(p.settings.controlBanEyeBlink);
+  }
+  if (typeof p.settings.controlBanBreath === 'boolean' && props.actor?.setControlBanBreath) {
+    void props.actor.setControlBanBreath(p.settings.controlBanBreath);
+  }
+  if (typeof p.settings.controlBanPhysics === 'boolean' && props.actor?.setControlBanPhysics) {
+    void props.actor.setControlBanPhysics(p.settings.controlBanPhysics);
+  }
+  if (typeof p.settings.controlBanPose === 'boolean' && props.actor?.setControlBanPose) {
+    void props.actor.setControlBanPose(p.settings.controlBanPose);
+  }
+  if (typeof p.settings.showHitArea === 'boolean') {
+    showHitArea.value = p.settings.showHitArea;
+    updateHitArea(p.settings.showHitArea);
+  }
+}
+
+watch(
+  () => profileId.value,
+  (id) => {
+    if (!id) return;
+    const p = playgroundStore.profiles[id];
+    if (p) profileName.value = p.name;
+  },
+  { immediate: true },
+);
 
 interface ParamInfo {
   id: string;
@@ -175,6 +421,25 @@ interface ParamInfo {
   value: number;
 }
 const params = ref<ParamInfo[]>([]);
+
+function defaultRangeForParam(id: string) {
+  const upper = id.toUpperCase();
+  if (upper.includes('ANGLE')) return { min: -30, max: 30 };
+  if (upper.includes('MOUTH_OPEN') || upper.includes('OPEN')) return { min: 0, max: 1 };
+  if (upper.includes('SMILE')) return { min: 0, max: 1 };
+  if (upper.includes('EYE') && upper.includes('OPEN')) return { min: 0, max: 1 };
+  return { min: -1, max: 1 };
+}
+
+function getCustomRange(p: ParamInfo) {
+  const key = modelKey.value;
+  const saved = playgroundStore.getParamRange(key, p.id);
+  return saved ?? defaultRangeForParam(p.id);
+}
+
+function setCustomRange(p: ParamInfo, next: { min: number; max: number }) {
+  playgroundStore.setParamRange(modelKey.value, p.id, next);
+}
 
 function groupFromParamId(id: string) {
   let s = id;
@@ -250,7 +515,7 @@ async function playMotion(m: string) {
 
 async function playExpression(e: string) {
   if (props.actor) {
-    await props.actor.pose(e);
+    await props.actor.expression(e);
   }
 }
 

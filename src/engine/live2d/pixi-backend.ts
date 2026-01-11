@@ -82,6 +82,20 @@ export class PixiLive2DBackend implements ILive2DBackend {
   private beforeUpdateHooks: Map<string, () => void> = new Map();
   private backups: Map<string, InternalModelBackup> = new Map();
   private controlModes: Map<string, 'default' | 'control'> = new Map();
+  private controlOptions: Map<
+    string,
+    {
+      banExpressions: boolean;
+      banIdle: boolean;
+      banMotions: boolean;
+      banFocus: boolean;
+      banNatural: boolean;
+      banEyeBlink: boolean;
+      banBreath: boolean;
+      banPhysics: boolean;
+      banPose: boolean;
+    }
+  > = new Map();
 
   public static readonly CONTROL_MOTION_ID = '__CONTROL__';
 
@@ -255,40 +269,43 @@ export class PixiLive2DBackend implements ILive2DBackend {
 
       if (motionManager?.groups && 'idle' in motionManager.groups) {
         backup.idleGroup = (motionManager.groups as { idle: string }).idle;
-        (motionManager.groups as { idle: string }).idle = '__disabled__';
       }
 
       if (motionManager?.state && typeof motionManager.state.shouldRequestIdleMotion === 'function') {
         backup.shouldRequestIdleMotion = motionManager.state.shouldRequestIdleMotion;
-        motionManager.state.shouldRequestIdleMotion = () => false;
       }
 
       if (typeof internal.updateFocus === 'function') {
         backup.updateFocus = internal.updateFocus;
-        internal.updateFocus = () => { };
       }
       if (typeof internal.updateNaturalMovements === 'function') {
         backup.updateNaturalMovements = internal.updateNaturalMovements;
-        internal.updateNaturalMovements = () => { };
       }
 
       backup.eyeBlink = internal.eyeBlink;
       backup.breath = internal.breath;
       backup.physics = internal.physics;
       backup.pose = internal.pose;
-      internal.eyeBlink = undefined;
-      internal.breath = undefined;
-      internal.physics = undefined;
-      internal.pose = undefined;
 
       if (motionManager && 'expressionManager' in motionManager) {
         backup.expressionManager = motionManager.expressionManager;
-        motionManager.expressionManager = undefined;
       }
 
       this.backups.set(actorId, backup);
-      motionManager?.stopAllMotions?.();
       this.controlModes.set(actorId, 'control');
+      const options = this.controlOptions.get(actorId) ?? {
+        banExpressions: true,
+        banIdle: true,
+        banMotions: true,
+        banFocus: true,
+        banNatural: true,
+        banEyeBlink: true,
+        banBreath: true,
+        banPhysics: true,
+        banPose: true,
+      };
+      this.controlOptions.set(actorId, options);
+      this.applyControlOptionsToInternal(internal, backup, options);
     } else {
       const backup = this.backups.get(actorId);
       if (backup) {
@@ -438,6 +455,98 @@ export class PixiLive2DBackend implements ILive2DBackend {
     this.desiredParams.delete(actorId);
     this.backups.delete(actorId);
     this.controlModes.delete(actorId);
+    this.controlOptions.delete(actorId);
+  }
+
+  setControlOptions(actorId: string, options: {
+    banExpressions?: boolean;
+    banIdle?: boolean;
+    banMotions?: boolean;
+    banFocus?: boolean;
+    banNatural?: boolean;
+    banEyeBlink?: boolean;
+    banBreath?: boolean;
+    banPhysics?: boolean;
+    banPose?: boolean;
+  }) {
+    const prev = this.controlOptions.get(actorId) ?? {
+      banExpressions: true,
+      banIdle: true,
+      banMotions: true,
+      banFocus: true,
+      banNatural: true,
+      banEyeBlink: true,
+      banBreath: true,
+      banPhysics: true,
+      banPose: true,
+    };
+    const next = {
+      banExpressions: typeof options.banExpressions === 'boolean' ? options.banExpressions : prev.banExpressions,
+      banIdle: typeof options.banIdle === 'boolean' ? options.banIdle : prev.banIdle,
+      banMotions: typeof options.banMotions === 'boolean' ? options.banMotions : prev.banMotions,
+      banFocus: typeof options.banFocus === 'boolean' ? options.banFocus : prev.banFocus,
+      banNatural: typeof options.banNatural === 'boolean' ? options.banNatural : prev.banNatural,
+      banEyeBlink: typeof options.banEyeBlink === 'boolean' ? options.banEyeBlink : prev.banEyeBlink,
+      banBreath: typeof options.banBreath === 'boolean' ? options.banBreath : prev.banBreath,
+      banPhysics: typeof options.banPhysics === 'boolean' ? options.banPhysics : prev.banPhysics,
+      banPose: typeof options.banPose === 'boolean' ? options.banPose : prev.banPose,
+    };
+    this.controlOptions.set(actorId, next);
+
+    const model = this.models.get(actorId);
+    if (!model) return;
+    const internal = this.getInternalModel(model);
+    if (!internal) return;
+    const inControl = (this.controlModes.get(actorId) ?? 'default') === 'control';
+    if (!inControl) return;
+
+    const backup = this.backups.get(actorId);
+    if (!backup) return;
+    this.applyControlOptionsToInternal(internal, backup, next);
+  }
+
+  private applyControlOptionsToInternal(
+    internal: InternalModelLike,
+    backup: InternalModelBackup,
+    options: {
+      banExpressions: boolean;
+      banIdle: boolean;
+      banMotions: boolean;
+      banFocus: boolean;
+      banNatural: boolean;
+      banEyeBlink: boolean;
+      banBreath: boolean;
+      banPhysics: boolean;
+      banPose: boolean;
+    },
+  ) {
+    const motionManager = internal.motionManager;
+
+    if (motionManager?.groups && typeof backup.idleGroup === 'string') {
+      motionManager.groups.idle = options.banIdle ? '__disabled__' : backup.idleGroup;
+    }
+
+    if (motionManager?.state && backup.shouldRequestIdleMotion) {
+      motionManager.state.shouldRequestIdleMotion = options.banIdle ? () => false : backup.shouldRequestIdleMotion;
+    }
+
+    if (options.banMotions) motionManager?.stopAllMotions?.();
+
+    if (backup.updateFocus) {
+      internal.updateFocus = options.banFocus ? () => { } : backup.updateFocus;
+    }
+    if (backup.updateNaturalMovements) {
+      internal.updateNaturalMovements = options.banNatural ? () => { } : backup.updateNaturalMovements;
+    }
+
+    internal.eyeBlink = options.banEyeBlink ? undefined : backup.eyeBlink;
+    internal.breath = options.banBreath ? undefined : backup.breath;
+    internal.physics = options.banPhysics ? undefined : backup.physics;
+    internal.pose = options.banPose ? undefined : backup.pose;
+
+    if (motionManager && 'expressionManager' in motionManager) {
+      motionManager.expressionManager = options.banExpressions ? undefined : backup.expressionManager;
+    }
   }
 
   setTransform(actorId: string, transform?: TransformState) {
@@ -508,6 +617,16 @@ export class PixiLive2DBackend implements ILive2DBackend {
     if (!model) return;
     try {
       await model.motion(motionId);
+    } catch {
+      return;
+    }
+  }
+
+  async playExpression(actorId: string, expressionId: string) {
+    const model = this.models.get(actorId);
+    if (!model) return;
+    try {
+      await model.expression(expressionId);
     } catch {
       return;
     }
@@ -584,7 +703,34 @@ export class PixiLive2DBackend implements ILive2DBackend {
       }
     }
 
-    return { motions, expressions, parameters };
+    const debug: NonNullable<Live2DInspection['debug']> = {};
+    debug.controlMode = this.controlModes.get(actorId) ?? 'default';
+    debug.control = { ...(this.controlOptions.get(actorId) ?? {}) };
+    const idleGroup = internal.motionManager?.groups?.idle;
+    if (typeof idleGroup === 'string') debug.motion = { idleGroup };
+    const em = (internal.motionManager as unknown as { expressionManager?: unknown })?.expressionManager as
+      | undefined
+      | {
+        isFinished?: () => boolean;
+        reserveExpressionIndex?: number;
+        currentExpression?: unknown;
+        defaultExpression?: unknown;
+      };
+    const expr: NonNullable<NonNullable<Live2DInspection['debug']>['expression']> = {
+      available: expressions.length > 0,
+      present: !!em,
+    };
+    const isFinished = typeof em?.isFinished === 'function' ? em.isFinished() : undefined;
+    if (typeof isFinished === 'boolean') expr.isFinished = isFinished;
+    if (typeof em?.reserveExpressionIndex === 'number') expr.reserveIndex = em.reserveExpressionIndex;
+    const active =
+      em && 'currentExpression' in em && 'defaultExpression' in em
+        ? em.currentExpression !== em.defaultExpression
+        : undefined;
+    if (typeof active === 'boolean') expr.active = active;
+    debug.expression = expr;
+
+    return { motions, expressions, parameters, debug };
   }
 
   snapshot(actorId: string): Live2DSnapshot | null {

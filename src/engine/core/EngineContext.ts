@@ -53,6 +53,15 @@ export interface EngineState {
         params?: Record<string, number>;
         lookAt?: { x: number; y: number };
         followMouse?: boolean;
+        controlBanExpressions?: boolean;
+        controlBanIdle?: boolean;
+        controlBanMotions?: boolean;
+        controlBanFocus?: boolean;
+        controlBanNatural?: boolean;
+        controlBanEyeBlink?: boolean;
+        controlBanBreath?: boolean;
+        controlBanPhysics?: boolean;
+        controlBanPose?: boolean;
       };
       transition?: { duration?: number; easing?: string };
       fx?: { name?: string; duration?: number; token?: number; params?: Record<string, unknown> };
@@ -316,6 +325,16 @@ export const reducer: Reducer = (state, action) => {
         params?: Record<string, number>;
         lookAt?: { x: number; y: number };
         followMouse?: boolean;
+        controlBanExpressions?: boolean;
+        expressionId?: string;
+        controlBanIdle?: boolean;
+        controlBanMotions?: boolean;
+        controlBanFocus?: boolean;
+        controlBanNatural?: boolean;
+        controlBanEyeBlink?: boolean;
+        controlBanBreath?: boolean;
+        controlBanPhysics?: boolean;
+        controlBanPose?: boolean;
       };
       const prevA = nextActors[p.actorId];
       if (prevA) {
@@ -323,6 +342,7 @@ export const reducer: Reducer = (state, action) => {
         if (p.mode) a.mode = p.mode;
         const l2d = { ...(a.live2d || {}) };
         if (p.model) l2d.modelId = p.model;
+        if (typeof p.expressionId === 'string') l2d.expressionId = p.expressionId;
         if (p.params) l2d.params = { ...(l2d.params || {}), ...p.params };
         if (p.lookAt) {
           const nx = (p.lookAt.x >= 0 && p.lookAt.x <= 1) ? (p.lookAt.x * 2 - 1) : p.lookAt.x;
@@ -340,6 +360,15 @@ export const reducer: Reducer = (state, action) => {
           l2d.params = { ...(l2d.params || {}), ...nextParams };
         }
         if (typeof p.followMouse === 'boolean') l2d.followMouse = p.followMouse;
+        if (typeof p.controlBanExpressions === 'boolean') l2d.controlBanExpressions = p.controlBanExpressions;
+        if (typeof p.controlBanIdle === 'boolean') l2d.controlBanIdle = p.controlBanIdle;
+        if (typeof p.controlBanMotions === 'boolean') l2d.controlBanMotions = p.controlBanMotions;
+        if (typeof p.controlBanFocus === 'boolean') l2d.controlBanFocus = p.controlBanFocus;
+        if (typeof p.controlBanNatural === 'boolean') l2d.controlBanNatural = p.controlBanNatural;
+        if (typeof p.controlBanEyeBlink === 'boolean') l2d.controlBanEyeBlink = p.controlBanEyeBlink;
+        if (typeof p.controlBanBreath === 'boolean') l2d.controlBanBreath = p.controlBanBreath;
+        if (typeof p.controlBanPhysics === 'boolean') l2d.controlBanPhysics = p.controlBanPhysics;
+        if (typeof p.controlBanPose === 'boolean') l2d.controlBanPose = p.controlBanPose;
         if (Object.keys(l2d).length > 0) a.live2d = l2d;
         nextActors[p.actorId] = a;
         if (!nextActorIds.includes(p.actorId)) nextActorIds.push(p.actorId);

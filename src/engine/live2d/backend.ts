@@ -27,6 +27,28 @@ export type Live2DInspection = {
   motions: string[];
   expressions: string[];
   parameters: Live2DParameterSnapshot[];
+  debug?: {
+    controlMode?: 'default' | 'control';
+    control?: {
+      banExpressions?: boolean;
+      banIdle?: boolean;
+      banMotions?: boolean;
+      banFocus?: boolean;
+      banNatural?: boolean;
+      banEyeBlink?: boolean;
+      banBreath?: boolean;
+      banPhysics?: boolean;
+      banPose?: boolean;
+    };
+    motion?: { idleGroup?: string };
+    expression?: {
+      available?: boolean;
+      present?: boolean;
+      isFinished?: boolean;
+      reserveIndex?: number;
+      active?: boolean;
+    };
+  };
 };
 
 export type Live2DSnapshot = {
@@ -45,9 +67,23 @@ export interface ILive2DBackend {
 
   setTransform(actorId: string, transform?: TransformState): void;
   setParams(actorId: string, params: Record<string, number>): void;
+  setControlOptions?: (
+    actorId: string,
+    options: {
+      banExpressions?: boolean;
+      banIdle?: boolean;
+      banMotions?: boolean;
+      banFocus?: boolean;
+      banNatural?: boolean;
+      banEyeBlink?: boolean;
+      banBreath?: boolean;
+      banPhysics?: boolean;
+      banPose?: boolean;
+    },
+  ) => void;
   playMotion(actorId: string, motionId: string): Promise<void>;
+  playExpression?: (actorId: string, expressionId: string) => Promise<void>;
 
   inspect(actorId: string): Live2DInspection | null;
   snapshot(actorId: string): Live2DSnapshot | null;
 }
-

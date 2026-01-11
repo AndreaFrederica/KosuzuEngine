@@ -359,6 +359,48 @@ export class CharacterActor extends BaseActor {
     return this.action({ type: 'live2d', payload: { actorId: this.id, followMouse: enabled } });
   }
 
+  /** 自控模式下是否禁用表情系统 */
+  setControlBanExpressions(enabled: boolean) {
+    return this.action({ type: 'live2d', payload: { actorId: this.id, controlBanExpressions: enabled } });
+  }
+
+  setControlBanIdle(enabled: boolean) {
+    return this.action({ type: 'live2d', payload: { actorId: this.id, controlBanIdle: enabled } });
+  }
+
+  setControlBanMotions(enabled: boolean) {
+    return this.action({ type: 'live2d', payload: { actorId: this.id, controlBanMotions: enabled } });
+  }
+
+  setControlBanFocus(enabled: boolean) {
+    return this.action({ type: 'live2d', payload: { actorId: this.id, controlBanFocus: enabled } });
+  }
+
+  setControlBanNatural(enabled: boolean) {
+    return this.action({ type: 'live2d', payload: { actorId: this.id, controlBanNatural: enabled } });
+  }
+
+  setControlBanEyeBlink(enabled: boolean) {
+    return this.action({ type: 'live2d', payload: { actorId: this.id, controlBanEyeBlink: enabled } });
+  }
+
+  setControlBanBreath(enabled: boolean) {
+    return this.action({ type: 'live2d', payload: { actorId: this.id, controlBanBreath: enabled } });
+  }
+
+  setControlBanPhysics(enabled: boolean) {
+    return this.action({ type: 'live2d', payload: { actorId: this.id, controlBanPhysics: enabled } });
+  }
+
+  setControlBanPose(enabled: boolean) {
+    return this.action({ type: 'live2d', payload: { actorId: this.id, controlBanPose: enabled } });
+  }
+
+  /** 播放Live2D表情 */
+  expression(id: string) {
+    return this.action({ type: 'live2d', payload: { actorId: this.id, expressionId: id } });
+  }
+
   /** 彻底析构角色，从引擎状态和绑定中移除所有相关数据 */
   async destroy() {
     // 清理 Runtime state 中的角色数据
