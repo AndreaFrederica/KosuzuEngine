@@ -32,6 +32,9 @@ export interface Live2DState {
   modelId?: string;
   expressionId?: string;
   motionId?: string;
+  params?: Record<string, number>;
+  lookAt?: { x: number; y: number };
+  followMouse?: boolean;
 }
 
 export interface AudioState {
@@ -40,6 +43,7 @@ export interface AudioState {
 }
 
 export interface ActorState {
+  mode?: 'normal' | 'live2d';
   transform?: TransformState;
   pose?: PoseState;
   spriteDiff?: string;
@@ -327,7 +331,32 @@ export class CharacterActor extends BaseActor {
 
   /** 播放Live2D动作 */
   motion(id: string) {
-    return this.action({ type: 'motion', payload: { id } });
+    return this.action({ type: 'motion', payload: { actorId: this.id, id } });
+  }
+
+  /** 设置模式 */
+  setMode(mode: 'normal' | 'live2d') {
+    return this.action({ type: 'live2d', payload: { actorId: this.id, mode } });
+  }
+
+  /** 设置Live2D模型 */
+  setLive2DModel(path: string) {
+    return this.action({ type: 'live2d', payload: { actorId: this.id, model: path, mode: 'live2d' } });
+  }
+
+  /** 设置Live2D参数 */
+  setParam(id: string, value: number) {
+    return this.action({ type: 'live2d', payload: { actorId: this.id, params: { [id]: value } } });
+  }
+
+  /** 设置Live2D注视点（归一化坐标：x/y 推荐范围 -1..1 或 0..1） */
+  lookAt(x: number, y: number) {
+    return this.action({ type: 'live2d', payload: { actorId: this.id, lookAt: { x, y } } });
+  }
+
+  /** 是否由上下文驱动注视鼠标 */
+  setFollowMouse(enabled: boolean) {
+    return this.action({ type: 'live2d', payload: { actorId: this.id, followMouse: enabled } });
   }
 
   /** 彻底析构角色，从引擎状态和绑定中移除所有相关数据 */

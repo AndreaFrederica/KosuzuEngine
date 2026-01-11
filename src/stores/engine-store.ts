@@ -119,6 +119,16 @@ export const useEngineStore = defineStore('engine', () => {
     runtime.advance();
   }
 
+  function reset() {
+    Object.assign(state, initialEngineState);
+    loadToken.value = 0;
+    loadProgress.scene = undefined;
+    loadProgress.frame = undefined;
+    loadReplay.value = null;
+    skipScript.value = false;
+    runtime.reset();
+  }
+
   return {
     state,
     dialog: () => selectors.dialog(state),
@@ -238,5 +248,6 @@ export const useEngineStore = defineStore('engine', () => {
     // 检查是否正在恢复位置（Dev 模式下快速重放时禁用 CSS 动画）
     // 需要同时检查：开发模式开关 AND 正在恢复位置
     isRestoring: () => devMode.value && runtime.isRestoring(),
+    reset,
   };
 });

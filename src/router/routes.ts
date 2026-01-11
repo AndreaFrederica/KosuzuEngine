@@ -11,6 +11,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'settings', component: () => import('../game/ui/SettingsScreen.vue') },
       { path: 'end', component: () => import('../game/ui/EndScreen.vue') },
       { path: 'demo', component: () => import('pages/DemoVN.vue') },
+      { path: 'playground', component: () => import('pages/playground/Live2DViewer.vue') },
     ],
   },
 

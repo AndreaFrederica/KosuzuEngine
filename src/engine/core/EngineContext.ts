@@ -45,6 +45,15 @@ export interface EngineState {
       kind: string;
       transform?: TransformState;
       pose?: PoseState;
+      mode?: 'normal' | 'live2d';
+      live2d?: {
+        modelId?: string;
+        expressionId?: string;
+        motionId?: string;
+        params?: Record<string, number>;
+        lookAt?: { x: number; y: number };
+        followMouse?: boolean;
+      };
       transition?: { duration?: number; easing?: string };
       fx?: { name?: string; duration?: number; token?: number; params?: Record<string, unknown> };
     }
@@ -209,7 +218,8 @@ export const reducer: Reducer = (state, action) => {
     action.type === 'clearActorBindings' ||
     action.type === 'pose' ||
     action.type === 'motion' ||
-    action.type === 'fx'
+    action.type === 'fx' ||
+    action.type === 'live2d'
   ) {
     const next = { ...state };
     const nextActors = { ...(state.actors || {}) } as EngineState['actors'];
@@ -288,6 +298,52 @@ export const reducer: Reducer = (state, action) => {
       a.pose = { emote: p.key };
       nextActors[p.actorId] = a;
       if (!nextActorIds.includes(p.actorId)) nextActorIds.push(p.actorId);
+    } else if (action.type === 'motion') {
+      const p = action.payload as { actorId: string; id: string };
+      const prevA = nextActors[p.actorId];
+      if (prevA) {
+        const a = { ...prevA };
+        const l2d = { ...(a.live2d || {}) };
+        l2d.motionId = p.id;
+        a.live2d = l2d;
+        nextActors[p.actorId] = a;
+      }
+    } else if (action.type === 'live2d') {
+      const p = action.payload as {
+        actorId: string;
+        model?: string;
+        mode?: 'normal' | 'live2d';
+        params?: Record<string, number>;
+        lookAt?: { x: number; y: number };
+        followMouse?: boolean;
+      };
+      const prevA = nextActors[p.actorId];
+      if (prevA) {
+        const a = { ...prevA };
+        if (p.mode) a.mode = p.mode;
+        const l2d = { ...(a.live2d || {}) };
+        if (p.model) l2d.modelId = p.model;
+        if (p.params) l2d.params = { ...(l2d.params || {}), ...p.params };
+        if (p.lookAt) {
+          const nx = (p.lookAt.x >= 0 && p.lookAt.x <= 1) ? (p.lookAt.x * 2 - 1) : p.lookAt.x;
+          const ny = (p.lookAt.y >= 0 && p.lookAt.y <= 1) ? (p.lookAt.y * 2 - 1) : p.lookAt.y;
+          const x = Math.max(-1, Math.min(1, nx));
+          const y = Math.max(-1, Math.min(1, ny));
+          l2d.lookAt = { x, y };
+          const nextParams: Record<string, number> = {
+            ParamEyeBallX: x,
+            ParamEyeBallY: y,
+            ParamAngleX: x * 30,
+            ParamAngleY: y * 30,
+            ParamBodyAngleX: x * 10,
+          };
+          l2d.params = { ...(l2d.params || {}), ...nextParams };
+        }
+        if (typeof p.followMouse === 'boolean') l2d.followMouse = p.followMouse;
+        if (Object.keys(l2d).length > 0) a.live2d = l2d;
+        nextActors[p.actorId] = a;
+        if (!nextActorIds.includes(p.actorId)) nextActorIds.push(p.actorId);
+      }
     } else if (action.type === 'fx') {
       const p = action.payload as { actorId: string; name: string; duration?: number; params?: Record<string, unknown> };
       const prevA = nextActors[p.actorId];

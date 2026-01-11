@@ -17,6 +17,7 @@
       />
     </div>
     <div class="engine-layers">
+      <Live2DLayer style="z-index: 0" />
       <div v-for="id in actorIds" :key="id" class="actor-node" :style="actorNodeStyleById(id)">
         <img
           class="actor-img"
@@ -42,10 +43,19 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted, onBeforeUnmount, watchEffect, watch, type CSSProperties } from 'vue';
+import {
+  computed,
+  ref,
+  onMounted,
+  onBeforeUnmount,
+  watchEffect,
+  watch,
+  type CSSProperties,
+} from 'vue';
 // no-op
 import { useEngineStore } from 'stores/engine-store';
 import { audioManager } from './AudioManager';
+import Live2DLayer from './Live2DLayer.vue';
 const props = defineProps<{ debug?: boolean }>();
 const emit = defineEmits<{ (e: 'stage-click'): void }>();
 const store = useEngineStore();
@@ -113,7 +123,7 @@ watch(
       await audioManager.stop({ fadeOut: fadeDuration ?? 500 });
     }
   },
-  { deep: true },  // 移除 immediate: true，由 syncBgmState() 处理初始同步
+  { deep: true }, // 移除 immediate: true，由 syncBgmState() 处理初始同步
 );
 const bgName = computed(() => bg.value?.name);
 const bgEffect = computed(() => bg.value?.effect ?? 'cut');
