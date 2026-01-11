@@ -169,23 +169,22 @@
         <!-- Local Tab -->
         <q-tab-panel name="local">
           <div class="text-body2 q-mb-md">
-            Select a folder containing the model files (moc3, textures, physics, etc.).
+            Select <b>ALL</b> files in the model folder (model3.json, moc3, textures, etc.).
             <br />
-            Note: Drag and drop is also supported on the main canvas.
+            <span class="text-caption text-grey">
+              Note: You must select all related files at once so the engine can read them.
+            </span>
           </div>
 
           <div class="row justify-center">
-            <!-- Quasar q-file doesn't support webkitdirectory well, using native input -->
             <input
               type="file"
-              webkitdirectory
-              directory
               multiple
               ref="fileInput"
               style="display: none"
               @change="onFileChange"
             />
-            <q-btn color="primary" icon="folder_open" label="Select Folder" @click="pickFiles" />
+            <q-btn color="primary" icon="folder_open" label="Select Files" @click="pickFiles" />
           </div>
         </q-tab-panel>
       </q-tab-panels>

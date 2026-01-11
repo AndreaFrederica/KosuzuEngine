@@ -113,7 +113,9 @@
                 icon="content_copy"
                 size="sm"
                 @click.stop="$emit('copy', `await actor.expression('${e}');`)"
-              />
+              >
+                <q-tooltip>await actor.expression('{{ e }}');</q-tooltip>
+              </q-btn>
             </q-item-section>
           </q-item>
           <q-item v-if="expressionList.length === 0" class="text-grey italic">
