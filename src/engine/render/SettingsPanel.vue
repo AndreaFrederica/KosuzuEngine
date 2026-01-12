@@ -280,6 +280,18 @@
           </div>
           <div class="setting-item">
             <div class="setting-info">
+              <div class="setting-label">使用 IndexedDB 存档</div>
+              <div class="setting-desc">默认关闭，开启后存档容量更大</div>
+            </div>
+            <q-toggle
+              :model-value="settingsStore.otherSettings.useIndexedDBSaves"
+              @update:model-value="onUseIndexedDBSavesChange"
+              color="primary"
+              keep-color
+            />
+          </div>
+          <div class="setting-item">
+            <div class="setting-info">
               <div class="setting-label">自动播放等待</div>
               <div class="setting-desc">
                 自动模式下打字完成后的等待时间（毫秒）/ Auto-play wait delay (ms)
@@ -314,9 +326,7 @@
           <div class="setting-item">
             <div class="setting-info">
               <div class="setting-label">恢复模式</div>
-              <div class="setting-desc">
-                读档时的恢复方式 / Recovery mode when loading
-              </div>
+              <div class="setting-desc">读档时的恢复方式 / Recovery mode when loading</div>
             </div>
             <select v-model="recoveryMode" @change="onRecoveryModeChange" class="setting-select">
               <option value="full">完整重放 / Full replay</option>
@@ -552,6 +562,10 @@ function onShowTypewriterDebugChange(value: boolean) {
 
 function onSkipReplayChange(value: boolean) {
   settingsStore.setSkipReplay(value);
+}
+
+function onUseIndexedDBSavesChange(value: boolean) {
+  settingsStore.setUseIndexedDBSaves(value);
 }
 
 function onAutoWaitDelayChange(value: number | null) {

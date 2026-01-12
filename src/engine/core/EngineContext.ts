@@ -362,7 +362,14 @@ export const reducer: Reducer = (state, action) => {
         const a = { ...prevA };
         if (p.mode) a.mode = p.mode;
         const l2d = { ...(a.live2d || {}) };
-        if (p.model) l2d.modelId = p.model;
+        if (p.model) {
+          const normalized = String(p.model)
+            .trim()
+            .replace(/^[`"']+/, '')
+            .replace(/[`"']+$/, '')
+            .trim();
+          l2d.modelId = normalized;
+        }
         if (typeof p.expressionId === 'string') l2d.expressionId = p.expressionId;
         if (typeof p.expressionSeq === 'number') l2d.expressionSeq = p.expressionSeq;
         if (p.params) l2d.params = { ...(l2d.params || {}), ...p.params };

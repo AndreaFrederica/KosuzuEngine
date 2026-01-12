@@ -14,6 +14,7 @@ interface SaveMetadata {
 export interface SaveData {
   meta: SaveMetadata;
   state: unknown;
+  entryVars?: Record<string, unknown>;
   actions?: unknown[];
   choices?: string[];
 }

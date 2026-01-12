@@ -123,45 +123,47 @@ const uiText = computed(() => {
     unnamedScenario: t('unnamed_scenario'),
   };
 });
-async function refresh() {
-  saves.value = await store.listSaves();
+function refresh() {
+  void store.listSaves().then((v) => {
+    saves.value = v;
+  });
 }
-async function onPrimary() {
+function onPrimary() {
   if (!slot.value) {
     slot.value = defaultSlot();
   }
   if (props.mode === 'save') {
-    await store.save(slot.value);
-    await refresh();
+    void store.save(slot.value);
+    refresh();
   } else {
-    store.load(slot.value);
+    void store.load(slot.value);
   }
 }
-async function onItem(s: string) {
+function onItem(s: string) {
   if (props.mode === 'save') {
     // 保存模式：只当输入框为空时才使用选中槽位，不更新输入框显示
     if (!slot.value) {
       slot.value = s;
     }
-    await store.save(s);
-    await refresh();
+    void store.save(s);
+    refresh();
   } else {
     // 读取模式：直接读取，不更新输入框
-    store.load(s);
+    void store.load(s);
   }
 }
-async function onDelete(s: string) {
-  await store.deleteSave?.(s);
+function onDelete(s: string) {
+  void store.deleteSave?.(s);
   if (slot.value === s) slot.value = '';
-  await refresh();
+  refresh();
 }
-async function onQuickSave(slotNum: number) {
+function onQuickSave(slotNum: number) {
   const qsSlot = `quicksave:${slotNum}`;
   if (props.mode === 'save') {
-    await store.save(qsSlot);
-    await refresh();
+    void store.save(qsSlot);
+    refresh();
   } else {
-    store.load(qsSlot);
+    void store.load(qsSlot);
   }
 }
 
@@ -175,7 +177,7 @@ function defaultSlot() {
   return `${scene}_${ts}`;
 }
 watchEffect(() => {
-  if (props.visible) void refresh();
+  if (props.visible) refresh();
 });
 
 function truncate(t: string) {

@@ -21,6 +21,9 @@
               <span class="mode-text-en">Save</span>
             </button>
           </div>
+          <button class="latest-button" :disabled="!hasLatest" @click="loadLatest">
+            <span>继续（最近）</span>
+          </button>
           <div class="quick-save-toolbar">
             <div class="quick-save-label">
               {{ mode === 'save' ? '快速存档' : '快速读取' }} /
@@ -33,10 +36,12 @@
             </div>
           </div>
           <div class="recovery-mode-toolbar">
-            <div class="recovery-mode-label">
-              恢复模式 / Recovery mode
-            </div>
-            <select v-model="recoveryMode" @change="onRecoveryModeChange" class="recovery-mode-select">
+            <div class="recovery-mode-label">恢复模式 / Recovery mode</div>
+            <select
+              v-model="recoveryMode"
+              @change="onRecoveryModeChange"
+              class="recovery-mode-select"
+            >
               <option value="full">完整重放 / Full</option>
               <option value="fast">快速跳转 / Fast</option>
               <option value="direct">直接恢复 / Direct</option>
@@ -113,10 +118,12 @@ const recoveryMode = computed(() => settingsStore.displaySettings.recoveryMode);
 
 // 存档列表
 const saves = ref<Array<{ slot: string; scene?: string; text?: string; time?: number }>>([]);
+const hasLatest = ref(false);
 
 // 加载存档列表
 async function loadSaves() {
   saves.value = await store.listSaves();
+  hasLatest.value = await store.hasSave('__latest__');
 }
 
 // 选择存档槽位
@@ -125,10 +132,7 @@ async function selectSlot(slot: string) {
     await store.save(slot);
     void loadSaves();
   } else {
-    store.load(slot);
-    void loadSaves();
-    // 读取成功后跳转到游戏
-    void router.push('/demo');
+    await router.push({ path: '/demo', query: { load: slot } });
   }
 }
 
@@ -147,11 +151,13 @@ async function quickSave(slotNum: number) {
     await store.save(slot);
     void loadSaves();
   } else {
-    store.load(slot);
-    void loadSaves();
-    // 读取成功后跳转到游戏
-    void router.push('/demo');
+    await router.push({ path: '/demo', query: { load: slot } });
   }
+}
+
+async function loadLatest() {
+  if (!hasLatest.value) return;
+  await router.push({ path: '/demo', query: { load: '__latest__' } });
 }
 
 // 格式化时间
@@ -310,6 +316,27 @@ onMounted(() => {
 
 .back-button:hover {
   background: rgba(255, 255, 255, 0.2);
+}
+
+.latest-button {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  padding: 10px 16px;
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.latest-button:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.latest-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .saveload-body {

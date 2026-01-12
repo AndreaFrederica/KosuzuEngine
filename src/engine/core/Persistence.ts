@@ -24,6 +24,7 @@ export type PersistedProgress = {
   time: number;
   actions?: ActorAction<unknown>[];
   choices?: string[];
+  entryVars?: Record<string, unknown>;
   /** 快速模式标记：true=快速跳转（跳过动画），false=完整重放 */
   fastMode?: boolean;
 };
@@ -43,6 +44,7 @@ export function loadPersistedProgress(): PersistedProgress | null {
     };
     if (Array.isArray(parsed.actions)) out.actions = parsed.actions;
     if (Array.isArray(parsed.choices)) out.choices = parsed.choices;
+    if (parsed.entryVars && typeof parsed.entryVars === 'object') out.entryVars = parsed.entryVars;
     return out;
   } catch {
     return null;

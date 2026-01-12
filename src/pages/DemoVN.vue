@@ -58,17 +58,12 @@ import AudioChannelsPanel from '../engine/render/AudioChannelsPanel.vue';
 import AudioPrompt from '../engine/render/AudioPrompt.vue';
 import { onMounted, ref, watch } from 'vue';
 import { useEngineStore } from 'stores/engine-store';
-import { useSettingsStore } from 'stores/settings-store';
-import {
-  loadPersistedProgress,
-  loadPersistedState,
-  clearPersistedProgress,
-  type PersistedProgress,
-} from '../engine/core/Persistence';
+import { loadPersistedProgress, clearPersistedProgress } from '../engine/core/Persistence';
+import { initialEngineState } from '../engine/core/EngineContext';
 import { scenes, getSceneFn, hasScene } from '../game/scenes';
 import { defaultRuntime } from '../engine/core/Runtime';
 import { initI18n, registerEngineStore } from '../engine/i18n';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import { registerRouterNavigateCallback } from '../engine/core/BaseActor';
 import { initNavigation } from '../engine/navigation';
 const showDebug = ref(false);
@@ -81,8 +76,8 @@ const showSettings = ref(false);
 const showAudioChannels = ref(false);
 const slMode = ref<'save' | 'load'>('save');
 const store = useEngineStore();
-const settingsStore = useSettingsStore();
 const router = useRouter();
+const route = useRoute();
 
 // 从场景注册表获取场景ID列表
 type SceneName = (typeof scenes)[number]['id'];
@@ -97,40 +92,17 @@ async function runSceneLoop(initialScene: SceneName, initialFrame: number) {
   if (store.shouldSkipScript?.()) {
     console.log('[runSceneLoop] 跳过脚本执行，直接从保存状态恢复');
     store.clearSkipScript?.();
-    // 设置恢复回调，当用户点击"继续"时从当前帧开始执行脚本
-    defaultRuntime.setResumeCallback(() => {
-      console.log('[resumeCallback] 用户点击继续，从当前帧恢复脚本执行');
-      void runSceneLoop(initialScene, initialFrame);
-    });
-
-    // 检查是否启用了读档后自动继续
-    const autoContinue = settingsStore.displaySettings.autoContinueAfterLoad;
-    if (autoContinue) {
-      console.log('[runSceneLoop] 读档后自动继续已启用，延迟触发继续');
-      // 延迟一小段时间让用户看到恢复的状态，然后自动继续
-      setTimeout(() => {
-        store.advance();
-      }, 300);
-    }
+    defaultRuntime.setResumeCallback(null);
     return; // 不执行脚本，状态已在 load() 中通过 hydrate 恢复
   }
 
-  const initialProgress = loadPersistedProgress();
-  const initialReplay: PersistedProgress | null =
-    initialProgress?.scene === initialScene && Array.isArray(initialProgress.actions)
-      ? initialProgress
-      : null;
   let nextScene: SceneName | null = initialScene;
   let nextFrame = initialFrame;
   while (nextScene) {
     if (token !== sceneLoopToken) return;
     const name = nextScene;
     nextScene = null;
-    const result = await startSceneFromFrame(
-      name,
-      nextFrame,
-      name === initialScene ? initialReplay : null,
-    );
+    const result = await startSceneFromFrame(name, nextFrame);
     if (token !== sceneLoopToken) return;
     nextFrame = 0;
     const maybeNext = (result || '').trim();
@@ -140,40 +112,31 @@ async function runSceneLoop(initialScene: SceneName, initialFrame: number) {
   }
 }
 
-async function startSceneFromFrame(
-  sceneName: SceneName,
-  frame: number,
-  replay: PersistedProgress | null,
-) {
-  // 检查开发模式
-  const isDevMode = store.devMode();
+async function startSceneFromFrame(sceneName: SceneName, frame: number) {
+  // 从 store 获取当前的 replay 信息（而不是依赖参数传入）
+  const currentReplay = store.loadReplay();
+  const replayForScene = currentReplay?.scene === sceneName ? currentReplay : null;
+  const replayMode = replayForScene ? (replayForScene.fastMode ? 'fast' : 'full') : null;
 
-  // 检查是否有保存的完整状态
-  const savedState = loadPersistedState();
+  console.log(
+    '[startSceneFromFrame] replayMode =',
+    replayMode,
+    'frame =',
+    frame,
+    'currentReplay =',
+    currentReplay,
+  );
 
-  // 检查是否为快速模式
-  const isFastMode = replay?.fastMode === true;
-
-  console.log('[startSceneFromFrame] isDevMode =', isDevMode, 'isFastMode =', isFastMode, 'frame =', frame);
-
-  // 快速模式：使用 replayToFrame 跳过目标帧之前的所有命令
-  // Dev 模式下也会跳过动画（通过 Runtime 的 dispatch 方法处理）
-  if (isFastMode || isDevMode) {
-    console.log('[startSceneFromFrame] 快速模式：重放到目标帧', frame);
-    defaultRuntime.reset();
-    if (frame > 0) {
-      defaultRuntime.replayToFrame(frame);
-    }
+  if (replayForScene && replayMode) {
+    const entryVars = replayForScene.entryVars ?? {};
+    defaultRuntime.hydrate(
+      { ...initialEngineState, vars: entryVars, bindings: store.state.bindings },
+      { clearHistory: true, silent: replayMode === 'fast' },
+    );
+    defaultRuntime.setChoiceTrail(replayForScene.choices);
+    defaultRuntime.replayToFrame(frame, replayMode);
     await store.dispatch('scene', sceneName);
-  } else if (savedState && savedState.scene === sceneName && frame > 0) {
-    // 非快速模式且有保存状态时，直接恢复状态，不重新执行脚本
-    console.log('[startSceneFromFrame] 直接恢复模式：使用已保存的状态');
-    defaultRuntime.hydrate(savedState);
-    await store.dispatch('scene', sceneName);
-    return ''; // 不继续执行脚本
   } else {
-    // 正常模式：从头开始执行脚本
-    console.log('[startSceneFromFrame] 正常模式：从头执行脚本');
     defaultRuntime.reset();
     await store.dispatch('scene', sceneName);
   }
@@ -233,20 +196,35 @@ onMounted(() => {
   // 注册 engine store，用于语言切换时重新翻译
   registerEngineStore(store);
 
-  const progress = loadPersistedProgress();
-  const _restored = loadPersistedState(); // eslint-disable-line @typescript-eslint/no-unused-vars
+  void (async () => {
+    const loadSlot = typeof route.query.load === 'string' ? route.query.load : null;
+    if (loadSlot) {
+      const r = await store.load(loadSlot);
+      if (r.ok) {
+        void router.replace('/demo');
+      } else {
+        alert(`读取存档失败：${loadSlot}`);
+        void router.push('/saves');
+      }
+      return;
+    }
 
-  // 从场景注册表获取有效的场景ID列表
-  const validSceneIds = new Set(scenes.map((s) => s.id));
+    const replay = store.loadReplay?.() ?? null;
+    const progress = replay ? { scene: replay.scene, frame: replay.frame } : null;
 
-  // 确定初始场景
-  let sceneName: SceneName = 'scene1';
-  if (progress?.scene && validSceneIds.has(progress.scene)) {
-    sceneName = progress.scene as SceneName; // eslint-disable-line @typescript-eslint/no-unnecessary-type-assertion
-  }
+    // 从场景注册表获取有效的场景ID列表
+    const validSceneIds = new Set(scenes.map((s) => s.id));
 
-  const frame = progress?.scene === sceneName ? progress.frame : 0;
-  void runSceneLoop(sceneName, frame);
+    // 确定初始场景
+    let sceneName: SceneName = 'scene1';
+    const candidateScene = (progress?.scene || store.state.scene || '').trim();
+    if (candidateScene && validSceneIds.has(candidateScene)) {
+      sceneName = candidateScene as SceneName; // eslint-disable-line @typescript-eslint/no-unnecessary-type-assertion
+    }
+
+    const frame = progress?.scene === sceneName ? progress.frame : 0;
+    void runSceneLoop(sceneName, frame);
+  })();
 });
 
 watch(
@@ -260,6 +238,7 @@ watch(
     console.log('[watch loadToken] shouldSkipScript =', shouldSkip);
     console.log('[watch loadToken] replay =', replay);
     console.log('[watch loadToken] scene =', p.scene, 'frame =', p.frame);
+    console.log('[watch loadToken] store.shouldSkipScript 函数 =', typeof store.shouldSkipScript);
 
     // 从场景注册表获取有效的场景ID列表
     const validSceneIds = new Set(scenes.map((s) => s.id));
@@ -273,21 +252,6 @@ watch(
       console.log('[watch loadToken] 跳过脚本执行，直接从保存状态恢复');
       store.clearSkipScript?.();
       showDialog.value = true;
-      // 设置恢复回调，当用户点击"继续"时从当前帧开始执行脚本
-      defaultRuntime.setResumeCallback(() => {
-        console.log('[resumeCallback] 用户点击继续，从当前帧恢复脚本执行');
-        void runSceneLoop(scene, frame);
-      });
-
-      // 检查是否启用了读档后自动继续
-      const autoContinue = settingsStore.displaySettings.autoContinueAfterLoad;
-      if (autoContinue) {
-        console.log('[watch loadToken] 读档后自动继续已启用，延迟触发继续');
-        // 延迟一小段时间让用户看到恢复的状态，然后自动继续
-        setTimeout(() => {
-          store.advance();
-        }, 300);
-      }
       return; // 不执行脚本，状态已在 load() 中通过 hydrate 恢复
     }
 
@@ -295,19 +259,13 @@ watch(
     sceneLoopToken += 1;
     const token = sceneLoopToken;
     void (async () => {
-      const initialReplay: PersistedProgress | null =
-        replay && replay.scene === scene && Array.isArray(replay.actions) ? replay : null;
       let nextScene: SceneName | null = scene;
       let nextFrame = frame;
       while (nextScene) {
         if (token !== sceneLoopToken) return;
         const name = nextScene;
         nextScene = null;
-        const result = await startSceneFromFrame(
-          name,
-          nextFrame,
-          name === scene ? initialReplay : null,
-        );
+        const result = await startSceneFromFrame(name, nextFrame);
         if (token !== sceneLoopToken) return;
         nextFrame = 0;
         const maybeNext = (result || '').trim();

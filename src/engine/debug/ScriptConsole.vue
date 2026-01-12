@@ -409,69 +409,6 @@ function runCommand(line: string) {
     writeLine(JSON.stringify(runtime.state, null, 2));
     return;
   }
-  if (cmd === 'saves') {
-    void (async () => {
-      const saves = await runtime.listSaves();
-      if (saves.length === 0) {
-        writeLine('(no saves)');
-      } else {
-        saves.forEach((s) => {
-          writeLine(`${s.slot} - ${s.scene || 'Unknown'} - ${new Date(s.time || 0).toLocaleString()}`);
-        });
-      }
-    })();
-    return;
-  }
-  if (cmd.startsWith('save ')) {
-    const slot = cmd.slice(5).trim() || undefined;
-    void (async () => {
-      await runtime.save(slot);
-      writeLine(`Saved to: ${slot || 'auto slot'}`);
-    })();
-    return;
-  }
-  if (cmd === 'save') {
-    void (async () => {
-      await runtime.save();
-      writeLine('Saved to: auto slot');
-    })();
-    return;
-  }
-  if (cmd.startsWith('load ')) {
-    const slot = cmd.slice(5).trim();
-    if (!slot) {
-      writeLine('Usage: :load <slot>');
-      return;
-    }
-    void (async () => {
-      const result = await runtime.load(slot);
-      if (result.ok) {
-        writeLine(`Loaded from: ${slot}`);
-      } else {
-        writeLine(`Failed to load: ${result.error || 'unknown error'}`);
-      }
-    })();
-    return;
-  }
-  if (cmd.startsWith('indexeddb ')) {
-    const action = cmd.slice(11).trim();
-    if (action === 'status') {
-      writeLine(`IndexedDB: ${runtime.isUsingIndexedDB() ? 'enabled' : 'disabled'}`);
-      return;
-    }
-    if (action === 'enable') {
-      runtime.setUseIndexedDB(true);
-      writeLine('IndexedDB enabled');
-      return;
-    }
-    if (action === 'disable') {
-      runtime.setUseIndexedDB(false);
-      writeLine('IndexedDB disabled');
-      return;
-    }
-    writeLine('Usage: :indexeddb <status|enable|disable>');
-    return;
-  }
   if (cmd.startsWith('show ')) {
     const args = cmd.slice(5).trim();
     if (!args) {

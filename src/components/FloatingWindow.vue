@@ -2,6 +2,7 @@
   <teleport to="body">
     <div
       v-if="open"
+      ref="winEl"
       class="fw-window"
       :class="windowClass"
       @pointerdown="focus"
@@ -111,6 +112,7 @@ watch(
   { immediate: true },
 );
 
+const winEl = ref<HTMLElement | null>(null);
 const pos = reactive({ x: props.initialPos.x, y: props.initialPos.y });
 const size = reactive({ w: props.initialSize.w, h: props.initialSize.h });
 const minimized = ref(false);
@@ -196,6 +198,16 @@ loadLayout();
 
 watch([() => pos.x, () => pos.y, () => size.w, () => size.h, () => minimized.value], saveLayout);
 
+// Update window manager when state changes
+watch([open, minimized, () => pos.x, () => pos.y, () => size.w, () => size.h], ([v, min, x, y, w, h]) => {
+  wm.updateWindow(effectiveId.value, {
+    visible: v,
+    minimized: min,
+    pos: { x, y },
+    size: { w, h },
+  });
+});
+
 let dragging = false;
 let dragStart = { x: 0, y: 0 };
 let origin = { x: 0, y: 0 };
@@ -206,6 +218,11 @@ let sizeOrigin = { w: 0, h: 0 };
 
 function startDrag(e: PointerEvent) {
   if ((e.target as HTMLElement)?.closest('.q-btn')) return;
+  if (!minimized.value && winEl.value) {
+    const r = winEl.value.getBoundingClientRect();
+    size.w = Math.max(props.minWidth, Math.round(r.width));
+    size.h = Math.max(props.minHeight, Math.round(r.height));
+  }
   dragging = true;
   dragStart = { x: e.clientX, y: e.clientY };
   origin = { x: pos.x, y: pos.y };
@@ -260,9 +277,31 @@ function close() {
 onBeforeUnmount(() => {
   window.removeEventListener('pointermove', onDragMove);
   window.removeEventListener('pointermove', onResizeMove);
+  // Unregister from window manager
+  wm.unregisterWindow(effectiveId.value);
 });
 
 onMounted(() => {
+  // Register window with window manager
+  wm.registerWindow({
+    id: effectiveId.value,
+    title: props.title,
+    visible: open.value,
+    minimized: minimized.value,
+    pos: { ...pos },
+    size: { ...size },
+    storageKey: props.storageKey,
+    controls: {
+      show: () => { open.value = true; },
+      hide: () => { open.value = false; },
+      toggle: () => { open.value = !open.value; },
+      minimize: () => { minimized.value = true; },
+      restore: () => { minimized.value = false; },
+      moveTo: (x: number, y: number) => { pos.x = x; pos.y = y; },
+      resize: (w: number, h: number) => { size.w = w; size.h = h; },
+    },
+  });
+
   void nextTick(() => {
     ensureVisible();
   });
@@ -270,6 +309,100 @@ onMounted(() => {
   const onWinResize = () => ensureVisible();
   window.addEventListener('resize', onWinResize, { passive: true });
   onBeforeUnmount(() => window.removeEventListener('resize', onWinResize));
+
+  let ro: ResizeObserver | null = null;
+  let observedEl: HTMLElement | null = null;
+  let isUpdatingFromRO = false;
+
+  const ensureObserved = () => {
+    if (!open.value) return;
+    if (minimized.value) return;
+    const el = winEl.value;
+    if (!el) return;
+
+    if (!ro) {
+      ro = new ResizeObserver((entries) => {
+        const entry = entries[0];
+        if (!entry) return;
+        if (!open.value) return;
+        if (minimized.value) return;
+        if (isUpdatingFromRO) return;
+
+        // Use borderBoxSize to get the full element size including borders
+        // This matches what we set via inline style (width/height)
+        let nextW: number;
+        let nextH: number;
+
+        if (entry.borderBoxSize && entry.borderBoxSize[0]) {
+          // borderBoxSize is available (modern browsers)
+          nextW = Math.round(entry.borderBoxSize[0].inlineSize);
+          nextH = Math.round(entry.borderBoxSize[0].blockSize);
+        } else if (entry.contentRect) {
+          // Fallback: contentRect doesn't include borders, so we need to add them
+          const computedStyle = window.getComputedStyle(winEl.value!);
+          const borderLeft = parseFloat(computedStyle.borderLeftWidth) || 0;
+          const borderRight = parseFloat(computedStyle.borderRightWidth) || 0;
+          const borderTop = parseFloat(computedStyle.borderTopWidth) || 0;
+          const borderBottom = parseFloat(computedStyle.borderBottomWidth) || 0;
+          nextW = Math.round(entry.contentRect.width + borderLeft + borderRight);
+          nextH = Math.round(entry.contentRect.height + borderTop + borderBottom);
+        } else {
+          return;
+        }
+
+        if (nextW <= 0 || nextH <= 0) return;
+        nextW = Math.max(props.minWidth, nextW);
+        nextH = Math.max(props.minHeight, nextH);
+
+        if (nextW !== size.w || nextH !== size.h) {
+          isUpdatingFromRO = true;
+          if (nextW !== size.w) size.w = nextW;
+          if (nextH !== size.h) size.h = nextH;
+          requestAnimationFrame(() => {
+            isUpdatingFromRO = false;
+          });
+        }
+        ensureVisible();
+      });
+    }
+
+    if (observedEl && observedEl !== el) {
+      ro.unobserve(observedEl);
+      observedEl = null;
+    }
+
+    if (!observedEl) {
+      observedEl = el;
+      ro.observe(el);
+    }
+  };
+
+  const stopObserving = () => {
+    if (!ro) return;
+    if (observedEl) {
+      ro.unobserve(observedEl);
+      observedEl = null;
+    }
+  };
+
+  watch(
+    [open, minimized],
+    async ([isOpen, isMin]) => {
+      if (!isOpen || isMin) {
+        stopObserving();
+        return;
+      }
+      await nextTick();
+      ensureObserved();
+    },
+    { immediate: true },
+  );
+
+  onBeforeUnmount(() => {
+    stopObserving();
+    ro?.disconnect();
+    ro = null;
+  });
 });
 </script>
 

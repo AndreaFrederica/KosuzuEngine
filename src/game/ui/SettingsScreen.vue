@@ -185,6 +185,20 @@
             </div>
             <div class="setting-item">
               <div class="setting-info">
+                <div class="setting-label">使用 IndexedDB 存档</div>
+                <div class="setting-desc">Use IndexedDB for saves</div>
+              </div>
+              <div class="setting-control">
+                <q-toggle
+                  :model-value="useIndexedDBSaves"
+                  @update:model-value="setUseIndexedDBSaves"
+                  color="positive"
+                  size="md"
+                />
+              </div>
+            </div>
+            <div class="setting-item">
+              <div class="setting-info">
                 <div class="setting-label">避免文本重复刷新</div>
                 <div class="setting-desc">Prevent Text Refresh</div>
               </div>
@@ -327,7 +341,8 @@ const bgmVolume = ref(settingsStore.audioSettings.bgmVolume);
 const sfxVolume = ref(settingsStore.audioSettings.sfxVolume);
 const voiceVolume = ref(settingsStore.audioSettings.voiceVolume);
 const voiceEnabled = ref(settingsStore.voiceSettings.enabled);
-const skipRead = ref(false); // 这个设置在 settingsStore 中还没有，先保留
+const skipRead = ref(settingsStore.otherSettings.skipRead);
+const useIndexedDBSaves = ref(settingsStore.otherSettings.useIndexedDBSaves);
 const dialogDiffEnabled = ref(settingsStore.displaySettings.dialogDiffEnabled);
 const autoContinueAfterLoad = ref(settingsStore.displaySettings.autoContinueAfterLoad);
 const hideContinueButton = ref(settingsStore.displaySettings.hideContinueButton);
@@ -388,7 +403,12 @@ function setVoiceEnabled(value: boolean) {
 
 function setSkipRead(value: boolean) {
   skipRead.value = value;
-  // 这个设置还没有在 settingsStore 中，先保留
+  settingsStore.setSkipRead(value);
+}
+
+function setUseIndexedDBSaves(value: boolean) {
+  useIndexedDBSaves.value = value;
+  settingsStore.setUseIndexedDBSaves(value);
 }
 
 function setDialogDiffEnabled(value: boolean) {
@@ -445,6 +465,7 @@ function resetToDefaults() {
   voiceVolume.value = 100;
   voiceEnabled.value = false;
   skipRead.value = false;
+  useIndexedDBSaves.value = false;
   dialogDiffEnabled.value = true;
   autoContinueAfterLoad.value = false;
   hideContinueButton.value = false;
@@ -462,6 +483,8 @@ function resetToDefaults() {
   settingsStore.setSfxVolume(80);
   settingsStore.setVoiceVolume(100);
   settingsStore.setVoiceEnabled(false);
+  settingsStore.setSkipRead(false);
+  settingsStore.setUseIndexedDBSaves(false);
   settingsStore.setDialogDiffEnabled(true);
   settingsStore.setAutoContinueAfterLoad(false);
   settingsStore.setHideContinueButton(false);

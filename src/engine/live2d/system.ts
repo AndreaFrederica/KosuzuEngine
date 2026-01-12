@@ -55,7 +55,12 @@ export class Live2DSystem {
   }
 
   private isActive(actor: ActorEntry) {
-    return actor.mode === 'live2d' && !!actor.live2d?.modelId;
+    const modelId = actor.live2d?.modelId;
+    return actor.mode === 'live2d' && typeof modelId === 'string' && this.normalizeModelId(modelId).length > 0;
+  }
+
+  private normalizeModelId(raw: string) {
+    return raw.trim().replace(/^[`"']+/, '').replace(/[`"']+$/, '').trim();
   }
 
   private transformKey(t?: TransformState) {
@@ -95,7 +100,7 @@ export class Live2DSystem {
 
     for (const [actorId, actor] of Object.entries(actors)) {
       if (!this.isActive(actor)) continue;
-      const modelId = actor.live2d?.modelId;
+      const modelId = typeof actor.live2d?.modelId === 'string' ? this.normalizeModelId(actor.live2d.modelId) : '';
       if (!modelId) continue;
       activeIds.add(actorId);
 
@@ -138,7 +143,8 @@ export class Live2DSystem {
 
       try {
         if (modelChanged) await this.backend.load(actorId, modelId);
-      } catch {
+      } catch (e) {
+        console.error('[Live2D] load failed', { actorId, modelId, error: e });
         continue;
       }
 

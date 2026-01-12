@@ -20,6 +20,10 @@
           <span class="button-text">开始游戏</span>
           <span class="button-text-en">New Game</span>
         </button>
+        <button class="menu-button" :disabled="!hasLatest" @click="continueLatest">
+          <span class="button-text">断点继续</span>
+          <span class="button-text-en">Resume</span>
+        </button>
         <button class="menu-button" @click="goToSaveLoad">
           <span class="button-text">继续游戏</span>
           <span class="button-text-en">Continue</span>
@@ -135,11 +139,14 @@ import { gameRegistry } from '../index'; // 从 index 导入，确保 registerDe
 import { bgm } from '../../engine/audio';
 import { audioManager } from '../../engine/render/AudioManager';
 import BGMControl from '../../engine/render/BGMControl.vue';
+import { useEngineStore } from 'stores/engine-store';
 
 const router = useRouter();
+const store = useEngineStore();
 const showGallery = ref(false);
 const hasInteracted = ref(false);
 const showPrompt = ref(true);
+const hasLatest = ref(false);
 
 // 获取游戏配置（使用非空断言，因为 registerDefaultGame() 会在模块导入时执行）
 const gameConfig = gameRegistry.getDefault()!;
@@ -169,6 +176,9 @@ onMounted(() => {
   events.forEach((event) => {
     window.addEventListener(event, handleFirstInteraction, { once: true, passive: true });
   });
+  void (async () => {
+    hasLatest.value = await store.hasSave('__latest__');
+  })();
 });
 
 // 组件卸载时移除监听
@@ -197,6 +207,13 @@ async function startNewGame() {
   console.log('[TitleScreen] BGM已停止，准备导航到游戏界面...');
   await router.push('/demo');
   console.log('[TitleScreen] 导航命令已执行');
+}
+
+async function continueLatest() {
+  if (!hasLatest.value) return;
+  playClickSound();
+  await bgm.stop({ fadeOut: 500 });
+  await router.push({ path: '/demo', query: { load: '__latest__' } });
 }
 
 function goToSaveLoad() {
@@ -369,6 +386,16 @@ function goToPlayground() {
 .menu-button:active {
   /* 仅在按下时做轻微缩放，不偏移位置 */
   transform: scale(0.98);
+}
+
+.menu-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.menu-button:disabled::before,
+.menu-button:disabled::after {
+  opacity: 0;
 }
 
 .button-text {

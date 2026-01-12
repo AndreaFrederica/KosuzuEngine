@@ -5,7 +5,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, watch, onBeforeUnmount, computed } from 'vue';
+import { ref, watch, onBeforeUnmount, computed } from 'vue';
 import { getLive2DBackend } from '../live2d/runtime';
 import { Live2DSystem } from '../live2d/system';
 import { useEngineStore } from 'stores/engine-store';
@@ -74,10 +74,9 @@ const hasLive2DActors = computed(() => {
   return Object.values(actors).some((a) => a.mode === 'live2d' && a.live2d?.modelId);
 });
 
-// 监听是否应该卸载
 watch(
-  [() => settingsStore.displaySettings.autoUnloadLive2D, hasLive2DActors],
-  ([autoUnload, hasActors]) => {
+  [() => settingsStore.displaySettings.autoUnloadLive2D, hasLive2DActors, () => canvasRef.value],
+  ([autoUnload, hasActors, canvas]) => {
     if (!hasActors) {
       if (autoUnload) {
         disposeSystem();
@@ -87,16 +86,21 @@ watch(
       return;
     }
 
-    initSystem();
-    backend.resume?.();
+    if (canvas) {
+      initSystem();
+      backend.resume?.();
+    }
   },
-  { immediate: true },
+  { immediate: true, flush: 'post' },
 );
 
-onMounted(() => {
-  if (canvasRef.value) {
-    // 初始加载由 watch 处理，这里只处理 ResizeObserver
-    const el = canvasRef.value.parentElement ?? canvasRef.value;
+watch(
+  () => canvasRef.value,
+  (canvas) => {
+    resizeObserver?.disconnect();
+    resizeObserver = null;
+    if (!canvas) return;
+    const el = canvas.parentElement ?? canvas;
     resizeObserver = new ResizeObserver((entries) => {
       const entry = entries[0];
       if (!entry) return;
@@ -104,8 +108,9 @@ onMounted(() => {
       backend.resize(r.width || 1280, r.height || 720);
     });
     resizeObserver.observe(el);
-  }
-});
+  },
+  { immediate: true, flush: 'post' },
+);
 
 watch(
   () => store.state.actors,
