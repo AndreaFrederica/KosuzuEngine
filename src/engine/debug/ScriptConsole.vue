@@ -49,6 +49,7 @@ import { Terminal } from 'xterm';
 import { FitAddon } from 'xterm-addon-fit';
 import 'xterm/css/xterm.css';
 import FloatingWindow from 'components/FloatingWindow.vue';
+import { getManual, formatManual, getAllCommandNames, searchCommands } from './commands';
 
 const props = withDefaults(defineProps<{ visible?: boolean }>(), { visible: false });
 const visible = computed(() => props.visible);
@@ -268,21 +269,44 @@ function runCommand(line: string) {
   const cmd = line.trim().slice(1).trim();
   if (!cmd || cmd === 'help') {
     writeLine('Commands:');
-    writeLine('  :help           显示帮助');
-    writeLine('  :clear          清屏');
-    writeLine('  :env            显示可用变量');
-    writeLine('  :vars           显示 ctx.vars');
-    writeLine('  :scene          显示当前 scene');
-    writeLine('  :actors         显示当前 actorIds');
-    writeLine('  :state          打印当前运行时 state(JSON)');
-    writeLine('  :show <expr> [depth]  显示变量或表达式的详细内容（默认深度2）');
-    writeLine('  :back           触发返回');
-    writeLine('  :restart        重置运行时(会清空进度)');
+    const allCommands = getAllCommandNames();
+    allCommands.forEach((c) => {
+      const manual = getManual(c);
+      if (manual) {
+        writeLine(`  :${c.padEnd(14)} ${manual.description}`);
+      }
+    });
+    writeLine('');
+    writeLine('Use :man <command> to view detailed manual for a command.');
     writeLine('Shortcuts:');
     writeLine('  Tab/Shift+Tab   补全并循环候选');
     writeLine('  ←/→/Home/End    光标移动');
     writeLine('  ↑/↓             历史命令');
     writeLine('  Ctrl/Cmd+L      清屏');
+    return;
+  }
+  if (cmd.startsWith('man ')) {
+    const cmdName = cmd.slice(4).trim();
+    if (!cmdName) {
+      writeLine('Usage: :man <command>');
+      writeLine('');
+      writeLine('Available commands: ' + getAllCommandNames().join(', '));
+      return;
+    }
+    const manual = getManual(cmdName);
+    if (!manual) {
+      writeLine(`No manual found for command: ${cmdName}`);
+      const similar = searchCommands(cmdName);
+      if (similar.length > 0) {
+        writeLine('');
+        writeLine('Did you mean?');
+        similar.slice(0, 5).forEach((m) => {
+          writeLine(`  :man ${m.name}`);
+        });
+      }
+      return;
+    }
+    writeLine(formatManual(manual));
     return;
   }
   if (cmd === 'clear') {
@@ -310,7 +334,67 @@ function runCommand(line: string) {
     return;
   }
   if (cmd === 'vars') {
-    writeLine(JSON.stringify(runtime.state.vars ?? {}, null, 2));
+    const vars = runtime.state.vars ?? {};
+    if (Object.keys(vars).length === 0) {
+      writeLine('(empty)');
+    } else {
+      writeLine(JSON.stringify(vars, null, 2));
+    }
+    return;
+  }
+  if (cmd.startsWith('var ')) {
+    const key = cmd.slice(4).trim();
+    if (!key) {
+      writeLine('Usage: :var <key>');
+      return;
+    }
+    const value = ctx.var(key);
+    writeLine(JSON.stringify(value, null, 2));
+    return;
+  }
+  if (cmd.startsWith('set ')) {
+    const args = cmd.slice(4).trim();
+    const spaceIndex = args.indexOf(' ');
+    if (spaceIndex === -1) {
+      writeLine('Usage: :set <key> <value>');
+      return;
+    }
+    const key = args.slice(0, spaceIndex).trim();
+    const valueStr = args.slice(spaceIndex + 1).trim();
+    // 尝试解析为 JSON，如果失败则作为字符串
+    let value: unknown;
+    try {
+      value = JSON.parse(valueStr);
+    } catch {
+      value = valueStr;
+    }
+    void ctx.setVar(key, value);
+    writeLine(`Set ${key} = ${JSON.stringify(value)}`);
+    return;
+  }
+  if (cmd.startsWith('del ')) {
+    const key = cmd.slice(4).trim();
+    if (!key) {
+      writeLine('Usage: :del <key>');
+      return;
+    }
+    void ctx.delVar(key);
+    writeLine(`Deleted ${key}`);
+    return;
+  }
+  if (cmd.startsWith('store ')) {
+    const ns = cmd.slice(6).trim();
+    if (!ns) {
+      writeLine('Usage: :store <namespace>');
+      return;
+    }
+    const storeObj = ctx.store(ns);
+    const allVars = storeObj.getAll();
+    if (Object.keys(allVars).length === 0) {
+      writeLine(`(empty namespace: ${ns})`);
+    } else {
+      writeLine(JSON.stringify(allVars, null, 2));
+    }
     return;
   }
   if (cmd === 'scene') {
@@ -323,6 +407,69 @@ function runCommand(line: string) {
   }
   if (cmd === 'state') {
     writeLine(JSON.stringify(runtime.state, null, 2));
+    return;
+  }
+  if (cmd === 'saves') {
+    void (async () => {
+      const saves = await runtime.listSaves();
+      if (saves.length === 0) {
+        writeLine('(no saves)');
+      } else {
+        saves.forEach((s) => {
+          writeLine(`${s.slot} - ${s.scene || 'Unknown'} - ${new Date(s.time || 0).toLocaleString()}`);
+        });
+      }
+    })();
+    return;
+  }
+  if (cmd.startsWith('save ')) {
+    const slot = cmd.slice(5).trim() || undefined;
+    void (async () => {
+      await runtime.save(slot);
+      writeLine(`Saved to: ${slot || 'auto slot'}`);
+    })();
+    return;
+  }
+  if (cmd === 'save') {
+    void (async () => {
+      await runtime.save();
+      writeLine('Saved to: auto slot');
+    })();
+    return;
+  }
+  if (cmd.startsWith('load ')) {
+    const slot = cmd.slice(5).trim();
+    if (!slot) {
+      writeLine('Usage: :load <slot>');
+      return;
+    }
+    void (async () => {
+      const result = await runtime.load(slot);
+      if (result.ok) {
+        writeLine(`Loaded from: ${slot}`);
+      } else {
+        writeLine(`Failed to load: ${result.error || 'unknown error'}`);
+      }
+    })();
+    return;
+  }
+  if (cmd.startsWith('indexeddb ')) {
+    const action = cmd.slice(11).trim();
+    if (action === 'status') {
+      writeLine(`IndexedDB: ${runtime.isUsingIndexedDB() ? 'enabled' : 'disabled'}`);
+      return;
+    }
+    if (action === 'enable') {
+      runtime.setUseIndexedDB(true);
+      writeLine('IndexedDB enabled');
+      return;
+    }
+    if (action === 'disable') {
+      runtime.setUseIndexedDB(false);
+      writeLine('IndexedDB disabled');
+      return;
+    }
+    writeLine('Usage: :indexeddb <status|enable|disable>');
     return;
   }
   if (cmd.startsWith('show ')) {

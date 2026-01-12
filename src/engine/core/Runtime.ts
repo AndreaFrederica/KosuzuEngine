@@ -1,6 +1,14 @@
 import type { ActorAction, ActionResult } from './ActorAction';
 import { initialEngineState, reducer, type EngineState, type HistoryEntry } from './EngineContext';
 import type { BindingsRegistry, Live2DBinding, SpriteAtlasBinding, VoiceBankBinding, AudioMixerBinding, SayTargetBinding } from './bindings';
+import {
+  saveToIndexedDB,
+  loadFromIndexedDB,
+  listIndexedDBSaves,
+  deleteFromIndexedDB,
+  isIndexedDBAvailable,
+  type SaveData,
+} from '../storage/indexeddb';
 
 export class Runtime {
   state: EngineState;
@@ -26,10 +34,14 @@ export class Runtime {
     | null;
   private readonly progressKey: string;
   private saveKeyPrefix: string;
+  // 是否使用 IndexedDB 存储存档
+  private useIndexedDB: boolean = false;
   // 开发模式回调，用于检查设置面板的开发模式开关
   private isDevModeCallback: () => boolean = () => import.meta.env?.DEV === true;
   // 恢复后的继续回调，用于在 hydrate 后等待用户点击继续
   private resumeCallback: (() => void) | null = null;
+  // 是否保存 action 历史（用于重放和调试）
+  private saveActionHistory: boolean = true;
 
   constructor() {
     this.state = { ...initialEngineState };
@@ -47,6 +59,8 @@ export class Runtime {
     this.replayPlan = null;
     this.progressKey = 'kosuzu_engine_progress';
     this.saveKeyPrefix = 'save:';
+    // 默认不使用 IndexedDB，需要显式启用（因为某些客户端可能不支持）
+    this.useIndexedDB = false;
   }
 
   reset() {
@@ -409,24 +423,56 @@ export class Runtime {
     return next;
   }
 
-  save(slot?: string) {
+  async save(slot?: string) {
     const scene = this.state.scene || '无名剧本';
     const text = this.state.dialog?.text || '';
     const time = Date.now();
     const defaultSlot = `${scene}_${new Date(time).toLocaleString()}`;
     const useSlot = slot && slot.trim().length > 0 ? slot : defaultSlot;
-    const key = this.getSaveStorageKey(useSlot);
-    const snapshot = JSON.stringify({
+
+    const saveData: SaveData = {
       meta: { scene, text, time, slot: useSlot, frame: this.currentFrame() },
       state: this.state,
-      actions: this.actionLog,
-      choices: this.choiceTrail,
-    });
-    localStorage.setItem(key, snapshot);
+      // 不保存 actions，以便支持热重载（所有恢复模式都不需要 actions）
+      // actions: this.actionLog,
+      // choices: this.choiceTrail,
+    };
+
+    if (this.useIndexedDB) {
+      try {
+        await saveToIndexedDB(saveData);
+      } catch (e) {
+        console.warn('IndexedDB save failed, falling back to localStorage:', e);
+        // 降级到 localStorage
+        const key = this.getSaveStorageKey(useSlot);
+        localStorage.setItem(key, JSON.stringify(saveData));
+      }
+    } else {
+      const key = this.getSaveStorageKey(useSlot);
+      localStorage.setItem(key, JSON.stringify(saveData));
+    }
     return { ok: true } as ActionResult<void>;
   }
 
-  load(slot: string) {
+  async load(slot: string) {
+    if (this.useIndexedDB) {
+      try {
+        const saveData = await loadFromIndexedDB(slot);
+        if (saveData) {
+          if (saveData.state) {
+            this.hydrate(saveData.state as EngineState);
+            if (Array.isArray(saveData.actions)) this.actionLog = saveData.actions.slice() as ActorAction<unknown>[];
+            if (Array.isArray(saveData.choices)) this.choiceTrail = saveData.choices.slice();
+            this.persistProgress(this.currentFrame());
+          }
+          return { ok: true } as ActionResult<void>;
+        }
+      } catch (e) {
+        console.warn('IndexedDB load failed, trying localStorage:', e);
+      }
+    }
+
+    // 降级到 localStorage
     const key = this.getSaveStorageKey(slot);
     const raw = localStorage.getItem(key);
     if (!raw) return { ok: false, error: 'missing_save' } as ActionResult<void>;
@@ -444,14 +490,29 @@ export class Runtime {
     return { ok: true } as ActionResult<void>;
   }
 
-  listSaves(): Array<{ slot: string; scene?: string; text?: string; time?: number }> {
+  async listSaves(): Promise<Array<{ slot: string; scene?: string; text?: string; time?: number }>> {
+    if (this.useIndexedDB) {
+      try {
+        const indexedDBSaves = await listIndexedDBSaves();
+        return indexedDBSaves.map((meta): { slot: string; scene?: string; text?: string; time?: number } => ({
+          slot: meta.slot,
+          ...(meta.scene !== undefined && { scene: meta.scene }),
+          ...(meta.text !== undefined && { text: meta.text }),
+          ...(meta.time !== undefined && { time: meta.time }),
+        }));
+      } catch (e) {
+        console.warn('IndexedDB list failed, using localStorage:', e);
+      }
+    }
+
+    // 降级到 localStorage
     const slotNames: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i) || '';
       if (k.startsWith(this.saveKeyPrefix)) slotNames.push(k.substring(this.saveKeyPrefix.length));
     }
     return slotNames
-      .map((slot) => {
+      .map((slot): { slot: string; scene?: string; text?: string; time?: number } => {
         const raw = localStorage.getItem(this.getSaveStorageKey(slot));
         try {
           const obj = JSON.parse(raw || '{}') as { meta?: { scene?: string; text?: string; time?: number } };
@@ -467,10 +528,30 @@ export class Runtime {
       .sort((a, b) => (b.time || 0) - (a.time || 0));
   }
 
-  deleteSave(slot: string) {
+  async deleteSave(slot: string) {
+    if (this.useIndexedDB) {
+      try {
+        await deleteFromIndexedDB(slot);
+        return { ok: true } as ActionResult<void>;
+      } catch (e) {
+        console.warn('IndexedDB delete failed, trying localStorage:', e);
+      }
+    }
+
+    // 降级到 localStorage
     const key = this.getSaveStorageKey(slot);
     localStorage.removeItem(key);
     return { ok: true } as ActionResult<void>;
+  }
+
+  /** 设置是否使用 IndexedDB */
+  setUseIndexedDB(use: boolean) {
+    this.useIndexedDB = use && isIndexedDBAvailable();
+  }
+
+  /** 检查是否正在使用 IndexedDB */
+  isUsingIndexedDB(): boolean {
+    return this.useIndexedDB;
   }
 
   private currentFrame() {

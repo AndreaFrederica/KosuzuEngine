@@ -24,6 +24,8 @@ export type PersistedProgress = {
   time: number;
   actions?: ActorAction<unknown>[];
   choices?: string[];
+  /** 快速模式标记：true=快速跳转（跳过动画），false=完整重放 */
+  fastMode?: boolean;
 };
 
 export function loadPersistedProgress(): PersistedProgress | null {

@@ -32,6 +32,16 @@
               </button>
             </div>
           </div>
+          <div class="recovery-mode-toolbar">
+            <div class="recovery-mode-label">
+              恢复模式 / Recovery mode
+            </div>
+            <select v-model="recoveryMode" @change="onRecoveryModeChange" class="recovery-mode-select">
+              <option value="full">完整重放 / Full</option>
+              <option value="fast">快速跳转 / Fast</option>
+              <option value="direct">直接恢复 / Direct</option>
+            </select>
+          </div>
           <button class="back-button" @click="goBack">
             <span>返回</span>
           </button>
@@ -77,13 +87,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, watch, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useEngineStore } from 'stores/engine-store';
+import { useSettingsStore } from 'stores/settings-store';
 import { gameRegistry } from '../registry';
 
 const router = useRouter();
 const store = useEngineStore();
+const settingsStore = useSettingsStore();
 
 // 获取游戏配置
 const gameConfig = gameRegistry.getDefault() || {
@@ -96,44 +108,47 @@ const backgroundImage = gameConfig.titleBackground || '/assets/bg/haikei_01_sora
 // 模式：save 或 load
 const mode = ref<'save' | 'load'>('load');
 
+// 恢复模式
+const recoveryMode = computed(() => settingsStore.displaySettings.recoveryMode);
+
 // 存档列表
 const saves = ref<Array<{ slot: string; scene?: string; text?: string; time?: number }>>([]);
 
 // 加载存档列表
-function loadSaves() {
-  saves.value = store.listSaves();
+async function loadSaves() {
+  saves.value = await store.listSaves();
 }
 
 // 选择存档槽位
-function selectSlot(slot: string) {
+async function selectSlot(slot: string) {
   if (mode.value === 'save') {
-    store.save(slot);
-    loadSaves();
+    await store.save(slot);
+    void loadSaves();
   } else {
     store.load(slot);
-    loadSaves();
+    void loadSaves();
     // 读取成功后跳转到游戏
     void router.push('/demo');
   }
 }
 
 // 删除存档
-function deleteSave(slot: string) {
+async function deleteSave(slot: string) {
   if (confirm(`确定要删除存档 ${slot} 吗？`)) {
-    store.deleteSave?.(slot);
-    loadSaves();
+    await store.deleteSave?.(slot);
+    void loadSaves();
   }
 }
 
 // 快速存档/读取
-function quickSave(slotNum: number) {
+async function quickSave(slotNum: number) {
   const slot = `quicksave:${slotNum}`;
   if (mode.value === 'save') {
-    store.save(slot);
-    loadSaves();
+    await store.save(slot);
+    void loadSaves();
   } else {
     store.load(slot);
-    loadSaves();
+    void loadSaves();
     // 读取成功后跳转到游戏
     void router.push('/demo');
   }
@@ -163,14 +178,21 @@ function goBack() {
   router.back();
 }
 
+// 恢复模式变化
+function onRecoveryModeChange(event: Event) {
+  const target = event.target as HTMLSelectElement;
+  const mode = target.value as 'full' | 'fast' | 'direct';
+  settingsStore.setRecoveryMode(mode);
+}
+
 // 监听模式变化，刷新存档列表
 watch(mode, () => {
-  loadSaves();
+  void loadSaves();
 });
 
 // 组件挂载时加载存档
 onMounted(() => {
-  loadSaves();
+  void loadSaves();
 });
 </script>
 
@@ -465,5 +487,39 @@ onMounted(() => {
 .quick-save-btn:hover {
   background: rgba(255, 255, 255, 0.1);
   border-color: rgba(255, 255, 255, 0.3);
+}
+
+.recovery-mode-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.recovery-mode-label {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+  white-space: nowrap;
+}
+
+.recovery-mode-select {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  padding: 8px 12px;
+  color: #fff;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 120px;
+}
+
+.recovery-mode-select:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.recovery-mode-select:focus {
+  outline: none;
+  border-color: #667eea;
 }
 </style>

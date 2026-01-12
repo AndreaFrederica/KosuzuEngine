@@ -151,28 +151,32 @@ async function startSceneFromFrame(
   // 检查是否有保存的完整状态
   const savedState = loadPersistedState();
 
-  // 非开发模式且有保存状态时，直接恢复状态，不重新执行脚本
-  if (!isDevMode && savedState && savedState.scene === sceneName && frame > 0) {
-    console.log('[恢复] 使用已保存的状态直接恢复，不重新执行脚本');
+  // 检查是否为快速模式
+  const isFastMode = replay?.fastMode === true;
+
+  console.log('[startSceneFromFrame] isDevMode =', isDevMode, 'isFastMode =', isFastMode, 'frame =', frame);
+
+  // 快速模式：使用 replayToFrame 跳过目标帧之前的所有命令
+  // Dev 模式下也会跳过动画（通过 Runtime 的 dispatch 方法处理）
+  if (isFastMode || isDevMode) {
+    console.log('[startSceneFromFrame] 快速模式：重放到目标帧', frame);
+    defaultRuntime.reset();
+    if (frame > 0) {
+      defaultRuntime.replayToFrame(frame);
+    }
+    await store.dispatch('scene', sceneName);
+  } else if (savedState && savedState.scene === sceneName && frame > 0) {
+    // 非快速模式且有保存状态时，直接恢复状态，不重新执行脚本
+    console.log('[startSceneFromFrame] 直接恢复模式：使用已保存的状态');
     defaultRuntime.hydrate(savedState);
     await store.dispatch('scene', sceneName);
     return ''; // 不继续执行脚本
+  } else {
+    // 正常模式：从头开始执行脚本
+    console.log('[startSceneFromFrame] 正常模式：从头执行脚本');
+    defaultRuntime.reset();
+    await store.dispatch('scene', sceneName);
   }
-
-  // 开发模式或没有保存状态时，重放脚本
-  defaultRuntime.reset();
-
-  if (frame > 0) {
-    defaultRuntime.replayToFrame(frame);
-    if (replay && Array.isArray(replay.actions)) {
-      defaultRuntime.beginReplay({
-        actions: replay.actions,
-        choices: replay.choices ?? [],
-        targetFrame: frame,
-      });
-    }
-  }
-  await store.dispatch('scene', sceneName);
 
   // 根据环境选择场景加载方式
   const isDev = import.meta.env.DEV;
@@ -250,6 +254,12 @@ watch(
   () => {
     const p = store.loadProgress();
     const replay = store.loadReplay?.() ?? null;
+    const shouldSkip = store.shouldSkipScript?.();
+
+    console.log('[watch loadToken] 触发');
+    console.log('[watch loadToken] shouldSkipScript =', shouldSkip);
+    console.log('[watch loadToken] replay =', replay);
+    console.log('[watch loadToken] scene =', p.scene, 'frame =', p.frame);
 
     // 从场景注册表获取有效的场景ID列表
     const validSceneIds = new Set(scenes.map((s) => s.id));
@@ -259,7 +269,7 @@ watch(
 
     // 检查是否应该跳过脚本执行（直接从保存状态恢复）
     // 与 runSceneLoop 的逻辑保持一致
-    if (store.shouldSkipScript?.()) {
+    if (shouldSkip) {
       console.log('[watch loadToken] 跳过脚本执行，直接从保存状态恢复');
       store.clearSkipScript?.();
       showDialog.value = true;
@@ -324,7 +334,7 @@ function backToTitle() {
 
 function quickSave(slotNum: number) {
   const slot = `quicksave:${slotNum}`;
-  store.save(slot);
+  void store.save(slot);
 }
 
 // Vite HMR: 监听脚本文件变化，自动重新运行当前场景

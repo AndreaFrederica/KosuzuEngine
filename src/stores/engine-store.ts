@@ -2,7 +2,7 @@ import { defineStore } from 'pinia';
 import { reactive, watch } from 'vue';
 import { defaultRuntime } from '../engine/core/Runtime';
 import { initialEngineState, selectors, type EngineState } from '../engine/core/EngineContext';
-import type { ActionResult, ActionType, ActorAction } from '../engine/core/ActorAction';
+import type { ActionResult, ActionType } from '../engine/core/ActorAction';
 import {
   enablePersistence,
   loadPersistedProgress,
@@ -10,7 +10,7 @@ import {
   clearPersistedProgress,
   type PersistedProgress,
 } from '../engine/core/Persistence';
-import { useSettingsStore } from './settings-store';
+import { useSettingsStore, type RecoveryMode } from './settings-store';
 
 const DEV_MODE_KEY = 'engine:devMode';
 
@@ -166,7 +166,6 @@ export const useEngineStore = defineStore('engine', () => {
     load(slot: string) {
       console.log('[load] ========== 开始 load ==========');
       console.log('[load] slot =', slot);
-      console.log('[load] 调用栈:', new Error().stack);
 
       const key = runtime.getSaveStorageKey(slot);
       const raw = localStorage.getItem(key);
@@ -195,40 +194,39 @@ export const useEngineStore = defineStore('engine', () => {
       loadProgress.scene = scene;
       loadProgress.frame = frame;
 
-      // 检查是否设置了跳过重放
+      // 获取恢复模式设置
       const settingsStore = useSettingsStore();
-      const skipReplay = settingsStore.displaySettings.skipReplay;
+      const recoveryMode: RecoveryMode = settingsStore.displaySettings.recoveryMode;
 
-      console.log('[load] skipReplay =', skipReplay);
-      console.log('[load] skipReplay type =', typeof skipReplay);
+      console.log('[load] recoveryMode =', recoveryMode);
+      console.log('[load] frame =', frame);
 
-      if (
-        !skipReplay &&
-        parsed &&
-        typeof parsed === 'object' &&
-        'actions' in parsed &&
-        Array.isArray(parsed.actions) &&
-        parsed.actions.length > 0
-      ) {
-        console.log('[load] 进入重放模式');
-        const time =
-          'meta' in parsed && parsed.meta && typeof parsed.meta.time === 'number' ? parsed.meta.time : Date.now();
-        const out: PersistedProgress = { scene, frame, time, actions: parsed.actions as ActorAction<unknown>[] };
-        if ('choices' in parsed && Array.isArray(parsed.choices)) out.choices = parsed.choices as string[];
-        loadReplay.value = out;
-        skipScript.value = false; // 有 actions，需要重新执行脚本
-      } else {
-        console.log('[load] 进入 hydrate 模式');
+      // 根据恢复模式决定如何加载
+      if (recoveryMode === 'direct') {
+        // 直接恢复模式：只恢复状态，不执行脚本
+        console.log('[load] 进入直接恢复模式');
         loadReplay.value = null;
-        skipScript.value = true; // 跳过重放或没有 actions，直接恢复状态
+        skipScript.value = true;
         if (savedState) {
           runtime.hydrate(savedState);
         }
+      } else {
+        // fast 或 full 模式：需要执行脚本，将恢复模式信息传递给 loadReplay
+        console.log('[load] 进入脚本执行模式，recoveryMode =', recoveryMode);
+        loadReplay.value = {
+          scene,
+          frame,
+          time: Date.now(),
+          fastMode: recoveryMode === 'fast', // 标记是否为快速模式
+        };
+        skipScript.value = false;
       }
+
+      console.log('[load] skipScript.value =', skipScript.value);
       loadToken.value += 1;
       return { ok: true } as ActionResult<void>;
     },
-    listSaves(): Array<{ slot: string; scene?: string; text?: string; time?: number }> {
+    listSaves(): Promise<Array<{ slot: string; scene?: string; text?: string; time?: number }>> {
       return runtime.listSaves();
     },
     deleteSave(slot: string) {

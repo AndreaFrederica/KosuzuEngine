@@ -600,6 +600,97 @@ export class ContextOps {
     return this.runtime.dispatch({ type: 'var', payload: { key, remove: true } });
   }
 
+  /** 批量设置变量 */
+  setVars(vars: Record<string, unknown>) {
+    return Promise.all(Object.entries(vars).map(([k, v]) => this.setVar(k, v)));
+  }
+
+  /** 批量删除变量 */
+  delVars(keys: string[]) {
+    return Promise.all(keys.map((k) => this.delVar(k)));
+  }
+
+  /** 获取所有变量 */
+  allVars(): Record<string, unknown> {
+    return { ...(this.runtime.state.vars || {}) };
+  }
+
+  /** 清空所有变量 */
+  clearVars() {
+    const keys = Object.keys(this.runtime.state.vars || {});
+    return this.delVars(keys);
+  }
+
+  /** 检查变量是否存在 */
+  hasVar(key: string): boolean {
+    const vars = this.runtime.state.vars || {};
+    return key in vars;
+  }
+
+  /**
+   * 存储命名空间 - 提供带前缀的变量存储，方便组织数据
+   * @example
+   * const playerStore = ctx.store('player');
+   * await playerStore.set('level', 5);
+   * await playerStore.set('name', 'Alice');
+   * const level = playerStore.get('level', 1);
+   */
+  store(namespace: string) {
+    const prefix = `${namespace}:`;
+    return {
+      /** 获取命名空间中的变量 */
+      get: <T = unknown>(key: string, fallback?: T) => {
+        return this.var<T>(`${prefix}${key}`, fallback);
+      },
+      /** 设置命名空间中的变量 */
+      set: (key: string, value: unknown) => {
+        return this.setVar(`${prefix}${key}`, value);
+      },
+      /** 删除命名空间中的变量 */
+      delete: (key: string) => {
+        return this.delVar(`${prefix}${key}`);
+      },
+      /** 检查变量是否存在 */
+      has: (key: string): boolean => {
+        return this.hasVar(`${prefix}${key}`);
+      },
+      /** 获取命名空间中的所有变量 */
+      getAll: (): Record<string, unknown> => {
+        const all = this.allVars();
+        const result: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(all)) {
+          if (k.startsWith(prefix)) {
+            result[k.slice(prefix.length)] = v;
+          }
+        }
+        return result;
+      },
+      /** 批量设置命名空间中的变量 */
+      setMany: (vars: Record<string, unknown>) => {
+        return Promise.all(
+          Object.entries(vars).map(([k, v]) => this.setVar(`${prefix}${k}`, v)),
+        );
+      },
+      /** 批量删除命名空间中的变量 */
+      deleteMany: (keys: string[]) => {
+        return Promise.all(keys.map((k) => this.delVar(`${prefix}${k}`)));
+      },
+      /** 清空命名空间中的所有变量 */
+      clear: () => {
+        const all = this.allVars();
+        const keysToDelete = Object.keys(all).filter((k) => k.startsWith(prefix));
+        return this.delVars(keysToDelete);
+      },
+      /** 获取命名空间中的所有键 */
+      keys: (): string[] => {
+        const all = this.allVars();
+        return Object.keys(all)
+          .filter((k) => k.startsWith(prefix))
+          .map((k) => k.slice(prefix.length));
+      },
+    };
+  }
+
   /** 等待指定毫秒数 */
   wait(ms: number) {
     return this.runtime.dispatch({ type: 'wait', payload: ms });

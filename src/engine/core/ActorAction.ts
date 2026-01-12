@@ -34,4 +34,5 @@ export interface ActorAction<T = unknown> {
 export interface ActionResult<T = unknown> {
   ok: boolean;
   value?: T;
+  error?: string;
 }

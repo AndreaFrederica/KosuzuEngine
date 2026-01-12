@@ -311,6 +311,19 @@
               keep-color
             />
           </div>
+          <div class="setting-item">
+            <div class="setting-info">
+              <div class="setting-label">恢复模式</div>
+              <div class="setting-desc">
+                读档时的恢复方式 / Recovery mode when loading
+              </div>
+            </div>
+            <select v-model="recoveryMode" @change="onRecoveryModeChange" class="setting-select">
+              <option value="full">完整重放 / Full replay</option>
+              <option value="fast">快速跳转 / Fast skip</option>
+              <option value="direct">直接恢复 / Direct restore</option>
+            </select>
+          </div>
         </div>
 
         <!-- 开发模式设置 -->
@@ -438,6 +451,7 @@ const uiText = computed(() => {
 const voiceEnabled = computed(() => settingsStore.voiceSettings.enabled);
 const ttsEngine = computed(() => settingsStore.voiceSettings.engine);
 const typewriterEnabled = computed(() => settingsStore.textSettings.typewriterEnabled);
+const recoveryMode = computed(() => settingsStore.displaySettings.recoveryMode);
 
 // 语音设置
 const browserVoices = ref<SpeechSynthesisVoice[]>([]);
@@ -550,6 +564,12 @@ function onAutoUnloadLive2DChange(value: boolean) {
   settingsStore.setAutoUnloadLive2D(value);
 }
 
+function onRecoveryModeChange(event: Event) {
+  const target = event.target as HTMLSelectElement;
+  const mode = target.value as 'full' | 'fast' | 'direct';
+  settingsStore.setRecoveryMode(mode);
+}
+
 // 音量控制函数
 function onMasterVolumeChange(value: number | null) {
   if (value != null) {
@@ -595,6 +615,9 @@ function startKeyBinding() {
   overflow-x: hidden;
   color: #fff;
   padding: 16px;
+  /* Firefox 滚动条样式 */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.25) rgba(255, 255, 255, 0.05);
 }
 
 /* 自定义滚动条样式 */
@@ -615,12 +638,6 @@ function startKeyBinding() {
 
 .settings-panel::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.4);
-}
-
-/* Firefox 滚动条样式 */
-.settings-panel {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.25) rgba(255, 255, 255, 0.05);
 }
 
 .settings-header {
