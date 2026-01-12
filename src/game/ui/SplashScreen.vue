@@ -1,5 +1,5 @@
 <template>
-  <div class="splash-screen">
+  <div class="splash-screen" @dblclick="skipSplash">
     <div class="logo-slide engine-logo-slide">
       <a
         href="https://github.com/AndreaFrederica/KosuzuEngine"
@@ -44,12 +44,16 @@ const router = useRouter();
 // 获取游戏配置（使用非空断言，因为 registerDefaultGame() 会在模块导入时执行）
 const gameConfig = gameRegistry.getDefault()!;
 
+let skipped = false;
+
 async function runSplashSequence() {
   // 引擎 Logo: 淡入 1s -> 停留 1.5s -> 淡出 0.8s
   await sleep(3300);
+  if (skipped) return;
 
   // 游戏 Logo: 淡入 1s -> 停留 2s -> 淡出 0.8s
   await sleep(3800);
+  if (skipped) return;
 
   // 跳转到主界面
   void router.push('/title');
@@ -57,6 +61,13 @@ async function runSplashSequence() {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function skipSplash() {
+  if (!skipped) {
+    skipped = true;
+    void router.push('/title');
+  }
 }
 
 onMounted(() => {

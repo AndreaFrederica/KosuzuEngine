@@ -59,6 +59,8 @@ export interface DisplaySettings {
   autoMode: boolean;
   /** 自动播放等待延迟（毫秒） */
   autoWaitDelay: number;
+  /** 闲置时自动卸载 Live2D 引擎以节能 */
+  autoUnloadLive2D: boolean;
 }
 
 /** 其他设置 */
@@ -113,6 +115,7 @@ const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = {
   skipReplay: false,
   autoMode: false,
   autoWaitDelay: 1000,
+  autoUnloadLive2D: true,
 };
 
 const DEFAULT_OTHER_SETTINGS: OtherSettings = {
@@ -151,6 +154,7 @@ const STORAGE_KEYS = {
     SKIP_REPLAY: 'engine:skipReplay',
     AUTO_MODE: 'engine:autoMode',
     AUTO_WAIT_DELAY: 'engine:autoWaitDelay',
+    AUTO_UNLOAD_LIVE2D: 'engine:autoUnloadLive2D',
   },
   OTHER: {
     SKIP_READ: 'game:skipRead',
@@ -237,6 +241,7 @@ export const useSettingsStore = defineStore('settings', () => {
     displaySettings.value.skipReplay = localStorage.getItem(STORAGE_KEYS.DISPLAY.SKIP_REPLAY) === 'true';
     displaySettings.value.autoMode = localStorage.getItem(STORAGE_KEYS.DISPLAY.AUTO_MODE) === 'true';
     displaySettings.value.autoWaitDelay = parseInt(localStorage.getItem(STORAGE_KEYS.DISPLAY.AUTO_WAIT_DELAY) || '1000', 10);
+    displaySettings.value.autoUnloadLive2D = localStorage.getItem(STORAGE_KEYS.DISPLAY.AUTO_UNLOAD_LIVE2D) !== 'false';
 
     // 尝试从旧格式加载
     loadFromLegacy('dialogDiffEnabled', (v) => displaySettings.value.dialogDiffEnabled = Boolean(v));
@@ -319,6 +324,7 @@ export const useSettingsStore = defineStore('settings', () => {
     localStorage.setItem(STORAGE_KEYS.DISPLAY.SKIP_REPLAY, String(displaySettings.value.skipReplay));
     localStorage.setItem(STORAGE_KEYS.DISPLAY.AUTO_MODE, String(displaySettings.value.autoMode));
     localStorage.setItem(STORAGE_KEYS.DISPLAY.AUTO_WAIT_DELAY, String(displaySettings.value.autoWaitDelay));
+    localStorage.setItem(STORAGE_KEYS.DISPLAY.AUTO_UNLOAD_LIVE2D, String(displaySettings.value.autoUnloadLive2D));
   }
 
   function saveOtherSettings(): void {
@@ -482,6 +488,9 @@ export const useSettingsStore = defineStore('settings', () => {
     },
     setAutoWaitDelay(value: number) {
       displaySettings.value.autoWaitDelay = value;
+    },
+    setAutoUnloadLive2D(value: boolean) {
+      displaySettings.value.autoUnloadLive2D = value;
     },
 
     // 其他设置快捷方法

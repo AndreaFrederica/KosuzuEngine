@@ -62,6 +62,11 @@
 
       <q-expansion-item label="Motions" header-class="text-primary" default-opened>
         <q-list dense separator dark>
+          <q-item>
+            <q-item-section>
+              <q-toggle v-model="forceMotionSwitch" label="Force Switch" />
+            </q-item-section>
+          </q-item>
           <q-item
             clickable
             v-ripple
@@ -72,20 +77,51 @@
             active-class="text-primary bg-grey-9"
           >
             <q-item-section>
-              <div class="row items-center">
-                <q-icon v-if="currentMotion === m" name="play_arrow" size="xs" class="q-mr-xs" />
-                <span>{{ m }}</span>
+              <div class="column">
+                <div class="row items-center no-wrap">
+                  <q-icon
+                    v-if="currentMotion === m && !motionIsFinished"
+                    name="play_arrow"
+                    size="xs"
+                    class="q-mr-xs"
+                  />
+                  <q-icon
+                    v-else-if="currentMotion === m && motionIsFinished"
+                    name="check_circle"
+                    size="xs"
+                    class="q-mr-xs text-positive"
+                  />
+                  <span class="ellipsis">{{ m }}</span>
+                </div>
+                <q-linear-progress
+                  v-if="currentMotion === m"
+                  class="motion-progress q-mt-xs"
+                  :value="motionProgress"
+                  :indeterminate="!motionHasTiming"
+                  color="primary"
+                  track-color="grey-8"
+                  rounded
+                />
               </div>
             </q-item-section>
             <q-item-section side>
-              <q-btn
-                flat
-                round
-                dense
-                icon="content_copy"
-                size="sm"
-                @click.stop="$emit('copy', motionCopyCmd(m))"
-              />
+              <div class="row items-center no-wrap q-gutter-xs">
+                <div
+                  v-if="currentMotion === m"
+                  class="text-caption text-grey-5"
+                  style="min-width: 40px; text-align: right"
+                >
+                  {{ motionHasTiming ? `${motionPercent}%` : '...' }}
+                </div>
+                <q-btn
+                  flat
+                  round
+                  dense
+                  icon="content_copy"
+                  size="sm"
+                  @click.stop="$emit('copy', motionCopyCmd(m))"
+                />
+              </div>
             </q-item-section>
             <q-tooltip style="white-space: nowrap">{{ motionCopyCmd(m) }}</q-tooltip>
           </q-item>
@@ -235,7 +271,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onBeforeUnmount } from 'vue';
 import { useEngineStore } from 'stores/engine-store';
 import { useLive2DDebugStore } from 'stores/live2d-debug-store';
 import { usePlaygroundLive2DStore } from 'stores/playground-live2d-store';
@@ -263,6 +299,72 @@ const hitAreaList = computed(() => inspection.value?.hitAreas ?? []);
 const currentMotion = computed(
   () => engineStore.state.actors?.[props.modelId]?.live2d?.motionId ?? '',
 );
+const motionDurationMs = computed(
+  () => engineStore.state.actors?.[props.modelId]?.live2d?.motionDuration ?? 0,
+);
+const motionStartTimeMs = computed(
+  () => engineStore.state.actors?.[props.modelId]?.live2d?.motionStartTime ?? 0,
+);
+const nowMs = ref(Date.now());
+const lastTriggeredMotion = ref('');
+const fallbackStartTimeMs = ref(0);
+const forceMotionSwitch = ref(true);
+let motionTimer: ReturnType<typeof setInterval> | null = null;
+function startMotionTicker() {
+  if (motionTimer) return;
+  motionTimer = setInterval(() => {
+    nowMs.value = Date.now();
+  }, 80);
+}
+function stopMotionTicker() {
+  if (!motionTimer) return;
+  clearInterval(motionTimer);
+  motionTimer = null;
+}
+
+const effectiveStartTimeMs = computed(() => {
+  if (motionStartTimeMs.value > 0) return motionStartTimeMs.value;
+  if (currentMotion.value.length > 0 && currentMotion.value === lastTriggeredMotion.value) {
+    return fallbackStartTimeMs.value;
+  }
+  return 0;
+});
+const motionHasTiming = computed(
+  () => motionDurationMs.value > 0 && effectiveStartTimeMs.value > 0,
+);
+const motionElapsedMs = computed(() => {
+  const dur = motionDurationMs.value;
+  const start = effectiveStartTimeMs.value;
+  if (!(dur > 0 && start > 0)) return 0;
+  return Math.max(0, Math.min(dur, nowMs.value - start));
+});
+const motionProgress = computed(() => {
+  const dur = motionDurationMs.value;
+  if (!(dur > 0)) return 0;
+  return Math.max(0, Math.min(1, motionElapsedMs.value / dur));
+});
+const motionPercent = computed(() => Math.round(motionProgress.value * 100));
+const motionIsFinished = computed(
+  () =>
+    motionHasTiming.value &&
+    currentMotion.value.length > 0 &&
+    motionElapsedMs.value >= motionDurationMs.value,
+);
+
+watch(
+  [currentMotion, motionDurationMs, motionStartTimeMs],
+  () => {
+    if (motionHasTiming.value && currentMotion.value.length > 0 && !motionIsFinished.value) {
+      startMotionTicker();
+    } else {
+      stopMotionTicker();
+      nowMs.value = Date.now();
+    }
+  },
+  { immediate: true },
+);
+
+onBeforeUnmount(() => stopMotionTicker());
 const showHitArea = ref(false);
 const followMouse = computed({
   get: () => !!engineStore.state.actors?.[props.modelId]?.live2d?.followMouse,
@@ -540,7 +642,9 @@ watch(
 
 async function playMotion(m: string) {
   if (props.actor) {
-    await props.actor.motion(m);
+    lastTriggeredMotion.value = m;
+    fallbackStartTimeMs.value = Date.now();
+    await props.actor.motion(m, { force: forceMotionSwitch.value });
   }
 }
 
@@ -586,7 +690,7 @@ async function triggerHitArea(hitAreaName: string) {
 
   const motion = findMotionForHitArea(hitAreaName);
   if (motion && props.actor?.motion) {
-    await props.actor.motion(motion);
+    await props.actor.motion(motion, { force: forceMotionSwitch.value });
   }
 }
 
@@ -604,3 +708,9 @@ function updateHitArea(val: boolean) {
   b.setHitAreasVisible?.(props.modelId, val);
 }
 </script>
+
+<style scoped>
+.motion-progress {
+  height: 6px;
+}
+</style>

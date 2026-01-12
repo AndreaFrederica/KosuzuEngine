@@ -51,6 +51,8 @@ export interface EngineState {
         expressionId?: string;
         expressionSeq?: number;
         motionId?: string;
+        motionSeq?: number;
+        motionForce?: boolean;
         params?: Record<string, number>;
         lookAt?: { x: number; y: number };
         followMouse?: boolean;
@@ -63,6 +65,11 @@ export interface EngineState {
         controlBanBreath?: boolean;
         controlBanPhysics?: boolean;
         controlBanPose?: boolean;
+        motionDuration?: number;
+        motionStartTime?: number;
+        motionFinishTime?: number;
+        motionGroup?: string;
+        motionIndex?: number;
       };
       transition?: { duration?: number; easing?: string };
       fx?: { name?: string; duration?: number; token?: number; params?: Record<string, unknown> };
@@ -309,12 +316,19 @@ export const reducer: Reducer = (state, action) => {
       nextActors[p.actorId] = a;
       if (!nextActorIds.includes(p.actorId)) nextActorIds.push(p.actorId);
     } else if (action.type === 'motion') {
-      const p = action.payload as { actorId: string; id: string };
+      const p = action.payload as { actorId: string; id: string; seq?: number; force?: boolean };
       const prevA = nextActors[p.actorId];
       if (prevA) {
         const a = { ...prevA };
         const l2d = { ...(a.live2d || {}) };
         l2d.motionId = p.id;
+        if (typeof p.seq === 'number') l2d.motionSeq = p.seq;
+        if (typeof p.force === 'boolean') l2d.motionForce = p.force;
+        l2d.motionDuration = 0;
+        l2d.motionStartTime = 0;
+        l2d.motionFinishTime = 0;
+        delete (l2d as { motionGroup?: string }).motionGroup;
+        delete (l2d as { motionIndex?: number }).motionIndex;
         a.live2d = l2d;
         nextActors[p.actorId] = a;
       }
@@ -337,6 +351,11 @@ export const reducer: Reducer = (state, action) => {
         controlBanBreath?: boolean;
         controlBanPhysics?: boolean;
         controlBanPose?: boolean;
+        motionDuration?: number;
+        motionStartTime?: number;
+        motionFinishTime?: number;
+        motionGroup?: string;
+        motionIndex?: number;
       };
       const prevA = nextActors[p.actorId];
       if (prevA) {
@@ -372,6 +391,11 @@ export const reducer: Reducer = (state, action) => {
         if (typeof p.controlBanBreath === 'boolean') l2d.controlBanBreath = p.controlBanBreath;
         if (typeof p.controlBanPhysics === 'boolean') l2d.controlBanPhysics = p.controlBanPhysics;
         if (typeof p.controlBanPose === 'boolean') l2d.controlBanPose = p.controlBanPose;
+        if (typeof p.motionDuration === 'number') l2d.motionDuration = p.motionDuration;
+        if (typeof p.motionStartTime === 'number') l2d.motionStartTime = p.motionStartTime;
+        if (typeof p.motionFinishTime === 'number') l2d.motionFinishTime = p.motionFinishTime;
+        if (typeof p.motionGroup === 'string') l2d.motionGroup = p.motionGroup;
+        if (typeof p.motionIndex === 'number') l2d.motionIndex = p.motionIndex;
         if (Object.keys(l2d).length > 0) a.live2d = l2d;
         nextActors[p.actorId] = a;
         if (!nextActorIds.includes(p.actorId)) nextActorIds.push(p.actorId);

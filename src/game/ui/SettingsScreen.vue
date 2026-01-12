@@ -271,6 +271,20 @@
                 <div class="setting-value">{{ autoWaitDelay }}ms</div>
               </div>
             </div>
+            <div class="setting-item">
+              <div class="setting-info">
+                <div class="setting-label">闲置时自动卸载 Live2D</div>
+                <div class="setting-desc">Auto-unload Live2D when idle</div>
+              </div>
+              <div class="setting-control">
+                <q-toggle
+                  :model-value="autoUnloadLive2D"
+                  @update:model-value="setAutoUnloadLive2D"
+                  color="positive"
+                  size="md"
+                />
+              </div>
+            </div>
           </div>
         </div>
 
@@ -322,6 +336,7 @@ const isBindingKey = ref(false);
 const typewriterEnabled = ref(settingsStore.textSettings.typewriterEnabled);
 const skipReplay = ref(settingsStore.displaySettings.skipReplay);
 const autoWaitDelay = ref(settingsStore.displaySettings.autoWaitDelay);
+const autoUnloadLive2D = ref(settingsStore.displaySettings.autoUnloadLive2D);
 
 function setTypewriterEnabled(value: boolean) {
   typewriterEnabled.value = value;
@@ -403,6 +418,11 @@ function setAutoWaitDelay(value: number | null) {
   }
 }
 
+function setAutoUnloadLive2D(value: boolean) {
+  autoUnloadLive2D.value = value;
+  settingsStore.setAutoUnloadLive2D(value);
+}
+
 function startKeyBinding() {
   isBindingKey.value = true;
   const handler = (e: KeyboardEvent) => {
@@ -431,6 +451,7 @@ function resetToDefaults() {
   continueKeyBinding.value = 'Enter';
   skipReplay.value = false;
   autoWaitDelay.value = 1000;
+  autoUnloadLive2D.value = true;
 
   // 使用 settings-store 重置所有设置
   settingsStore.setTextSpeed(50);
@@ -447,6 +468,7 @@ function resetToDefaults() {
   settingsStore.setContinueKeyBinding('Enter');
   settingsStore.setSkipReplay(false);
   settingsStore.setAutoWaitDelay(1000);
+  settingsStore.setAutoUnloadLive2D(true);
 }
 
 function goBack() {

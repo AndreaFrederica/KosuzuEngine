@@ -41,7 +41,15 @@ export type Live2DInspection = {
       banPhysics?: boolean;
       banPose?: boolean;
     };
-    motion?: { idleGroup?: string };
+    motion?: {
+      idleGroup?: string;
+      currentGroup?: string;
+      currentIndex?: number;
+      reservedGroup?: string;
+      reservedIndex?: number;
+      playing?: boolean;
+      finished?: boolean;
+    };
     expression?: {
       available?: boolean;
       present?: boolean;
@@ -58,9 +66,25 @@ export type Live2DSnapshot = {
   drawables: Live2DDrawableSnapshot[];
 };
 
+export type Live2DMotionStartEvent = {
+  actorId: string;
+  group: string;
+  index: number;
+  durationMs?: number;
+  startTimeMs: number;
+};
+
+export type Live2DMotionFinishEvent = {
+  actorId: string;
+  finishTimeMs: number;
+};
+
 export interface ILive2DBackend {
   init(input: Live2DBackendInit): void;
   resize(width: number, height: number): void;
+  dispose(): void;
+  pause?(): void;
+  resume?(): void;
 
   registerSource(actorId: string, source: Live2DSource): void;
   load(actorId: string, source?: Live2DSource): Promise<void>;
@@ -82,7 +106,11 @@ export interface ILive2DBackend {
       banPose?: boolean;
     },
   ) => void;
-  playMotion(actorId: string, motionId: string): Promise<void>;
+  setMotionCallbacks?: (callbacks: {
+    onStart?: (e: Live2DMotionStartEvent) => void;
+    onFinish?: (e: Live2DMotionFinishEvent) => void;
+  }) => void;
+  playMotion(actorId: string, motionId: string, options?: { force?: boolean }): Promise<void>;
   playExpression?: (actorId: string, expressionId: string) => Promise<void>;
 
   inspect(actorId: string): Live2DInspection | null;

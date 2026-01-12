@@ -1,6 +1,12 @@
 import type { TransformState } from '../core/BaseActor';
 import type { EngineState } from '../core/EngineContext';
-import type { ILive2DBackend, Live2DInspection, Live2DSnapshot } from './backend';
+import type {
+  ILive2DBackend,
+  Live2DInspection,
+  Live2DMotionFinishEvent,
+  Live2DMotionStartEvent,
+  Live2DSnapshot,
+} from './backend';
 
 type ActorEntry = EngineState['actors'][string];
 
@@ -9,6 +15,7 @@ type PrevActorState = {
   transformKey?: string;
   params?: Record<string, number>;
   motionId?: string;
+  motionSeq?: number;
   controlBanExpressions?: boolean;
   expressionId?: string;
   expressionSeq?: number;
@@ -27,21 +34,28 @@ export type Live2DSystemCallbacks = {
   onInspect?: (actorId: string, inspection: Live2DInspection | null) => void;
   onSnapshot?: (actorId: string, snapshot: Live2DSnapshot | null) => void;
   inspectIntervalMs?: number;
+  onMotionStart?: (actorId: string, event: Live2DMotionStartEvent) => void;
+  onMotionFinish?: (actorId: string, event: Live2DMotionFinishEvent) => void;
 };
 
 export class Live2DSystem {
   private prev = new Map<string, PrevActorState>();
   private inspectIntervalMs: number;
+  private syncPromise: Promise<void> = Promise.resolve();
 
   constructor(
     private backend: ILive2DBackend,
     private callbacks: Live2DSystemCallbacks = {},
   ) {
     this.inspectIntervalMs = callbacks.inspectIntervalMs ?? 120;
+    this.backend.setMotionCallbacks?.({
+      onStart: (e) => this.callbacks.onMotionStart?.(e.actorId, e),
+      onFinish: (e) => this.callbacks.onMotionFinish?.(e.actorId, e),
+    });
   }
 
   private isActive(actor: ActorEntry) {
-    return (actor.mode === 'live2d' || !!actor.live2d?.modelId) && !!actor.live2d?.modelId;
+    return actor.mode === 'live2d' && !!actor.live2d?.modelId;
   }
 
   private transformKey(t?: TransformState) {
@@ -69,7 +83,14 @@ export class Live2DSystem {
     return patch;
   }
 
-  async syncActors(actors: EngineState['actors']) {
+  syncActors(actors: EngineState['actors']) {
+    this.syncPromise = this.syncPromise
+      .catch(() => undefined)
+      .then(() => this._doSyncActors(actors));
+    return this.syncPromise;
+  }
+
+  private async _doSyncActors(actors: EngineState['actors']) {
     const activeIds = new Set<string>();
 
     for (const [actorId, actor] of Object.entries(actors)) {
@@ -84,7 +105,12 @@ export class Live2DSystem {
       const transformChanged = !prev || prev.transformKey !== nextTransformKey;
       const patch = this.diffParams(prev?.params, actor.live2d?.params);
       const motionId = actor.live2d?.motionId;
-      const motionChanged = !!motionId && (!prev || prev.motionId !== motionId);
+      const motionSeq = actor.live2d?.motionSeq;
+      const motionChanged =
+        !!motionId &&
+        (typeof motionSeq === 'number'
+          ? !prev || prev.motionSeq !== motionSeq
+          : !prev || prev.motionId !== motionId);
       const controlBanExpressions = actor.live2d?.controlBanExpressions;
       const expressionId = actor.live2d?.expressionId;
       const expressionSeq = actor.live2d?.expressionSeq;
@@ -149,7 +175,13 @@ export class Live2DSystem {
       }
 
       if (motionChanged && motionId) {
-        await this.backend.playMotion(actorId, motionId);
+        const explicitForce = !!actor.live2d?.motionForce;
+        const repeatedSame =
+          typeof motionSeq === 'number' &&
+          prev?.motionId === motionId &&
+          typeof prev?.motionSeq === 'number' &&
+          prev.motionSeq !== motionSeq;
+        await this.backend.playMotion(actorId, motionId, { force: explicitForce || repeatedSame });
       }
       if (expressionChanged && expressionId) {
         await this.backend.playExpression?.(actorId, expressionId);
@@ -173,6 +205,7 @@ export class Live2DSystem {
       };
       if (typeof controlBanExpressions === 'boolean') nextPrev.controlBanExpressions = controlBanExpressions;
       if (motionId) nextPrev.motionId = motionId;
+      if (typeof motionSeq === 'number') nextPrev.motionSeq = motionSeq;
       if (typeof expressionId === 'string') nextPrev.expressionId = expressionId;
       if (typeof expressionSeq === 'number') nextPrev.expressionSeq = expressionSeq;
       if (typeof banIdle === 'boolean') nextPrev.controlBanIdle = banIdle;

@@ -33,9 +33,25 @@ export interface Live2DState {
   expressionId?: string;
   expressionSeq?: number;
   motionId?: string;
+  motionSeq?: number;
+  motionForce?: boolean;
+  motionDuration?: number;
+  motionStartTime?: number;
+  motionFinishTime?: number;
+  motionGroup?: string;
+  motionIndex?: number;
   params?: Record<string, number>;
   lookAt?: { x: number; y: number };
   followMouse?: boolean;
+  controlBanExpressions?: boolean;
+  controlBanIdle?: boolean;
+  controlBanMotions?: boolean;
+  controlBanFocus?: boolean;
+  controlBanNatural?: boolean;
+  controlBanEyeBlink?: boolean;
+  controlBanBreath?: boolean;
+  controlBanPhysics?: boolean;
+  controlBanPose?: boolean;
 }
 
 export interface AudioState {
@@ -79,6 +95,7 @@ export class BaseActor {
 export class CharacterActor extends BaseActor {
   private static readonly defaultTransitionMs = 200;
   private live2dExpressionSeq = 0;
+  private live2dMotionSeq = 0;
 
   /** 创建一个角色演员实例 */
   constructor(name: string, id?: string, runtime?: Runtime) {
@@ -332,8 +349,51 @@ export class CharacterActor extends BaseActor {
   }
 
   /** 播放Live2D动作 */
-  motion(id: string) {
-    return this.action({ type: 'motion', payload: { actorId: this.id, id } });
+  motion(id: string, options?: { force?: boolean }) {
+    this.live2dMotionSeq += 1;
+    return this.action({
+      type: 'motion',
+      payload: { actorId: this.id, id, seq: this.live2dMotionSeq, force: !!options?.force },
+    });
+  }
+
+  /** 播放Live2D动作并等待动作结束 */
+  async motionAndWait(id: string) {
+    const triggerTime = Date.now();
+    this.live2dMotionSeq += 1;
+    const seq = this.live2dMotionSeq;
+    await this.action({
+      type: 'motion',
+      payload: { actorId: this.id, id, seq, force: false },
+    });
+
+    // 轮询等待动作时长信息更新（最多等待 1 秒）
+    let duration = 0;
+    let motionStart = 0;
+    for (let i = 0; i < 20; i++) {
+      await new Promise((r) => setTimeout(r, 50));
+      const actorState = this.runtime.state.actors[this.id];
+      const l2d = actorState?.live2d;
+      if (
+        l2d?.motionId === id &&
+        l2d?.motionSeq === seq &&
+        typeof l2d.motionDuration === 'number' &&
+        typeof l2d.motionStartTime === 'number' &&
+        l2d.motionStartTime >= triggerTime
+      ) {
+        duration = l2d.motionDuration;
+        motionStart = l2d.motionStartTime;
+        break;
+      }
+    }
+
+    if (duration > 0) {
+      const elapsed = Date.now() - motionStart;
+      const remaining = duration - elapsed;
+      if (remaining > 0) {
+        await this.wait(remaining);
+      }
+    }
   }
 
   /** 设置模式 */

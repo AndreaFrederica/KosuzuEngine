@@ -1,92 +1,116 @@
 <template>
-  <div v-if="visible" class="audio-channels-panel" @click.stop>
-    <div class="channels-header">
-      <div class="title">音频通道 / Audio Channels</div>
-      <button class="close-btn" @click="$emit('close')">关闭</button>
-    </div>
-    <div class="channels-body">
-      <div v-if="channels.length === 0" class="no-channels">
-        暂无活动音频通道 / No active channels
-      </div>
-      <div v-else class="channels-list">
-        <div v-for="channel in channels" :key="channel.channelId" class="channel-card" :class="`type-${channel.type}`">
-          <!-- 通道头部 -->
-          <div class="channel-header">
-            <div class="channel-info">
-              <div class="channel-id">{{ channel.channelId }}</div>
-              <div class="channel-type">{{ typeLabel(channel.type) }}</div>
-            </div>
-            <div class="channel-status-group">
-              <div v-if="channel.isPlaying" class="channel-status playing">播放中</div>
-              <div v-else class="channel-status stopped">已停止</div>
-              <div v-if="channel.loop" class="channel-loop" title="循环播放">
-                <span class="loop-icon">∞</span>
+  <FloatingWindow
+    :model-value="visible"
+    @update:model-value="onUpdateOpen"
+    title="音频通道 / Audio Channels"
+    storage-key="panel:audioChannels"
+    window-id="panel:audioChannels"
+    window-class="bg-grey-10 text-white"
+    :initial-size="{ w: 520, h: 420 }"
+    :min-width="420"
+    :min-height="300"
+  >
+    <div class="fw-content audio-channels-panel">
+      <div class="channels-body">
+        <div v-if="channels.length === 0" class="no-channels">
+          暂无活动音频通道 / No active channels
+        </div>
+        <div v-else class="channels-list">
+          <div
+            v-for="channel in channels"
+            :key="channel.channelId"
+            class="channel-card"
+            :class="`type-${channel.type}`"
+          >
+            <!-- 通道头部 -->
+            <div class="channel-header">
+              <div class="channel-info">
+                <div class="channel-id">{{ channel.channelId }}</div>
+                <div class="channel-type">{{ typeLabel(channel.type) }}</div>
+              </div>
+              <div class="channel-status-group">
+                <div v-if="channel.isPlaying" class="channel-status playing">播放中</div>
+                <div v-else class="channel-status stopped">已停止</div>
+                <div v-if="channel.loop" class="channel-loop" title="循环播放">
+                  <span class="loop-icon">∞</span>
+                </div>
               </div>
             </div>
-          </div>
 
-          <!-- 播放信息 -->
-          <div v-if="channel.currentTrack" class="channel-track">
-            <div class="track-value">{{ getTrackName(channel.currentTrack) }}</div>
-            <div v-if="channel.isPlaying" class="channel-time">{{ formatTime(channel.audioCurrentTime) }}</div>
-          </div>
-
-          <!-- 整合的音量控制：滑块 + 当前音量 -->
-          <div class="channel-volume-control">
-            <input
-              type="range"
-              min="0"
-              max="100"
-              :value="channel.volume * 100"
-              @input="setVolume(channel.channelId, $event)"
-              class="volume-slider"
-            />
-            <div class="volume-value">{{ Math.round(channel.volume * 100) }}%</div>
-          </div>
-
-          <!-- 实时电平显示 -->
-          <div class="channel-level">
-            <div class="level-bar-container">
-              <!-- dB 刻度线 -->
-              <div class="level-ticks">
-                <div class="level-tick" style="left: 0%"></div>
-                <div class="level-tick" style="left: 33.33%"></div>
-                <div class="level-tick" style="left: 66.67%"></div>
-                <div class="level-tick level-tick-max" style="left: 100%"></div>
+            <!-- 播放信息 -->
+            <div v-if="channel.currentTrack" class="channel-track">
+              <div class="track-value">{{ getTrackName(channel.currentTrack) }}</div>
+              <div v-if="channel.isPlaying" class="channel-time">
+                {{ formatTime(channel.audioCurrentTime) }}
               </div>
-              <!-- 电平填充 -->
+            </div>
+
+            <!-- 整合的音量控制：滑块 + 当前音量 -->
+            <div class="channel-volume-control">
+              <input
+                type="range"
+                min="0"
+                max="100"
+                :value="channel.volume * 100"
+                @input="setVolume(channel.channelId, $event)"
+                class="volume-slider"
+              />
+              <div class="volume-value">{{ Math.round(channel.volume * 100) }}%</div>
+            </div>
+
+            <!-- 实时电平显示 -->
+            <div class="channel-level">
+              <div class="level-bar-container">
+                <!-- dB 刻度线 -->
+                <div class="level-ticks">
+                  <div class="level-tick" style="left: 0%"></div>
+                  <div class="level-tick" style="left: 33.33%"></div>
+                  <div class="level-tick" style="left: 66.67%"></div>
+                  <div class="level-tick level-tick-max" style="left: 100%"></div>
+                </div>
+                <!-- 电平填充 -->
+                <div
+                  class="level-bar-fill"
+                  :class="{ clipping: isClipping(levelToDb(channel.level)) }"
+                  :style="{ width: `${dbToPercent(levelToDb(channel.level))}%` }"
+                ></div>
+              </div>
+              <div class="level-labels">
+                <span class="level-label">-60</span>
+                <span class="level-label">-40</span>
+                <span class="level-label">-20</span>
+                <span class="level-label">0</span>
+              </div>
               <div
-                class="level-bar-fill"
+                class="level-current"
                 :class="{ clipping: isClipping(levelToDb(channel.level)) }"
-                :style="{ width: `${dbToPercent(levelToDb(channel.level))}%` }"
-              ></div>
-            </div>
-            <div class="level-labels">
-              <span class="level-label">-60</span>
-              <span class="level-label">-40</span>
-              <span class="level-label">-20</span>
-              <span class="level-label">0</span>
-            </div>
-            <div class="level-current" :class="{ clipping: isClipping(levelToDb(channel.level)) }">
-              {{ Math.round(levelToDb(channel.level)) }} dB
+              >
+                {{ Math.round(levelToDb(channel.level)) }} dB
+              </div>
             </div>
           </div>
         </div>
       </div>
     </div>
-  </div>
+  </FloatingWindow>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onUnmounted, computed, watch } from 'vue';
 import { audioManager } from './AudioManager';
 import type { ChannelStatus } from './AudioChannel';
+import FloatingWindow from 'components/FloatingWindow.vue';
 
-defineProps<{ visible?: boolean }>();
-defineEmits<{ (e: 'close'): void }>();
+const props = withDefaults(defineProps<{ visible?: boolean }>(), { visible: false });
+const visible = computed(() => props.visible);
+const emit = defineEmits<{ (e: 'close'): void }>();
 
 const channels = ref<ChannelStatus[]>([]);
 let refreshInterval: ReturnType<typeof setInterval> | null = null;
+
+function onUpdateOpen(v: boolean) {
+  if (!v) emit('close');
+}
 
 // 通道类型标签
 function typeLabel(type: string): string {
@@ -144,37 +168,41 @@ function isClipping(db: number): boolean {
   return db >= -1;
 }
 
-onMounted(() => {
+function startPolling() {
   refreshChannels();
-  // 快速刷新以显示实时电平（每 50ms）
+  if (refreshInterval) return;
   refreshInterval = setInterval(() => {
     refreshChannels();
   }, 50);
-});
+}
 
-onUnmounted(() => {
+function stopPolling() {
   if (refreshInterval) {
     clearInterval(refreshInterval);
     refreshInterval = null;
   }
+}
+
+watch(
+  visible,
+  (v) => {
+    if (v) startPolling();
+    else stopPolling();
+  },
+  { immediate: true },
+);
+
+onUnmounted(() => {
+  stopPolling();
 });
 </script>
 
 <style scoped>
 .audio-channels-panel {
-  position: absolute;
-  right: 16px;
-  top: 16px;
-  width: 320px;
-  max-height: 70vh;
+  height: 100%;
   overflow: auto;
-  background: rgba(0, 0, 0, 0.92);
   color: #fff;
-  border-radius: 12px;
   padding: 16px;
-  z-index: 1003;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .channels-header {
@@ -415,7 +443,9 @@ onUnmounted(() => {
   height: 100%;
   background: linear-gradient(90deg, #4caf50, #8bc34a, #aed581, #c5e1a5);
   border-radius: 5px;
-  transition: width 0.05s ease-out, background 0.1s;
+  transition:
+    width 0.05s ease-out,
+    background 0.1s;
   min-width: 2px;
   position: relative;
 }

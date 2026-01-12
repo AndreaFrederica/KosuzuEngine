@@ -1,5 +1,9 @@
 <template>
-  <div class="live2d-playground window-height" @drop.prevent="onDrop" @dragover.prevent>
+  <div
+    class="live2d-playground window-height relative-position"
+    @drop.prevent="onDrop"
+    @dragover.prevent
+  >
     <q-splitter
       v-model="viewerSplitterModel"
       class="fit"
@@ -29,16 +33,27 @@
           </div>
 
           <!-- Overlay Controls -->
-          <div class="absolute-top-left q-pa-sm row q-gutter-sm" style="z-index: 10">
-            <q-btn round dense color="primary" icon="add" @click="loaderOpen = true">
+          <div
+            class="absolute-top-left playground-toolbar row items-center q-gutter-xs"
+            style="z-index: 10"
+          >
+            <q-btn round dense unelevated color="primary" icon="add" @click="loaderOpen = true">
               <q-tooltip>Load Model</q-tooltip>
             </q-btn>
-            <q-btn round dense color="info" icon="data_object" @click="ctxOpen = !ctxOpen">
+            <q-btn
+              round
+              dense
+              unelevated
+              color="info"
+              icon="data_object"
+              @click="ctxOpen = !ctxOpen"
+            >
               <q-tooltip>Context</q-tooltip>
             </q-btn>
             <q-btn
               round
               dense
+              unelevated
               color="grey-7"
               :icon="toolsVisible ? 'chevron_right' : 'chevron_left'"
               @click="toggleTools"
@@ -48,32 +63,38 @@
             <q-btn
               round
               dense
+              unelevated
               color="teal"
               :icon="showDialogBox ? 'chat_bubble' : 'chat_bubble_outline'"
               @click="showDialogBox = !showDialogBox"
             >
               <q-tooltip>Dialog Box</q-tooltip>
             </q-btn>
-            <q-btn round dense color="secondary" icon="image" @click="bgOpen = true">
+            <q-btn round dense unelevated color="secondary" icon="image" @click="bgOpen = true">
               <q-tooltip>Change Background</q-tooltip>
             </q-btn>
-            <q-btn round dense color="warning" icon="restart_alt" @click="resetView">
+            <q-btn round dense unelevated color="warning" icon="restart_alt" @click="resetView">
               <q-tooltip>Reset View</q-tooltip>
+            </q-btn>
+            <q-btn
+              round
+              dense
+              unelevated
+              color="deep-orange"
+              icon="bug_report"
+              @click="showInternal = !showInternal"
+            >
+              <q-tooltip>Internal</q-tooltip>
             </q-btn>
           </div>
 
           <!-- Debug info overlay -->
-          <div
-            class="absolute-bottom-left text-white q-pa-sm"
-            style="pointer-events: none; text-shadow: 1px 1px 2px black"
-          >
+          <div class="absolute-bottom-left playground-debug text-white">
             <div>Model: {{ currentModelId }}</div>
             <div>
               View: {{ view.scale.toFixed(2) }}x ({{ view.x.toFixed(0) }}, {{ view.y.toFixed(0) }})
             </div>
           </div>
-
-          <ContextWindow v-model="ctxOpen" :actor-id="currentModelId" />
 
           <AudioPrompt />
           <ScriptConsole :visible="showConsole" @close="showConsole = false" />
@@ -109,7 +130,11 @@
       </template>
 
       <template #after>
-        <div class="column bg-grey-9 text-white fit" style="min-width: 0" v-show="toolsVisible">
+        <div
+          class="column playground-sidebar text-white fit"
+          style="min-width: 0"
+          v-show="toolsVisible"
+        >
           <div class="q-pa-xs">
             <q-btn-toggle
               v-model="panelMode"
@@ -173,7 +198,20 @@
       </template>
     </q-splitter>
 
+    <FloatingWindow
+      v-model="showInternal"
+      title="Live2D Internal"
+      storage-key="playground:internalWindow"
+      window-class="bg-grey-10 text-white"
+      :initial-size="{ w: 420, h: 520 }"
+    >
+      <div class="fw-content q-pa-sm">
+        <pre class="fw-pre">{{ internalText }}</pre>
+      </div>
+    </FloatingWindow>
+
     <!-- Dialogs -->
+    <ContextWindow v-model="ctxOpen" :actor-id="currentModelId" />
     <ModelLoader v-model="loaderOpen" @load="loadModelSource" />
 
     <q-dialog v-model="bgOpen">
@@ -201,6 +239,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, reactive, watch, computed, nextTick } from 'vue';
 import { useEngineStore } from 'stores/engine-store';
+import { useLive2DDebugStore } from 'stores/live2d-debug-store';
 import { getLive2DBackend } from '../../engine/live2d/runtime';
 import Live2DLayer from '../../engine/render/Live2DLayer.vue';
 import { CharacterActor } from '../../engine/core/BaseActor';
@@ -215,9 +254,11 @@ import ModelLoader from './ModelLoader.vue';
 import ControlPanel from './ControlPanel.vue';
 import ScriptEditor from './ScriptEditor.vue';
 import ContextWindow from './ContextWindow.vue';
+import FloatingWindow from 'components/FloatingWindow.vue';
 import DialogBox from '../../engine/render/DialogBox.vue';
 
 const store = useEngineStore();
+const live2dDebugStore = useLive2DDebugStore();
 const backend = getLive2DBackend();
 
 // State
@@ -240,6 +281,7 @@ const splitterModel = ref(50);
 const toolsVisible = ref(true);
 const viewerSplitterModel = ref(70);
 const viewerSplitterModelBackup = ref(70);
+const showInternal = ref(false);
 
 // View State (Pan/Zoom)
 const view = reactive({ x: 0, y: 0, scale: 1 });
@@ -252,6 +294,22 @@ const actor = new CharacterActor('Playground Actor', currentModelId.value, defau
 const followMouse = computed(() => {
   const a = store.state.actors?.[currentModelId.value];
   return !!a?.live2d?.followMouse;
+});
+
+const internalText = computed(() => {
+  const id = currentModelId.value;
+  const actorState = store.state.actors?.[id];
+  const inspection = live2dDebugStore.inspections[id];
+  const snapshot = live2dDebugStore.snapshots[id];
+  return JSON.stringify(
+    {
+      actor: actorState?.live2d,
+      inspection: inspection?.debug,
+      snapshot,
+    },
+    null,
+    2,
+  );
 });
 
 // Refs
@@ -361,16 +419,26 @@ async function loadModelSource(source: string | File[]) {
     backend.registerSource(id, normalizedSource);
 
     const curr = store.state.actors?.[id]?.transform ?? {};
-    await actor.show({
-      x: typeof curr.x === 'number' ? curr.x : 0.5,
-      y: typeof curr.y === 'number' ? curr.y : 0.5,
-      scale: typeof curr.scale === 'number' ? curr.scale : 1,
-      opacity: 1,
-    });
+    const x = typeof curr.x === 'number' ? curr.x : 0.5;
+    const y = typeof curr.y === 'number' ? curr.y : 0.5;
+    const scale = typeof curr.scale === 'number' ? curr.scale : 1;
+
+    if (!store.state.actors?.[id]) {
+      await actor.show({ x, y, scale, opacity: 0 });
+    } else {
+      await actor.move({ opacity: 0 }, { duration: 0 });
+    }
 
     await actor.setLive2DModel(
       typeof normalizedSource === 'string' ? normalizedSource : 'local_files',
     );
+
+    await actor.show({
+      x,
+      y,
+      scale,
+      opacity: 1,
+    });
   } catch (e) {
     console.error('Failed to load model:', e);
     alert('Failed to load model. See console for details.');
@@ -446,5 +514,30 @@ function resetView() {
 <style scoped>
 :deep(.q-splitter__panel) {
   min-width: 0;
+}
+
+.playground-toolbar {
+  margin: 10px;
+  padding: 8px;
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(10px);
+}
+
+.playground-debug {
+  margin: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+
+.playground-sidebar {
+  background: rgba(18, 18, 20, 0.96);
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
 }
 </style>

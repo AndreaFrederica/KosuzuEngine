@@ -1,7 +1,15 @@
 import * as PIXI from 'pixi.js';
 import { Live2DModel, MotionPreloadStrategy } from 'pixi-live2d-display';
 import type { TransformState } from '../core/BaseActor';
-import type { ILive2DBackend, Live2DBackendInit, Live2DInspection, Live2DSource, Live2DSnapshot } from './backend';
+import type {
+  ILive2DBackend,
+  Live2DBackendInit,
+  Live2DInspection,
+  Live2DMotionFinishEvent,
+  Live2DMotionStartEvent,
+  Live2DSource,
+  Live2DSnapshot,
+} from './backend';
 import { applyProfileParams, autoProfileFromParamIds, type Live2DProfile } from './profile';
 
 (window as unknown as { PIXI: typeof PIXI }).PIXI = PIXI;
@@ -49,8 +57,14 @@ type MotionStateLike = {
 type MotionManagerLike = {
   stopAllMotions?: () => void;
   groups?: { idle: string };
+  definitions?: unknown;
+  motionGroups?: Record<string, unknown[]>;
   state?: MotionStateLike;
+  playing?: boolean;
+  isFinished?: () => boolean;
   expressionManager?: unknown;
+  loadMotion?: (group: string, index: number) => Promise<unknown>;
+  startMotion?: (group: string, index: number, priority?: unknown) => Promise<boolean>;
 };
 
 type InternalModelLike = InternalModelEmitter & {
@@ -107,6 +121,21 @@ export class PixiLive2DBackend implements ILive2DBackend {
       banPose: boolean;
     }
   > = new Map();
+  private motionDurations: Map<string, Map<string, number>> = new Map();
+  private motionDurationInflight: Map<string, Promise<number | undefined>> = new Map();
+  private motionCallbacks: {
+    onStart?: (e: Live2DMotionStartEvent) => void;
+    onFinish?: (e: Live2DMotionFinishEvent) => void;
+  } = {};
+  private motionEventHandlers: Map<
+    string,
+    {
+      motionManager: { on: (event: string, fn: (...args: unknown[]) => void) => void; off?: (event: string, fn: (...args: unknown[]) => void) => void };
+      onStart: (...args: unknown[]) => void;
+      onFinish: (...args: unknown[]) => void;
+    }
+  > = new Map();
+  private plannedMotionByActor: Map<string, { group: string; index: number; durationMs?: number }> = new Map();
 
   public static readonly CONTROL_MOTION_ID = '__CONTROL__';
 
@@ -133,6 +162,27 @@ export class PixiLive2DBackend implements ILive2DBackend {
     });
   }
 
+  pause() {
+    const app = this.app;
+    if (!app) return;
+    try {
+      app.renderer.clear();
+    } catch {
+      // ignore
+    }
+    const anyApp = app as unknown as { stop?: () => void };
+    if (typeof anyApp.stop === 'function') anyApp.stop();
+    else app.ticker.stop();
+  }
+
+  resume() {
+    const app = this.app;
+    if (!app) return;
+    const anyApp = app as unknown as { start?: () => void };
+    if (typeof anyApp.start === 'function') anyApp.start();
+    else app.ticker.start();
+  }
+
   resize(width: number, height: number) {
     this.app?.renderer.resize(width, height);
   }
@@ -147,8 +197,8 @@ export class PixiLive2DBackend implements ILive2DBackend {
 
     this.modelSources.clear();
 
-    app.ticker.stop();
-    app.destroy(false, { children: true, texture: true, baseTexture: true });
+    this.pause();
+    app.destroy(false, { children: true });
     this.app = null;
     this.viewport = new PIXI.Container();
     this.root = new PIXI.Container();
@@ -270,6 +320,73 @@ export class PixiLive2DBackend implements ILive2DBackend {
       | InternalModelLike;
     if (!internal || typeof internal.on !== 'function') return null;
     return internal;
+  }
+
+  setMotionCallbacks(callbacks: {
+    onStart?: (e: Live2DMotionStartEvent) => void;
+    onFinish?: (e: Live2DMotionFinishEvent) => void;
+  }) {
+    this.motionCallbacks = callbacks;
+  }
+
+  private bindMotionEvents(actorId: string, internal: InternalModelLike) {
+    if (this.motionEventHandlers.has(actorId)) return;
+    const motionManager = internal.motionManager as
+      | undefined
+      | { on?: (event: string, fn: (...args: unknown[]) => void) => void; off?: (event: string, fn: (...args: unknown[]) => void) => void };
+    if (!motionManager?.on) return;
+
+    const onStart = (group: unknown, index: unknown) => {
+      const cb = this.motionCallbacks.onStart;
+      if (!cb) return;
+      const g =
+        typeof group === 'string'
+          ? group
+          : group === null || group === undefined
+            ? ''
+            : typeof group === 'number' || typeof group === 'boolean' || typeof group === 'bigint'
+              ? String(group)
+              : '';
+      const idx = typeof index === 'number' ? index : Number(index);
+      const planned = this.plannedMotionByActor.get(actorId);
+      const durationMs =
+        planned && planned.group === g && planned.index === idx ? planned.durationMs : undefined;
+      const evt: Live2DMotionStartEvent = {
+        actorId,
+        group: g,
+        index: Number.isFinite(idx) ? idx : -1,
+        startTimeMs: Date.now(),
+      };
+      if (typeof durationMs === 'number') evt.durationMs = durationMs;
+      cb(evt);
+    };
+
+    const onFinish = () => {
+      const cb = this.motionCallbacks.onFinish;
+      if (!cb) return;
+      cb({ actorId, finishTimeMs: Date.now() });
+    };
+
+    motionManager.on('motionStart', onStart);
+    motionManager.on('motionFinish', onFinish);
+    this.motionEventHandlers.set(actorId, {
+      motionManager: motionManager as {
+        on: (event: string, fn: (...args: unknown[]) => void) => void;
+        off?: (event: string, fn: (...args: unknown[]) => void) => void;
+      },
+      onStart,
+      onFinish,
+    });
+  }
+
+  private unbindMotionEvents(actorId: string) {
+    const bound = this.motionEventHandlers.get(actorId);
+    if (!bound) return;
+    if (typeof bound.motionManager.off === 'function') {
+      bound.motionManager.off('motionStart', bound.onStart);
+      bound.motionManager.off('motionFinish', bound.onFinish);
+    }
+    this.motionEventHandlers.delete(actorId);
   }
 
   private disableAutoIdle(model: Live2DModel) {
@@ -450,6 +567,7 @@ export class PixiLive2DBackend implements ILive2DBackend {
   }
 
   async load(actorId: string, source?: Live2DSource) {
+    this.resume();
     const actualSource = this.normalizeSource(this.modelSources.get(actorId) ?? source ?? '');
     if (!actualSource) throw new Error(`[PixiLive2DBackend] No source for ${actorId}`);
 
@@ -545,9 +663,14 @@ export class PixiLive2DBackend implements ILive2DBackend {
       this.beforeUpdateHooks.set(actorId, hook);
       internal.on('beforeModelUpdate', hook);
     }
+
+    const fullInternal = this.getInternalModel(model);
+    if (fullInternal) this.bindMotionEvents(actorId, fullInternal);
   }
 
   unload(actorId: string) {
+    this.unbindMotionEvents(actorId);
+    this.plannedMotionByActor.delete(actorId);
     const model = this.models.get(actorId);
     if (model) {
       const internal = this.getInternalModelEmitter(model);
@@ -577,6 +700,14 @@ export class PixiLive2DBackend implements ILive2DBackend {
     this.backups.delete(actorId);
     this.controlModes.delete(actorId);
     this.controlOptions.delete(actorId);
+    this.motionDurations.delete(actorId);
+    for (const k of [...this.motionDurationInflight.keys()]) {
+      if (k.startsWith(`${actorId}|`)) this.motionDurationInflight.delete(k);
+    }
+
+    if (this.models.size === 0) {
+      this.pause();
+    }
   }
 
   setControlOptions(actorId: string, options: {
@@ -729,7 +860,118 @@ export class PixiLive2DBackend implements ILive2DBackend {
     }
   }
 
-  async playMotion(actorId: string, motionId: string) {
+  private getMotionDurationKey(group: string, index: number) {
+    return `${group}#${index}`;
+  }
+
+  private getCachedMotionDuration(actorId: string, group: string, index: number) {
+    const byActor = this.motionDurations.get(actorId);
+    if (!byActor) return undefined;
+    return byActor.get(this.getMotionDurationKey(group, index));
+  }
+
+  private setCachedMotionDuration(actorId: string, group: string, index: number, durationMs: number) {
+    if (!(durationMs > 0)) return;
+    let byActor = this.motionDurations.get(actorId);
+    if (!byActor) {
+      byActor = new Map();
+      this.motionDurations.set(actorId, byActor);
+    }
+    byActor.set(this.getMotionDurationKey(group, index), durationMs);
+  }
+
+  private getMotionGroupSize(definitions: unknown, group: string): number {
+    if (!definitions) return 0;
+    if (definitions instanceof Map) {
+      const v = definitions.get(group);
+      return Array.isArray(v) ? v.length : 0;
+    }
+    if (typeof definitions === 'object') {
+      const v = (definitions as Record<string, unknown>)[group];
+      return Array.isArray(v) ? v.length : 0;
+    }
+    return 0;
+  }
+
+  private inferDurationMsFromMotion(motion: unknown): number | undefined {
+    if (!motion || typeof motion !== 'object') return undefined;
+    const m = motion as Record<string, unknown>;
+
+    const durationMs = m.duration;
+    if (typeof durationMs === 'number' && durationMs > 0) return durationMs;
+
+    const getDurationMSec = m.getDurationMSec;
+    if (typeof getDurationMSec === 'function') {
+      try {
+        const ms = (getDurationMSec as () => unknown)();
+        if (typeof ms === 'number' && ms > 0) return ms;
+      } catch {
+        return undefined;
+      }
+    }
+
+    const getDuration = m.getDuration;
+    if (typeof getDuration === 'function') {
+      try {
+        const seconds = (getDuration as () => unknown)();
+        if (typeof seconds === 'number' && seconds > 0) return seconds * 1000;
+      } catch {
+        return undefined;
+      }
+    }
+
+    const getLoopDuration = m.getLoopDuration;
+    if (typeof getLoopDuration === 'function') {
+      try {
+        const seconds = (getLoopDuration as () => unknown)();
+        if (typeof seconds === 'number' && seconds > 0) return seconds * 1000;
+      } catch {
+        return undefined;
+      }
+    }
+
+    return undefined;
+  }
+
+  private async ensureMotionDurationMs(actorId: string, group: string, index: number) {
+    const cached = this.getCachedMotionDuration(actorId, group, index);
+    if (typeof cached === 'number') return cached;
+
+    const inflightKey = `${actorId}|${group}|${index}`;
+    const inflight = this.motionDurationInflight.get(inflightKey);
+    if (inflight) return inflight;
+
+    const p = (async () => {
+      const model = this.models.get(actorId);
+      if (!model) return undefined;
+      const internal = this.getInternalModel(model);
+      const motionManager = internal?.motionManager;
+      if (!motionManager?.loadMotion) return undefined;
+      try {
+        const motion = await motionManager.loadMotion(group, index);
+        const durationMs = this.inferDurationMsFromMotion(motion);
+        if (typeof durationMs === 'number' && durationMs > 0) {
+          this.setCachedMotionDuration(actorId, group, index, durationMs);
+          return durationMs;
+        }
+        return undefined;
+      } catch {
+        return undefined;
+      }
+    })().finally(() => {
+      this.motionDurationInflight.delete(inflightKey);
+    });
+
+    this.motionDurationInflight.set(inflightKey, p);
+    return p;
+  }
+
+  private getForceMotionPriority() {
+    const v = (Live2DModel as unknown as { MotionPriority?: { FORCE?: unknown } }).MotionPriority?.FORCE;
+    return v ?? 3;
+  }
+
+  async playMotion(actorId: string, motionId: string, options?: { force?: boolean }) {
     if (motionId === PixiLive2DBackend.CONTROL_MOTION_ID) {
       this.setControlMode(actorId, 'control');
       return;
@@ -737,8 +979,45 @@ export class PixiLive2DBackend implements ILive2DBackend {
     this.setControlMode(actorId, 'default');
     const model = this.models.get(actorId);
     if (!model) return;
+    const internal = this.getInternalModel(model);
+    if (internal) this.bindMotionEvents(actorId, internal);
+    const motionManager = internal?.motionManager;
+    const groupSize = this.getMotionGroupSize(motionManager?.definitions, motionId);
+    const priority = options?.force ? this.getForceMotionPriority() : undefined;
+
+    if (!(groupSize > 0)) {
+      this.plannedMotionByActor.set(actorId, { group: motionId, index: -1 });
+      try {
+        await (model as unknown as {
+          motion: (group: string, index?: number, priority?: unknown) => Promise<boolean>;
+        }).motion(motionId, undefined, priority);
+        return;
+      } catch {
+        return;
+      }
+    }
+
+    const index = Math.floor(Math.random() * groupSize);
+
+    const duration = await this.ensureMotionDurationMs(actorId, motionId, index);
+    const plan: { group: string; index: number; durationMs?: number } = { group: motionId, index };
+    if (typeof duration === 'number') plan.durationMs = duration;
+    this.plannedMotionByActor.set(actorId, plan);
+
+    if (motionManager?.startMotion) {
+      try {
+        await motionManager.startMotion(motionId, index, priority);
+        return;
+      } catch {
+        return;
+      }
+    }
+
     try {
-      await model.motion(motionId);
+      await (model as unknown as {
+        motion: (group: string, index?: number, priority?: unknown) => Promise<boolean>;
+      }).motion(motionId, index, priority);
+      return;
     } catch {
       return;
     }
@@ -859,8 +1138,32 @@ export class PixiLive2DBackend implements ILive2DBackend {
     const debug: NonNullable<Live2DInspection['debug']> = {};
     debug.controlMode = this.controlModes.get(actorId) ?? 'default';
     debug.control = { ...(this.controlOptions.get(actorId) ?? {}) };
-    const idleGroup = internal.motionManager?.groups?.idle;
-    if (typeof idleGroup === 'string') debug.motion = { idleGroup };
+    const mm = internal.motionManager as
+      | undefined
+      | {
+        groups?: { idle?: unknown };
+        state?: unknown;
+        playing?: unknown;
+        isFinished?: () => boolean;
+      };
+    const motionDebug: NonNullable<NonNullable<Live2DInspection['debug']>['motion']> = {};
+    const idleGroup = mm?.groups?.idle;
+    if (typeof idleGroup === 'string') motionDebug.idleGroup = idleGroup;
+    if (typeof mm?.playing === 'boolean') motionDebug.playing = mm.playing;
+    if (typeof mm?.isFinished === 'function') motionDebug.finished = mm.isFinished();
+    const state = mm?.state as
+      | undefined
+      | {
+        currentGroup?: unknown;
+        currentIndex?: unknown;
+        reservedGroup?: unknown;
+        reservedIndex?: unknown;
+      };
+    if (typeof state?.currentGroup === 'string') motionDebug.currentGroup = state.currentGroup;
+    if (typeof state?.currentIndex === 'number') motionDebug.currentIndex = state.currentIndex;
+    if (typeof state?.reservedGroup === 'string') motionDebug.reservedGroup = state.reservedGroup;
+    if (typeof state?.reservedIndex === 'number') motionDebug.reservedIndex = state.reservedIndex;
+    if (Object.keys(motionDebug).length > 0) debug.motion = motionDebug;
     const em = (internal.motionManager as unknown as { expressionManager?: unknown })?.expressionManager as
       | undefined
       | {

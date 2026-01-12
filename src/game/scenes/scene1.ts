@@ -232,28 +232,15 @@ export async function scene2(): Promise<void | string> {
   const picked = await ctx.choice([
     { text: '回到 scene1', goto: 'scene1' },
     { text: '进入特效测试场景（sceneEffects）', goto: 'sceneEffects' },
+    { text: '进入 Live2D 混合测试', goto: 'sceneLive2DMix' },
     { text: '结束演示', goto: 'end' },
     { text: "回到主界面", goto: "titleScreen" },
   ]);
   if (picked.ok && picked.value === 'scene1') return 'scene1';
   if (picked.ok && picked.value === 'sceneEffects') return 'sceneEffects';
+  if (picked.ok && picked.value === 'sceneLive2DMix') return 'sceneLive2DMix';
   if (picked.ok && picked.value === 'titleScreen') {
     ctx.goToTitle();
   };
   await sailorA.say('演示结束。');
 }
-
-// 热重载支持
-// if (import.meta.hot) {
-//   import.meta.hot.accept(() => {
-//     console.log('[HMR] scene1.ts accept 回调被触发！');
-//     const reloadScene = (window as unknown as { __reloadScene?: () => void }).__reloadScene;
-//     console.log('[HMR] reloadScene 函数存在?', !!reloadScene);
-//     if (reloadScene) {
-//       console.log('[HMR] 调用 reloadScene()');
-//       reloadScene();
-//     } else {
-//       console.error('[HMR] reloadScene 函数不存在！请确保 DemoVN.vue 已注册');
-//     }
-//   });
-// }

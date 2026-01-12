@@ -157,7 +157,8 @@ export class Runtime {
             ? (msPayload as { ms?: number }).ms!
             : effectiveAction.options?.duration ?? 0;
       // Dev 模式下重放时跳过等待，加快恢复速度
-      const waitMs = isSkipping ? 0 : Math.max(0, Math.floor(ms));
+      // Fix: 只有在重放计划依然存在时才跳过（避免重放结束后的第一个指令被错误跳过）
+      const waitMs = isSkipping && this.replayPlan ? 0 : Math.max(0, Math.floor(ms));
       return new Promise<ActionResult<TResult>>((resolve) => {
         setTimeout(() => resolve({ ok: true } as ActionResult<TResult>), waitMs);
       });

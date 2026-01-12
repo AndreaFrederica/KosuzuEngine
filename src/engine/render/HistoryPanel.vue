@@ -1,59 +1,49 @@
 <template>
-  <div v-if="visible" class="history-panel">
-    <div class="history-header">
-      <div class="title">历史对话</div>
-      <button class="close-btn" @click="$emit('close')">关闭</button>
-    </div>
-    <div class="history-body">
-      <div v-for="(h, idx) in history" :key="idx" class="line">
-        <span class="speaker">{{ h.speaker || '——' }}</span>
-        <span v-if="h.html" class="text" v-html="h.text"></span>
-        <span v-else class="text">{{ h.text }}</span>
+  <FloatingWindow
+    :model-value="visible"
+    @update:model-value="onUpdateOpen"
+    title="历史对话"
+    storage-key="panel:history"
+    window-id="panel:history"
+    window-class="bg-grey-10 text-white"
+    :initial-size="{ w: 760, h: 420 }"
+    :min-width="520"
+    :min-height="260"
+  >
+    <div class="fw-content history-panel">
+      <div class="history-body">
+        <div v-for="(h, idx) in history" :key="idx" class="line">
+          <span class="speaker">{{ h.speaker || '——' }}</span>
+          <span v-if="h.html" class="text" v-html="h.text"></span>
+          <span v-else class="text">{{ h.text }}</span>
+        </div>
       </div>
     </div>
-  </div>
-  <div v-else class="history-placeholder"></div>
+  </FloatingWindow>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useEngineStore } from 'stores/engine-store';
-const { visible = false } = defineProps<{ visible?: boolean }>();
+import FloatingWindow from 'components/FloatingWindow.vue';
+
+const props = withDefaults(defineProps<{ visible?: boolean }>(), { visible: false });
+const visible = computed(() => props.visible);
+const emit = defineEmits<{ (e: 'close'): void }>();
 const store = useEngineStore();
 const history = computed(() => store.history());
+
+function onUpdateOpen(v: boolean) {
+  if (!v) emit('close');
+}
 </script>
 
 <style scoped>
 .history-panel {
-  position: absolute;
-  left: 12px;
-  right: 12px;
-  bottom: 200px;
-  max-height: 40vh;
   overflow: auto;
-  background: rgba(0, 0, 0, 0.6);
   color: #fff;
   font-size: 14px;
-  border-radius: 6px;
   padding: 8px;
-  z-index: 1002;
-}
-.history-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-.title {
-  font-weight: 600;
-}
-.close-btn {
-  background: rgba(255, 255, 255, 0.2);
-  color: #fff;
-  border: none;
-  border-radius: 4px;
-  padding: 4px 10px;
-  cursor: pointer;
 }
 .history-body .line {
   padding: 4px 0;
@@ -65,8 +55,5 @@ const history = computed(() => store.history());
 }
 .text {
   color: #fff;
-}
-.history-placeholder {
-  display: none;
 }
 </style>
