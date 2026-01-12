@@ -19,7 +19,8 @@ export type ActionType =
   | 'var'
   | 'choice'
   | 'group'
-  | 'end';
+  | 'end'
+  | 'live2d';
 
 export interface ActorAction<T = unknown> {
   type: ActionType;
@@ -33,4 +34,5 @@ export interface ActorAction<T = unknown> {
 export interface ActionResult<T = unknown> {
   ok: boolean;
   value?: T;
+  error?: string;
 }

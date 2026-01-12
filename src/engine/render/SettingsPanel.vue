@@ -1,330 +1,389 @@
 <template>
-  <div v-if="visible" class="settings-panel" @click.stop>
-    <div class="settings-header">
-      <div class="title">{{ uiText.settings }}</div>
-      <button class="close-btn" @click="$emit('close')">{{ uiText.close }}</button>
+  <FloatingWindow
+    :model-value="visible"
+    @update:model-value="onUpdateOpen"
+    :title="uiText.settings"
+    storage-key="panel:settings"
+    window-id="panel:settings"
+    window-class="bg-grey-10 text-white"
+    :initial-size="{ w: 560, h: 680 }"
+    :min-width="420"
+    :min-height="360"
+  >
+    <div class="fw-content settings-panel">
+      <div class="settings-body">
+        <!-- 语言设置 -->
+        <div class="setting-section">
+          <div class="section-title">{{ uiText.language }}</div>
+          <div class="setting-item">
+            <div class="setting-info">
+              <div class="setting-label">{{ uiText.language }}</div>
+              <div class="setting-desc">
+                选择界面和对话文本的语言 / Select UI and dialog language
+              </div>
+            </div>
+            <select v-model="currentLocale" @change="onLocaleChange" class="setting-select">
+              <option v-for="lang in supportedLocales" :key="lang.code" :value="lang.code">
+                {{ lang.name }} / {{ lang.nativeName }}
+              </option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 语音设置 -->
+        <div class="setting-section">
+          <div class="section-title">{{ uiText.voiceSettings }} / Voice</div>
+          <div class="setting-item">
+            <div class="setting-info">
+              <div class="setting-label">{{ uiText.voiceEnabled }}</div>
+              <div class="setting-desc">自动播放角色语音 / Auto-play character voice</div>
+            </div>
+            <q-toggle
+              :model-value="settingsStore.voiceSettings.enabled"
+              @update:model-value="onVoiceEnabledChange"
+              color="primary"
+              keep-color
+            />
+          </div>
+
+          <div v-if="voiceEnabled" class="setting-item">
+            <div class="setting-info">
+              <div class="setting-label">{{ uiText.ttsEngine }}</div>
+              <div class="setting-desc">选择文字转语音服务 / Select TTS service</div>
+            </div>
+            <select
+              v-model="settingsStore.voiceSettings.engine"
+              @change="onTTSEngineChange"
+              class="setting-select"
+            >
+              <option value="browser">{{ uiText.ttsEngineBrowser }}</option>
+              <option value="openai">{{ uiText.ttsEngineOpenai }}</option>
+              <option value="azure">{{ uiText.ttsEngineAzure }}</option>
+              <option value="google">{{ uiText.ttsEngineGoogle }}</option>
+            </select>
+          </div>
+
+          <div v-if="voiceEnabled && ttsEngine === 'browser'" class="setting-item">
+            <div class="setting-info">
+              <div class="setting-label">{{ uiText.browserVoice }}</div>
+              <div class="setting-desc">选择浏览器 TTS 语音 / Select browser TTS voice</div>
+            </div>
+            <select
+              v-model="settingsStore.voiceSettings.browserVoiceId"
+              @change="onBrowserVoiceChange"
+              class="setting-select"
+            >
+              <option value="">默认 / Default</option>
+              <option v-for="voice in browserVoices" :key="voice.name" :value="voice.name">
+                {{ voice.name }} ({{ voice.lang }})
+              </option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 文本设置 -->
+        <div class="setting-section">
+          <div class="section-title">{{ uiText.textSettings }}</div>
+          <div class="setting-item">
+            <div class="setting-info">
+              <div class="setting-label">{{ uiText.typewriterEnabled }}</div>
+              <div class="setting-desc">{{ uiText.typewriterEnabledDesc }}</div>
+            </div>
+            <q-toggle
+              :model-value="settingsStore.textSettings.typewriterEnabled"
+              @update:model-value="onTypewriterEnabledChange"
+              color="primary"
+              keep-color
+            />
+          </div>
+          <div v-if="typewriterEnabled" class="setting-item">
+            <div class="setting-info">
+              <div class="setting-label">{{ uiText.textSpeed }}</div>
+              <div class="setting-desc">{{ uiText.textSpeedDesc }}</div>
+            </div>
+            <div class="setting-slider-control">
+              <q-slider
+                :model-value="settingsStore.textSettings.textSpeed"
+                @update:model-value="onTextSpeedChange"
+                :min="1"
+                :max="100"
+                color="primary"
+              />
+              <span class="slider-value">{{ settingsStore.textSettings.textSpeed }}%</span>
+            </div>
+          </div>
+          <div v-if="typewriterEnabled" class="setting-item">
+            <div class="setting-info">
+              <div class="setting-label">{{ uiText.autoSpeed }}</div>
+              <div class="setting-desc">{{ uiText.autoSpeedDesc }}</div>
+            </div>
+            <div class="setting-slider-control">
+              <q-slider
+                :model-value="settingsStore.textSettings.autoSpeed"
+                @update:model-value="onAutoSpeedChange"
+                :min="1"
+                :max="100"
+                color="primary"
+              />
+              <span class="slider-value">{{ settingsStore.textSettings.autoSpeed }}%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 音频设置 -->
+        <div class="setting-section">
+          <div class="section-title">音频 / Audio</div>
+          <div class="setting-item">
+            <div class="setting-info">
+              <div class="setting-label">主音量</div>
+              <div class="setting-desc">全局音量控制 / Master Volume</div>
+            </div>
+            <div class="setting-slider-control">
+              <q-slider
+                :model-value="settingsStore.audioSettings.masterVolume"
+                @update:model-value="onMasterVolumeChange"
+                :min="0"
+                :max="100"
+                color="primary"
+              />
+              <span class="slider-value">{{ settingsStore.audioSettings.masterVolume }}%</span>
+            </div>
+          </div>
+          <div class="setting-item">
+            <div class="setting-info">
+              <div class="setting-label">BGM 音量</div>
+              <div class="setting-desc">背景音乐音量 / BGM Volume</div>
+            </div>
+            <div class="setting-slider-control">
+              <q-slider
+                :model-value="settingsStore.audioSettings.bgmVolume"
+                @update:model-value="onBgmVolumeChange"
+                :min="0"
+                :max="100"
+                color="primary"
+              />
+              <span class="slider-value">{{ settingsStore.audioSettings.bgmVolume }}%</span>
+            </div>
+          </div>
+          <div class="setting-item">
+            <div class="setting-info">
+              <div class="setting-label">音效音量</div>
+              <div class="setting-desc">音效音量 / SFX Volume</div>
+            </div>
+            <div class="setting-slider-control">
+              <q-slider
+                :model-value="settingsStore.audioSettings.sfxVolume"
+                @update:model-value="onSfxVolumeChange"
+                :min="0"
+                :max="100"
+                color="primary"
+              />
+              <span class="slider-value">{{ settingsStore.audioSettings.sfxVolume }}%</span>
+            </div>
+          </div>
+          <div class="setting-item">
+            <div class="setting-info">
+              <div class="setting-label">语音音量</div>
+              <div class="setting-desc">语音音量 / Voice Volume</div>
+            </div>
+            <div class="setting-slider-control">
+              <q-slider
+                :model-value="settingsStore.audioSettings.voiceVolume"
+                @update:model-value="onVoiceVolumeChange"
+                :min="0"
+                :max="100"
+                color="primary"
+              />
+              <span class="slider-value">{{ settingsStore.audioSettings.voiceVolume }}%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 显示设置 -->
+        <div class="setting-section">
+          <div class="section-title">{{ uiText.displaySettings }}</div>
+          <div class="setting-item">
+            <div class="setting-info">
+              <div class="setting-label">{{ uiText.dialogDiff }}</div>
+              <div class="setting-desc">{{ uiText.dialogDiffDesc }}</div>
+            </div>
+            <q-toggle
+              :model-value="settingsStore.displaySettings.dialogDiffEnabled"
+              @update:model-value="onDialogDiffChange"
+              color="primary"
+              keep-color
+            />
+          </div>
+          <div class="setting-item">
+            <div class="setting-info">
+              <div class="setting-label">{{ uiText.autoContinueAfterLoad }}</div>
+              <div class="setting-desc">{{ uiText.autoContinueAfterLoadDesc }}</div>
+            </div>
+            <q-toggle
+              :model-value="settingsStore.displaySettings.autoContinueAfterLoad"
+              @update:model-value="onAutoContinueAfterLoadChange"
+              color="primary"
+              keep-color
+            />
+          </div>
+          <div class="setting-item">
+            <div class="setting-info">
+              <div class="setting-label">{{ uiText.hideContinueButton }}</div>
+              <div class="setting-desc">{{ uiText.hideContinueButtonDesc }}</div>
+            </div>
+            <q-toggle
+              :model-value="settingsStore.displaySettings.hideContinueButton"
+              @update:model-value="onHideContinueButtonChange"
+              color="primary"
+              keep-color
+            />
+          </div>
+          <div class="setting-item">
+            <div class="setting-info">
+              <div class="setting-label">{{ uiText.continueKeyBinding }}</div>
+              <div class="setting-desc">{{ uiText.continueKeyBindingDesc }}</div>
+            </div>
+            <q-btn
+              :label="
+                continueKeyBinding ||
+                settingsStore.displaySettings.continueKeyBinding ||
+                uiText.pressKeyToBind
+              "
+              color="primary"
+              outline
+              @click="startKeyBinding"
+            />
+          </div>
+          <div class="setting-item">
+            <div class="setting-info">
+              <div class="setting-label">打字机调试面板</div>
+              <div class="setting-desc">显示打字机组件的调试信息 / Show typewriter debug panel</div>
+            </div>
+            <q-toggle
+              :model-value="settingsStore.displaySettings.showTypewriterDebug"
+              @update:model-value="onShowTypewriterDebugChange"
+              color="primary"
+              keep-color
+            />
+          </div>
+          <div class="setting-item">
+            <div class="setting-info">
+              <div class="setting-label">跳过重放</div>
+              <div class="setting-desc">读档时直接恢复状态，不重放动作</div>
+            </div>
+            <q-toggle
+              :model-value="settingsStore.displaySettings.skipReplay"
+              @update:model-value="onSkipReplayChange"
+              color="primary"
+              keep-color
+            />
+          </div>
+          <div class="setting-item">
+            <div class="setting-info">
+              <div class="setting-label">使用 IndexedDB 存档</div>
+              <div class="setting-desc">默认关闭，开启后存档容量更大</div>
+            </div>
+            <q-toggle
+              :model-value="settingsStore.otherSettings.useIndexedDBSaves"
+              @update:model-value="onUseIndexedDBSavesChange"
+              color="primary"
+              keep-color
+            />
+          </div>
+          <div class="setting-item">
+            <div class="setting-info">
+              <div class="setting-label">自动播放等待</div>
+              <div class="setting-desc">
+                自动模式下打字完成后的等待时间（毫秒）/ Auto-play wait delay (ms)
+              </div>
+            </div>
+            <div class="setting-slider-control">
+              <q-slider
+                :model-value="settingsStore.displaySettings.autoWaitDelay"
+                @update:model-value="onAutoWaitDelayChange"
+                :min="0"
+                :max="5000"
+                :step="100"
+                color="primary"
+              />
+              <span class="slider-value">{{ settingsStore.displaySettings.autoWaitDelay }}ms</span>
+            </div>
+          </div>
+          <div class="setting-item">
+            <div class="setting-info">
+              <div class="setting-label">{{ uiText.autoUnloadLive2D }}</div>
+              <div class="setting-desc">
+                闲置时自动卸载 Live2D 资源 / Auto-unload Live2D when idle
+              </div>
+            </div>
+            <q-toggle
+              :model-value="settingsStore.displaySettings.autoUnloadLive2D"
+              @update:model-value="onAutoUnloadLive2DChange"
+              color="primary"
+              keep-color
+            />
+          </div>
+          <div class="setting-item">
+            <div class="setting-info">
+              <div class="setting-label">回到开头范围</div>
+              <div class="setting-desc">“回到开头”是回到当前场景还是所有剧本</div>
+            </div>
+            <select v-model="restartScope" @change="onRestartScopeChange" class="setting-select">
+              <option value="currentScene">当前场景开头</option>
+              <option value="allScripts">所有剧本开头</option>
+            </select>
+          </div>
+          <div class="setting-item">
+            <div class="setting-info">
+              <div class="setting-label">恢复模式</div>
+              <div class="setting-desc">读档时的恢复方式 / Recovery mode when loading</div>
+            </div>
+            <select v-model="recoveryMode" @change="onRecoveryModeChange" class="setting-select">
+              <option value="full">完整重放 / Full replay</option>
+              <option value="fast">快速跳转 / Fast skip</option>
+              <option value="direct">直接恢复 / Direct restore</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 开发模式设置 -->
+        <div class="setting-section">
+          <div class="section-title">开发 / Development</div>
+          <div class="setting-item">
+            <div class="setting-info">
+              <div class="setting-label">开发模式</div>
+              <div class="setting-desc">开启后恢复位置时将跳过所有动画效果</div>
+            </div>
+            <q-toggle
+              :model-value="isDevMode"
+              @update:model-value="onDevModeChange"
+              color="primary"
+              keep-color
+            />
+          </div>
+          <div v-if="isDevMode" class="dev-mode-info">
+            <div class="info-title">开发模式已启用</div>
+            <div class="info-desc">恢复位置时角色移动、背景切换和特效动画将被跳过</div>
+          </div>
+        </div>
+
+        <!-- 系统信息 -->
+        <div class="setting-section">
+          <div class="section-title">系统信息</div>
+          <div class="info-grid">
+            <div class="info-item">
+              <span class="info-label">场景:</span>
+              <span class="info-value">{{ engineStore.state.scene || '-' }}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">当前帧:</span>
+              <span class="info-value">{{ engineStore.state.history?.length ?? 0 }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
-    <div class="settings-body">
-      <!-- 语言设置 -->
-      <div class="setting-section">
-        <div class="section-title">{{ uiText.language }}</div>
-        <div class="setting-item">
-          <div class="setting-info">
-            <div class="setting-label">{{ uiText.language }}</div>
-            <div class="setting-desc">选择界面和对话文本的语言 / Select UI and dialog language</div>
-          </div>
-          <select v-model="currentLocale" @change="onLocaleChange" class="setting-select">
-            <option v-for="lang in supportedLocales" :key="lang.code" :value="lang.code">
-              {{ lang.name }} / {{ lang.nativeName }}
-            </option>
-          </select>
-        </div>
-      </div>
-
-      <!-- 语音设置 -->
-      <div class="setting-section">
-        <div class="section-title">{{ uiText.voiceSettings }} / Voice</div>
-        <div class="setting-item">
-          <div class="setting-info">
-            <div class="setting-label">{{ uiText.voiceEnabled }}</div>
-            <div class="setting-desc">自动播放角色语音 / Auto-play character voice</div>
-          </div>
-          <q-toggle
-            :model-value="settingsStore.voiceSettings.enabled"
-            @update:model-value="onVoiceEnabledChange"
-            color="primary"
-            keep-color
-          />
-        </div>
-
-        <div v-if="voiceEnabled" class="setting-item">
-          <div class="setting-info">
-            <div class="setting-label">{{ uiText.ttsEngine }}</div>
-            <div class="setting-desc">选择文字转语音服务 / Select TTS service</div>
-          </div>
-          <select
-            v-model="settingsStore.voiceSettings.engine"
-            @change="onTTSEngineChange"
-            class="setting-select"
-          >
-            <option value="browser">{{ uiText.ttsEngineBrowser }}</option>
-            <option value="openai">{{ uiText.ttsEngineOpenai }}</option>
-            <option value="azure">{{ uiText.ttsEngineAzure }}</option>
-            <option value="google">{{ uiText.ttsEngineGoogle }}</option>
-          </select>
-        </div>
-
-        <div v-if="voiceEnabled && ttsEngine === 'browser'" class="setting-item">
-          <div class="setting-info">
-            <div class="setting-label">{{ uiText.browserVoice }}</div>
-            <div class="setting-desc">选择浏览器 TTS 语音 / Select browser TTS voice</div>
-          </div>
-          <select
-            v-model="settingsStore.voiceSettings.browserVoiceId"
-            @change="onBrowserVoiceChange"
-            class="setting-select"
-          >
-            <option value="">默认 / Default</option>
-            <option v-for="voice in browserVoices" :key="voice.name" :value="voice.name">
-              {{ voice.name }} ({{ voice.lang }})
-            </option>
-          </select>
-        </div>
-      </div>
-
-      <!-- 文本设置 -->
-      <div class="setting-section">
-        <div class="section-title">{{ uiText.textSettings }}</div>
-        <div class="setting-item">
-          <div class="setting-info">
-            <div class="setting-label">{{ uiText.typewriterEnabled }}</div>
-            <div class="setting-desc">{{ uiText.typewriterEnabledDesc }}</div>
-          </div>
-          <q-toggle
-            :model-value="settingsStore.textSettings.typewriterEnabled"
-            @update:model-value="onTypewriterEnabledChange"
-            color="primary"
-            keep-color
-          />
-        </div>
-        <div v-if="typewriterEnabled" class="setting-item">
-          <div class="setting-info">
-            <div class="setting-label">{{ uiText.textSpeed }}</div>
-            <div class="setting-desc">{{ uiText.textSpeedDesc }}</div>
-          </div>
-          <div class="setting-slider-control">
-            <q-slider
-              :model-value="settingsStore.textSettings.textSpeed"
-              @update:model-value="onTextSpeedChange"
-              :min="1"
-              :max="100"
-              color="primary"
-            />
-            <span class="slider-value">{{ settingsStore.textSettings.textSpeed }}%</span>
-          </div>
-        </div>
-        <div v-if="typewriterEnabled" class="setting-item">
-          <div class="setting-info">
-            <div class="setting-label">{{ uiText.autoSpeed }}</div>
-            <div class="setting-desc">{{ uiText.autoSpeedDesc }}</div>
-          </div>
-          <div class="setting-slider-control">
-            <q-slider
-              :model-value="settingsStore.textSettings.autoSpeed"
-              @update:model-value="onAutoSpeedChange"
-              :min="1"
-              :max="100"
-              color="primary"
-            />
-            <span class="slider-value">{{ settingsStore.textSettings.autoSpeed }}%</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- 音频设置 -->
-      <div class="setting-section">
-        <div class="section-title">音频 / Audio</div>
-        <div class="setting-item">
-          <div class="setting-info">
-            <div class="setting-label">主音量</div>
-            <div class="setting-desc">全局音量控制 / Master Volume</div>
-          </div>
-          <div class="setting-slider-control">
-            <q-slider
-              :model-value="settingsStore.audioSettings.masterVolume"
-              @update:model-value="onMasterVolumeChange"
-              :min="0"
-              :max="100"
-              color="primary"
-            />
-            <span class="slider-value">{{ settingsStore.audioSettings.masterVolume }}%</span>
-          </div>
-        </div>
-        <div class="setting-item">
-          <div class="setting-info">
-            <div class="setting-label">BGM 音量</div>
-            <div class="setting-desc">背景音乐音量 / BGM Volume</div>
-          </div>
-          <div class="setting-slider-control">
-            <q-slider
-              :model-value="settingsStore.audioSettings.bgmVolume"
-              @update:model-value="onBgmVolumeChange"
-              :min="0"
-              :max="100"
-              color="primary"
-            />
-            <span class="slider-value">{{ settingsStore.audioSettings.bgmVolume }}%</span>
-          </div>
-        </div>
-        <div class="setting-item">
-          <div class="setting-info">
-            <div class="setting-label">音效音量</div>
-            <div class="setting-desc">音效音量 / SFX Volume</div>
-          </div>
-          <div class="setting-slider-control">
-            <q-slider
-              :model-value="settingsStore.audioSettings.sfxVolume"
-              @update:model-value="onSfxVolumeChange"
-              :min="0"
-              :max="100"
-              color="primary"
-            />
-            <span class="slider-value">{{ settingsStore.audioSettings.sfxVolume }}%</span>
-          </div>
-        </div>
-        <div class="setting-item">
-          <div class="setting-info">
-            <div class="setting-label">语音音量</div>
-            <div class="setting-desc">语音音量 / Voice Volume</div>
-          </div>
-          <div class="setting-slider-control">
-            <q-slider
-              :model-value="settingsStore.audioSettings.voiceVolume"
-              @update:model-value="onVoiceVolumeChange"
-              :min="0"
-              :max="100"
-              color="primary"
-            />
-            <span class="slider-value">{{ settingsStore.audioSettings.voiceVolume }}%</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- 显示设置 -->
-      <div class="setting-section">
-        <div class="section-title">{{ uiText.displaySettings }}</div>
-        <div class="setting-item">
-          <div class="setting-info">
-            <div class="setting-label">{{ uiText.dialogDiff }}</div>
-            <div class="setting-desc">{{ uiText.dialogDiffDesc }}</div>
-          </div>
-          <q-toggle
-            :model-value="settingsStore.displaySettings.dialogDiffEnabled"
-            @update:model-value="onDialogDiffChange"
-            color="primary"
-            keep-color
-          />
-        </div>
-        <div class="setting-item">
-          <div class="setting-info">
-            <div class="setting-label">{{ uiText.autoContinueAfterLoad }}</div>
-            <div class="setting-desc">{{ uiText.autoContinueAfterLoadDesc }}</div>
-          </div>
-          <q-toggle
-            :model-value="settingsStore.displaySettings.autoContinueAfterLoad"
-            @update:model-value="onAutoContinueAfterLoadChange"
-            color="primary"
-            keep-color
-          />
-        </div>
-        <div class="setting-item">
-          <div class="setting-info">
-            <div class="setting-label">{{ uiText.hideContinueButton }}</div>
-            <div class="setting-desc">{{ uiText.hideContinueButtonDesc }}</div>
-          </div>
-          <q-toggle
-            :model-value="settingsStore.displaySettings.hideContinueButton"
-            @update:model-value="onHideContinueButtonChange"
-            color="primary"
-            keep-color
-          />
-        </div>
-        <div class="setting-item">
-          <div class="setting-info">
-            <div class="setting-label">{{ uiText.continueKeyBinding }}</div>
-            <div class="setting-desc">{{ uiText.continueKeyBindingDesc }}</div>
-          </div>
-          <q-btn
-            :label="
-              continueKeyBinding ||
-              settingsStore.displaySettings.continueKeyBinding ||
-              uiText.pressKeyToBind
-            "
-            color="primary"
-            outline
-            @click="startKeyBinding"
-          />
-        </div>
-        <div class="setting-item">
-          <div class="setting-info">
-            <div class="setting-label">打字机调试面板</div>
-            <div class="setting-desc">显示打字机组件的调试信息 / Show typewriter debug panel</div>
-          </div>
-          <q-toggle
-            :model-value="settingsStore.displaySettings.showTypewriterDebug"
-            @update:model-value="onShowTypewriterDebugChange"
-            color="primary"
-            keep-color
-          />
-        </div>
-        <div class="setting-item">
-          <div class="setting-info">
-            <div class="setting-label">跳过重放</div>
-            <div class="setting-desc">读档时直接恢复状态，不重放动作</div>
-          </div>
-          <q-toggle
-            :model-value="settingsStore.displaySettings.skipReplay"
-            @update:model-value="onSkipReplayChange"
-            color="primary"
-            keep-color
-          />
-        </div>
-        <div class="setting-item">
-          <div class="setting-info">
-            <div class="setting-label">自动播放等待</div>
-            <div class="setting-desc">自动模式下打字完成后的等待时间（毫秒）/ Auto-play wait delay (ms)</div>
-          </div>
-          <div class="setting-slider-control">
-            <q-slider
-              :model-value="settingsStore.displaySettings.autoWaitDelay"
-              @update:model-value="onAutoWaitDelayChange"
-              :min="0"
-              :max="5000"
-              :step="100"
-              color="primary"
-            />
-            <span class="slider-value">{{ settingsStore.displaySettings.autoWaitDelay }}ms</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- 开发模式设置 -->
-      <div class="setting-section">
-        <div class="section-title">开发 / Development</div>
-        <div class="setting-item">
-          <div class="setting-info">
-            <div class="setting-label">开发模式</div>
-            <div class="setting-desc">开启后恢复位置时将跳过所有动画效果</div>
-          </div>
-          <q-toggle
-            :model-value="isDevMode"
-            @update:model-value="onDevModeChange"
-            color="primary"
-            keep-color
-          />
-        </div>
-        <div v-if="isDevMode" class="dev-mode-info">
-          <div class="info-title">开发模式已启用</div>
-          <div class="info-desc">恢复位置时角色移动、背景切换和特效动画将被跳过</div>
-        </div>
-      </div>
-
-      <!-- 系统信息 -->
-      <div class="setting-section">
-        <div class="section-title">系统信息</div>
-        <div class="info-grid">
-          <div class="info-item">
-            <span class="info-label">场景:</span>
-            <span class="info-value">{{ engineStore.state.scene || '-' }}</span>
-          </div>
-          <div class="info-item">
-            <span class="info-label">当前帧:</span>
-            <span class="info-value">{{ engineStore.state.history?.length ?? 0 }}</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
+  </FloatingWindow>
 </template>
 
 <script setup lang="ts">
@@ -333,9 +392,15 @@ import { useEngineStore } from 'stores/engine-store';
 import { useSettingsStore } from 'stores/settings-store';
 import { getI18nManager, getSupportedLocales, type SupportedLocale } from '../../engine/i18n';
 import { getVoiceManager } from '../../engine/i18n';
+import FloatingWindow from 'components/FloatingWindow.vue';
 
-defineProps<{ visible?: boolean }>();
-defineEmits<{ (e: 'close'): void }>();
+const props = withDefaults(defineProps<{ visible?: boolean }>(), { visible: false });
+const visible = computed(() => props.visible);
+const emit = defineEmits<{ (e: 'close'): void }>();
+
+function onUpdateOpen(v: boolean) {
+  if (!v) emit('close');
+}
 
 const engineStore = useEngineStore();
 const settingsStore = useSettingsStore();
@@ -398,6 +463,7 @@ const uiText = computed(() => {
     textSpeedDesc: t('text_speed_desc'),
     autoSpeed: t('auto_speed'),
     autoSpeedDesc: t('auto_speed_desc'),
+    autoUnloadLive2D: '闲置时自动卸载 Live2D',
   };
 });
 
@@ -405,6 +471,8 @@ const uiText = computed(() => {
 const voiceEnabled = computed(() => settingsStore.voiceSettings.enabled);
 const ttsEngine = computed(() => settingsStore.voiceSettings.engine);
 const typewriterEnabled = computed(() => settingsStore.textSettings.typewriterEnabled);
+const recoveryMode = computed(() => settingsStore.displaySettings.recoveryMode);
+const restartScope = computed(() => settingsStore.displaySettings.restartScope);
 
 // 语音设置
 const browserVoices = ref<SpeechSynthesisVoice[]>([]);
@@ -507,10 +575,30 @@ function onSkipReplayChange(value: boolean) {
   settingsStore.setSkipReplay(value);
 }
 
+function onUseIndexedDBSavesChange(value: boolean) {
+  settingsStore.setUseIndexedDBSaves(value);
+}
+
 function onAutoWaitDelayChange(value: number | null) {
   if (value != null) {
     settingsStore.setAutoWaitDelay(value);
   }
+}
+
+function onAutoUnloadLive2DChange(value: boolean) {
+  settingsStore.setAutoUnloadLive2D(value);
+}
+
+function onRestartScopeChange(event: Event) {
+  const target = event.target as HTMLSelectElement;
+  const scope = target.value as 'currentScene' | 'allScripts';
+  settingsStore.setRestartScope(scope);
+}
+
+function onRecoveryModeChange(event: Event) {
+  const target = event.target as HTMLSelectElement;
+  const mode = target.value as 'full' | 'fast' | 'direct';
+  settingsStore.setRecoveryMode(mode);
 }
 
 // 音量控制函数
@@ -553,20 +641,14 @@ function startKeyBinding() {
 
 <style scoped>
 .settings-panel {
-  position: absolute;
-  left: 50%;
-  bottom: 220px;
-  transform: translateX(-50%);
-  width: min(520px, calc(100% - 32px));
-  max-height: 70vh;
+  height: 100%;
   overflow-y: auto;
   overflow-x: hidden;
-  background: rgba(0, 0, 0, 0.9);
   color: #fff;
-  border-radius: 8px;
   padding: 16px;
-  z-index: 1002;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  /* Firefox 滚动条样式 */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.25) rgba(255, 255, 255, 0.05);
 }
 
 /* 自定义滚动条样式 */
@@ -587,12 +669,6 @@ function startKeyBinding() {
 
 .settings-panel::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.4);
-}
-
-/* Firefox 滚动条样式 */
-.settings-panel {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.25) rgba(255, 255, 255, 0.05);
 }
 
 .settings-header {

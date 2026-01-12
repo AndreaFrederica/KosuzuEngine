@@ -1,44 +1,55 @@
 <template>
-  <div v-if="visible" class="context-viewer" @click.stop>
-    <div class="cv-header">
-      <div class="header-title">上下文查看器</div>
-      <button class="close-btn" @click="$emit('close')">关闭</button>
-    </div>
-    <div class="cv-body">
-      <div class="section">
-        <div class="section-title">Background</div>
-        <div class="line">name: {{ bg?.name }}</div>
-        <div class="line">src: {{ bgSrc }}</div>
+  <FloatingWindow
+    :model-value="visible"
+    @update:model-value="onUpdateOpen"
+    title="上下文查看器"
+    storage-key="panel:contextViewer"
+    window-id="panel:contextViewer"
+    window-class="bg-grey-10 text-white"
+    :initial-size="{ w: 760, h: 520 }"
+    :min-width="520"
+    :min-height="320"
+  >
+    <div class="fw-content context-viewer">
+      <div class="cv-body">
+        <div class="section">
+          <div class="section-title">Background</div>
+          <div class="line">name: {{ bg?.name }}</div>
+          <div class="line">src: {{ bgSrc }}</div>
+        </div>
+        <div class="section">
+          <div class="section-title">BGM</div>
+          <div class="line">name: {{ bgm?.name }}</div>
+          <div class="line">volume: {{ bgm?.volume }}</div>
+        </div>
+        <div class="section">
+          <div class="section-title">Actors ({{ actorCount }})</div>
+          <div v-for="id in actorIds" :key="id" class="line">
+            [{{ id }}] {{ actorById(id)?.name }} pose={{ actorById(id)?.pose?.emote }} x={{
+              actorById(id)?.transform?.x
+            }}
+            y={{ actorById(id)?.transform?.y }} scale={{ actorById(id)?.transform?.scale }} src={{
+              spriteFor(id)
+            }}
+          </div>
+        </div>
+        <div class="section">
+          <div class="section-title">Raw State</div>
+          <pre class="raw">{{ stateJson }}</pre>
+        </div>
       </div>
-    <div class="section">
-      <div class="section-title">BGM</div>
-      <div class="line">name: {{ bgm?.name }}</div>
-      <div class="line">volume: {{ bgm?.volume }}</div>
     </div>
-    <div class="section">
-      <div class="section-title">Actors ({{ actorCount }})</div>
-      <div v-for="id in actorIds" :key="id" class="line">
-        [{{ id }}] {{ actorById(id)?.name }} pose={{ actorById(id)?.pose?.emote }} x={{
-          actorById(id)?.transform?.x
-        }}
-        y={{ actorById(id)?.transform?.y }} scale={{ actorById(id)?.transform?.scale }} src={{
-          spriteFor(id)
-        }}
-      </div>
-    </div>
-    <div class="section">
-      <div class="section-title">Raw State</div>
-      <pre class="raw">{{ stateJson }}</pre>
-    </div>
-    </div>
-  </div>
+  </FloatingWindow>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useEngineStore } from 'stores/engine-store';
-const { visible = false } = defineProps<{ visible?: boolean }>();
-defineEmits<{ (e: 'close'): void }>();
+import FloatingWindow from 'components/FloatingWindow.vue';
+
+const props = withDefaults(defineProps<{ visible?: boolean }>(), { visible: false });
+const visible = computed(() => props.visible);
+const emit = defineEmits<{ (e: 'close'): void }>();
 const store = useEngineStore();
 const bg = computed(() => store.background());
 const bgm = computed(() => store.bgm());
@@ -52,46 +63,18 @@ const stateJson = computed<string>(() => JSON.stringify(store.state, null, 2));
 function spriteFor(id: string) {
   return store.spriteForActor(id);
 }
+
+function onUpdateOpen(v: boolean) {
+  if (!v) emit('close');
+}
 </script>
 
 <style scoped>
 .context-viewer {
-  position: absolute;
-  left: 50%;
-  bottom: 100px;
-  transform: translateX(-50%);
-  width: min(680px, calc(100% - 32px));
-  background: rgba(0, 0, 0, 0.85);
+  height: 100%;
   color: #fff;
-  border-radius: 8px;
   padding: 10px;
-  z-index: 1002;
-  max-height: 50vh;
   overflow: auto;
-}
-.cv-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
-}
-.header-title {
-  font-weight: 600;
-  font-size: 14px;
-}
-.close-btn {
-  background: rgba(255, 255, 255, 0.2);
-  color: #fff;
-  border: none;
-  border-radius: 4px;
-  padding: 4px 10px;
-  cursor: pointer;
-  font-size: 12px;
-}
-.close-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
 }
 .cv-body {
   display: flex;

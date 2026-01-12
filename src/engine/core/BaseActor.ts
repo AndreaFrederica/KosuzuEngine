@@ -31,7 +31,27 @@ export interface PoseState {
 export interface Live2DState {
   modelId?: string;
   expressionId?: string;
+  expressionSeq?: number;
   motionId?: string;
+  motionSeq?: number;
+  motionForce?: boolean;
+  motionDuration?: number;
+  motionStartTime?: number;
+  motionFinishTime?: number;
+  motionGroup?: string;
+  motionIndex?: number;
+  params?: Record<string, number>;
+  lookAt?: { x: number; y: number };
+  followMouse?: boolean;
+  controlBanExpressions?: boolean;
+  controlBanIdle?: boolean;
+  controlBanMotions?: boolean;
+  controlBanFocus?: boolean;
+  controlBanNatural?: boolean;
+  controlBanEyeBlink?: boolean;
+  controlBanBreath?: boolean;
+  controlBanPhysics?: boolean;
+  controlBanPose?: boolean;
 }
 
 export interface AudioState {
@@ -40,6 +60,7 @@ export interface AudioState {
 }
 
 export interface ActorState {
+  mode?: 'normal' | 'live2d';
   transform?: TransformState;
   pose?: PoseState;
   spriteDiff?: string;
@@ -73,6 +94,8 @@ export class BaseActor {
 /** 角色演员类，用于控制角色在场景中的显示、动作和对话 */
 export class CharacterActor extends BaseActor {
   private static readonly defaultTransitionMs = 200;
+  private live2dExpressionSeq = 0;
+  private live2dMotionSeq = 0;
 
   /** 创建一个角色演员实例 */
   constructor(name: string, id?: string, runtime?: Runtime) {
@@ -326,8 +349,127 @@ export class CharacterActor extends BaseActor {
   }
 
   /** 播放Live2D动作 */
-  motion(id: string) {
-    return this.action({ type: 'motion', payload: { id } });
+  motion(id: string, options?: { force?: boolean }) {
+    this.live2dMotionSeq += 1;
+    return this.action({
+      type: 'motion',
+      payload: { actorId: this.id, id, seq: this.live2dMotionSeq, force: !!options?.force },
+    });
+  }
+
+  /** 播放Live2D动作并等待动作结束 */
+  async motionAndWait(id: string) {
+    const triggerTime = Date.now();
+    this.live2dMotionSeq += 1;
+    const seq = this.live2dMotionSeq;
+    await this.action({
+      type: 'motion',
+      payload: { actorId: this.id, id, seq, force: false },
+    });
+
+    // 轮询等待动作时长信息更新（最多等待 1 秒）
+    let duration = 0;
+    let motionStart = 0;
+    for (let i = 0; i < 20; i++) {
+      await new Promise((r) => setTimeout(r, 50));
+      const actorState = this.runtime.state.actors[this.id];
+      const l2d = actorState?.live2d;
+      if (
+        l2d?.motionId === id &&
+        l2d?.motionSeq === seq &&
+        typeof l2d.motionDuration === 'number' &&
+        typeof l2d.motionStartTime === 'number' &&
+        l2d.motionStartTime >= triggerTime
+      ) {
+        duration = l2d.motionDuration;
+        motionStart = l2d.motionStartTime;
+        break;
+      }
+    }
+
+    if (duration > 0) {
+      const elapsed = Date.now() - motionStart;
+      const remaining = duration - elapsed;
+      if (remaining > 0) {
+        await this.wait(remaining);
+      }
+    }
+  }
+
+  /** 设置模式 */
+  setMode(mode: 'normal' | 'live2d') {
+    return this.action({ type: 'live2d', payload: { actorId: this.id, mode } });
+  }
+
+  /** 设置Live2D模型 */
+  setLive2DModel(path: string) {
+    const normalized = path
+      .trim()
+      .replace(/^[`"']+/, '')
+      .replace(/[`"']+$/, '')
+      .trim();
+    return this.action({ type: 'live2d', payload: { actorId: this.id, model: normalized, mode: 'live2d' } });
+  }
+
+  /** 设置Live2D参数 */
+  setParam(id: string, value: number) {
+    return this.action({ type: 'live2d', payload: { actorId: this.id, params: { [id]: value } } });
+  }
+
+  /** 设置Live2D注视点（归一化坐标：x/y 推荐范围 -1..1 或 0..1） */
+  lookAt(x: number, y: number) {
+    return this.action({ type: 'live2d', payload: { actorId: this.id, lookAt: { x, y } } });
+  }
+
+  /** 是否由上下文驱动注视鼠标 */
+  setFollowMouse(enabled: boolean) {
+    return this.action({ type: 'live2d', payload: { actorId: this.id, followMouse: enabled } });
+  }
+
+  /** 自控模式下是否禁用表情系统 */
+  setControlBanExpressions(enabled: boolean) {
+    return this.action({ type: 'live2d', payload: { actorId: this.id, controlBanExpressions: enabled } });
+  }
+
+  setControlBanIdle(enabled: boolean) {
+    return this.action({ type: 'live2d', payload: { actorId: this.id, controlBanIdle: enabled } });
+  }
+
+  setControlBanMotions(enabled: boolean) {
+    return this.action({ type: 'live2d', payload: { actorId: this.id, controlBanMotions: enabled } });
+  }
+
+  setControlBanFocus(enabled: boolean) {
+    return this.action({ type: 'live2d', payload: { actorId: this.id, controlBanFocus: enabled } });
+  }
+
+  setControlBanNatural(enabled: boolean) {
+    return this.action({ type: 'live2d', payload: { actorId: this.id, controlBanNatural: enabled } });
+  }
+
+  setControlBanEyeBlink(enabled: boolean) {
+    return this.action({ type: 'live2d', payload: { actorId: this.id, controlBanEyeBlink: enabled } });
+  }
+
+  setControlBanBreath(enabled: boolean) {
+    return this.action({ type: 'live2d', payload: { actorId: this.id, controlBanBreath: enabled } });
+  }
+
+  setControlBanPhysics(enabled: boolean) {
+    return this.action({ type: 'live2d', payload: { actorId: this.id, controlBanPhysics: enabled } });
+  }
+
+  setControlBanPose(enabled: boolean) {
+    return this.action({ type: 'live2d', payload: { actorId: this.id, controlBanPose: enabled } });
+  }
+
+  /** 播放Live2D表情 */
+  expression(id: string) {
+    this.live2dExpressionSeq += 1;
+    return this.action({
+      type: 'live2d',
+      payload: { actorId: this.id, expressionId: id, expressionSeq: this.live2dExpressionSeq },
+    });
   }
 
   /** 彻底析构角色，从引擎状态和绑定中移除所有相关数据 */
@@ -456,6 +598,97 @@ export class ContextOps {
   /** 删除变量 */
   delVar(key: string) {
     return this.runtime.dispatch({ type: 'var', payload: { key, remove: true } });
+  }
+
+  /** 批量设置变量 */
+  setVars(vars: Record<string, unknown>) {
+    return Promise.all(Object.entries(vars).map(([k, v]) => this.setVar(k, v)));
+  }
+
+  /** 批量删除变量 */
+  delVars(keys: string[]) {
+    return Promise.all(keys.map((k) => this.delVar(k)));
+  }
+
+  /** 获取所有变量 */
+  allVars(): Record<string, unknown> {
+    return { ...(this.runtime.state.vars || {}) };
+  }
+
+  /** 清空所有变量 */
+  clearVars() {
+    const keys = Object.keys(this.runtime.state.vars || {});
+    return this.delVars(keys);
+  }
+
+  /** 检查变量是否存在 */
+  hasVar(key: string): boolean {
+    const vars = this.runtime.state.vars || {};
+    return key in vars;
+  }
+
+  /**
+   * 存储命名空间 - 提供带前缀的变量存储，方便组织数据
+   * @example
+   * const playerStore = ctx.store('player');
+   * await playerStore.set('level', 5);
+   * await playerStore.set('name', 'Alice');
+   * const level = playerStore.get('level', 1);
+   */
+  store(namespace: string) {
+    const prefix = `${namespace}:`;
+    return {
+      /** 获取命名空间中的变量 */
+      get: <T = unknown>(key: string, fallback?: T) => {
+        return this.var<T>(`${prefix}${key}`, fallback);
+      },
+      /** 设置命名空间中的变量 */
+      set: (key: string, value: unknown) => {
+        return this.setVar(`${prefix}${key}`, value);
+      },
+      /** 删除命名空间中的变量 */
+      delete: (key: string) => {
+        return this.delVar(`${prefix}${key}`);
+      },
+      /** 检查变量是否存在 */
+      has: (key: string): boolean => {
+        return this.hasVar(`${prefix}${key}`);
+      },
+      /** 获取命名空间中的所有变量 */
+      getAll: (): Record<string, unknown> => {
+        const all = this.allVars();
+        const result: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(all)) {
+          if (k.startsWith(prefix)) {
+            result[k.slice(prefix.length)] = v;
+          }
+        }
+        return result;
+      },
+      /** 批量设置命名空间中的变量 */
+      setMany: (vars: Record<string, unknown>) => {
+        return Promise.all(
+          Object.entries(vars).map(([k, v]) => this.setVar(`${prefix}${k}`, v)),
+        );
+      },
+      /** 批量删除命名空间中的变量 */
+      deleteMany: (keys: string[]) => {
+        return Promise.all(keys.map((k) => this.delVar(`${prefix}${k}`)));
+      },
+      /** 清空命名空间中的所有变量 */
+      clear: () => {
+        const all = this.allVars();
+        const keysToDelete = Object.keys(all).filter((k) => k.startsWith(prefix));
+        return this.delVars(keysToDelete);
+      },
+      /** 获取命名空间中的所有键 */
+      keys: (): string[] => {
+        const all = this.allVars();
+        return Object.keys(all)
+          .filter((k) => k.startsWith(prefix))
+          .map((k) => k.slice(prefix.length));
+      },
+    };
   }
 
   /** 等待指定毫秒数 */

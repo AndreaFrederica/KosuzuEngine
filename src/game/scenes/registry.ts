@@ -7,6 +7,7 @@
 
 import { scene1, scene2 } from './scene1';
 import { sceneEffects } from './sceneEffects';
+import { sceneLive2DMix } from './sceneLive2DMix';
 
 /**
  * 场景配置接口
@@ -43,6 +44,11 @@ export const scenes: SceneConfig[] = [
     id: 'sceneEffects',
     name: '特效测试',
     fn: sceneEffects,
+  },
+  {
+    id: 'sceneLive2DMix',
+    name: 'Live2D 混合测试',
+    fn: sceneLive2DMix,
   },
 ];
 

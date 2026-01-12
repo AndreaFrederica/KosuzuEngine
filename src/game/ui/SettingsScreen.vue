@@ -185,6 +185,20 @@
             </div>
             <div class="setting-item">
               <div class="setting-info">
+                <div class="setting-label">使用 IndexedDB 存档</div>
+                <div class="setting-desc">Use IndexedDB for saves</div>
+              </div>
+              <div class="setting-control">
+                <q-toggle
+                  :model-value="useIndexedDBSaves"
+                  @update:model-value="setUseIndexedDBSaves"
+                  color="positive"
+                  size="md"
+                />
+              </div>
+            </div>
+            <div class="setting-item">
+              <div class="setting-info">
                 <div class="setting-label">避免文本重复刷新</div>
                 <div class="setting-desc">Prevent Text Refresh</div>
               </div>
@@ -265,10 +279,64 @@
                   max="5000"
                   step="100"
                   v-model.number="autoWaitDelay"
-                  @input="(e: Event) => setAutoWaitDelay((e.target as HTMLInputElement).valueAsNumber)"
+                  @input="
+                    (e: Event) => setAutoWaitDelay((e.target as HTMLInputElement).valueAsNumber)
+                  "
                   class="setting-slider"
                 />
                 <div class="setting-value">{{ autoWaitDelay }}ms</div>
+              </div>
+            </div>
+            <div class="setting-item">
+              <div class="setting-info">
+                <div class="setting-label">闲置时自动卸载 Live2D</div>
+                <div class="setting-desc">Auto-unload Live2D when idle</div>
+              </div>
+              <div class="setting-control">
+                <q-toggle
+                  :model-value="autoUnloadLive2D"
+                  @update:model-value="setAutoUnloadLive2D"
+                  color="positive"
+                  size="md"
+                />
+              </div>
+            </div>
+            <div class="setting-item">
+              <div class="setting-info">
+                <div class="setting-label">回到开头范围</div>
+                <div class="setting-desc">
+                  Restart scope:
+                  {{ restartScope === 'currentScene' ? '当前场景开头' : '所有剧本开头' }}
+                </div>
+              </div>
+              <div class="setting-control">
+                <q-toggle
+                  :model-value="restartScope === 'currentScene'"
+                  @update:model-value="
+                    (v: boolean) => setRestartScope(v ? 'currentScene' : 'allScripts')
+                  "
+                  color="positive"
+                  size="md"
+                />
+              </div>
+            </div>
+            <div class="setting-item">
+              <div class="setting-info">
+                <div class="setting-label">恢复模式</div>
+                <div class="setting-desc">读档时的恢复方式 / Recovery mode</div>
+              </div>
+              <div class="setting-control">
+                <select
+                  :value="recoveryMode"
+                  @change="
+                    (e: Event) => setRecoveryMode((e.target as HTMLSelectElement).value as any)
+                  "
+                  class="setting-select"
+                >
+                  <option value="full">完整重放 / Full replay</option>
+                  <option value="fast">快速跳转 / Fast skip</option>
+                  <option value="direct">直接恢复 / Direct restore</option>
+                </select>
               </div>
             </div>
           </div>
@@ -313,7 +381,8 @@ const bgmVolume = ref(settingsStore.audioSettings.bgmVolume);
 const sfxVolume = ref(settingsStore.audioSettings.sfxVolume);
 const voiceVolume = ref(settingsStore.audioSettings.voiceVolume);
 const voiceEnabled = ref(settingsStore.voiceSettings.enabled);
-const skipRead = ref(false); // 这个设置在 settingsStore 中还没有，先保留
+const skipRead = ref(settingsStore.otherSettings.skipRead);
+const useIndexedDBSaves = ref(settingsStore.otherSettings.useIndexedDBSaves);
 const dialogDiffEnabled = ref(settingsStore.displaySettings.dialogDiffEnabled);
 const autoContinueAfterLoad = ref(settingsStore.displaySettings.autoContinueAfterLoad);
 const hideContinueButton = ref(settingsStore.displaySettings.hideContinueButton);
@@ -322,6 +391,9 @@ const isBindingKey = ref(false);
 const typewriterEnabled = ref(settingsStore.textSettings.typewriterEnabled);
 const skipReplay = ref(settingsStore.displaySettings.skipReplay);
 const autoWaitDelay = ref(settingsStore.displaySettings.autoWaitDelay);
+const autoUnloadLive2D = ref(settingsStore.displaySettings.autoUnloadLive2D);
+const restartScope = ref(settingsStore.displaySettings.restartScope);
+const recoveryMode = ref(settingsStore.displaySettings.recoveryMode);
 
 function setTypewriterEnabled(value: boolean) {
   typewriterEnabled.value = value;
@@ -373,7 +445,12 @@ function setVoiceEnabled(value: boolean) {
 
 function setSkipRead(value: boolean) {
   skipRead.value = value;
-  // 这个设置还没有在 settingsStore 中，先保留
+  settingsStore.setSkipRead(value);
+}
+
+function setUseIndexedDBSaves(value: boolean) {
+  useIndexedDBSaves.value = value;
+  settingsStore.setUseIndexedDBSaves(value);
 }
 
 function setDialogDiffEnabled(value: boolean) {
@@ -403,6 +480,21 @@ function setAutoWaitDelay(value: number | null) {
   }
 }
 
+function setAutoUnloadLive2D(value: boolean) {
+  autoUnloadLive2D.value = value;
+  settingsStore.setAutoUnloadLive2D(value);
+}
+
+function setRestartScope(value: 'currentScene' | 'allScripts') {
+  restartScope.value = value;
+  settingsStore.setRestartScope(value);
+}
+
+function setRecoveryMode(value: 'full' | 'fast' | 'direct') {
+  recoveryMode.value = value;
+  settingsStore.setRecoveryMode(value);
+}
+
 function startKeyBinding() {
   isBindingKey.value = true;
   const handler = (e: KeyboardEvent) => {
@@ -425,12 +517,16 @@ function resetToDefaults() {
   voiceVolume.value = 100;
   voiceEnabled.value = false;
   skipRead.value = false;
+  useIndexedDBSaves.value = false;
   dialogDiffEnabled.value = true;
   autoContinueAfterLoad.value = false;
   hideContinueButton.value = false;
   continueKeyBinding.value = 'Enter';
   skipReplay.value = false;
   autoWaitDelay.value = 1000;
+  autoUnloadLive2D.value = true;
+  restartScope.value = 'currentScene';
+  recoveryMode.value = 'full';
 
   // 使用 settings-store 重置所有设置
   settingsStore.setTextSpeed(50);
@@ -441,12 +537,17 @@ function resetToDefaults() {
   settingsStore.setSfxVolume(80);
   settingsStore.setVoiceVolume(100);
   settingsStore.setVoiceEnabled(false);
+  settingsStore.setSkipRead(false);
+  settingsStore.setUseIndexedDBSaves(false);
   settingsStore.setDialogDiffEnabled(true);
   settingsStore.setAutoContinueAfterLoad(false);
   settingsStore.setHideContinueButton(false);
   settingsStore.setContinueKeyBinding('Enter');
   settingsStore.setSkipReplay(false);
   settingsStore.setAutoWaitDelay(1000);
+  settingsStore.setAutoUnloadLive2D(true);
+  settingsStore.setRestartScope('currentScene');
+  settingsStore.setRecoveryMode('full');
 }
 
 function goBack() {
@@ -610,18 +711,20 @@ function goBack() {
 
 .setting-slider {
   width: 150px;
-  height: 6px;
-  border-radius: 3px;
-  background: rgba(255, 255, 255, 0.1);
+  height: 24px;
+  background: transparent;
   outline: none;
   -webkit-appearance: none;
   appearance: none;
   cursor: pointer;
+  display: flex;
+  align-items: center;
 }
 
 .setting-slider::-webkit-slider-runnable-track {
   height: 6px;
   border-radius: 3px;
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .setting-slider::-webkit-slider-thumb {
@@ -632,10 +735,14 @@ function goBack() {
   border-radius: 50%;
   background: #fff;
   cursor: pointer;
+  margin-top: -5px; /* (6px - 16px) / 2 */
   transition: transform 0.1s;
-  position: relative;
-  top: 50%;
-  transform: translateY(-50%);
+}
+
+.setting-slider::-moz-range-track {
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .setting-slider::-moz-range-thumb {
@@ -653,7 +760,28 @@ function goBack() {
 }
 
 .setting-slider::-webkit-slider-thumb:hover {
-  transform: translateY(-50%) scale(1.2);
+  transform: scale(1.2);
+}
+
+.setting-select {
+  background: rgba(0, 0, 0, 0.3);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 14px;
+  cursor: pointer;
+  min-width: 150px;
+  outline: none;
+}
+
+.setting-select:focus {
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.setting-select option {
+  background: #1a1a1a;
+  color: #fff;
 }
 
 .setting-value {

@@ -59,16 +59,12 @@ import AudioPrompt from '../engine/render/AudioPrompt.vue';
 import { onMounted, ref, watch } from 'vue';
 import { useEngineStore } from 'stores/engine-store';
 import { useSettingsStore } from 'stores/settings-store';
-import {
-  loadPersistedProgress,
-  loadPersistedState,
-  clearPersistedProgress,
-  type PersistedProgress,
-} from '../engine/core/Persistence';
+import { loadPersistedProgress, clearPersistedProgress } from '../engine/core/Persistence';
+import { initialEngineState } from '../engine/core/EngineContext';
 import { scenes, getSceneFn, hasScene } from '../game/scenes';
 import { defaultRuntime } from '../engine/core/Runtime';
 import { initI18n, registerEngineStore } from '../engine/i18n';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import { registerRouterNavigateCallback } from '../engine/core/BaseActor';
 import { initNavigation } from '../engine/navigation';
 const showDebug = ref(false);
@@ -83,6 +79,7 @@ const slMode = ref<'save' | 'load'>('save');
 const store = useEngineStore();
 const settingsStore = useSettingsStore();
 const router = useRouter();
+const route = useRoute();
 
 // 从场景注册表获取场景ID列表
 type SceneName = (typeof scenes)[number]['id'];
@@ -97,40 +94,17 @@ async function runSceneLoop(initialScene: SceneName, initialFrame: number) {
   if (store.shouldSkipScript?.()) {
     console.log('[runSceneLoop] 跳过脚本执行，直接从保存状态恢复');
     store.clearSkipScript?.();
-    // 设置恢复回调，当用户点击"继续"时从当前帧开始执行脚本
-    defaultRuntime.setResumeCallback(() => {
-      console.log('[resumeCallback] 用户点击继续，从当前帧恢复脚本执行');
-      void runSceneLoop(initialScene, initialFrame);
-    });
-
-    // 检查是否启用了读档后自动继续
-    const autoContinue = settingsStore.displaySettings.autoContinueAfterLoad;
-    if (autoContinue) {
-      console.log('[runSceneLoop] 读档后自动继续已启用，延迟触发继续');
-      // 延迟一小段时间让用户看到恢复的状态，然后自动继续
-      setTimeout(() => {
-        store.advance();
-      }, 300);
-    }
+    defaultRuntime.setResumeCallback(null);
     return; // 不执行脚本，状态已在 load() 中通过 hydrate 恢复
   }
 
-  const initialProgress = loadPersistedProgress();
-  const initialReplay: PersistedProgress | null =
-    initialProgress?.scene === initialScene && Array.isArray(initialProgress.actions)
-      ? initialProgress
-      : null;
   let nextScene: SceneName | null = initialScene;
   let nextFrame = initialFrame;
   while (nextScene) {
     if (token !== sceneLoopToken) return;
     const name = nextScene;
     nextScene = null;
-    const result = await startSceneFromFrame(
-      name,
-      nextFrame,
-      name === initialScene ? initialReplay : null,
-    );
+    const result = await startSceneFromFrame(name, nextFrame);
     if (token !== sceneLoopToken) return;
     nextFrame = 0;
     const maybeNext = (result || '').trim();
@@ -140,39 +114,34 @@ async function runSceneLoop(initialScene: SceneName, initialFrame: number) {
   }
 }
 
-async function startSceneFromFrame(
-  sceneName: SceneName,
-  frame: number,
-  replay: PersistedProgress | null,
-) {
-  // 检查开发模式
-  const isDevMode = store.devMode();
+async function startSceneFromFrame(sceneName: SceneName, frame: number) {
+  // 从 store 获取当前的 replay 信息（而不是依赖参数传入）
+  const currentReplay = store.loadReplay();
+  const replayForScene = currentReplay?.scene === sceneName ? currentReplay : null;
+  const replayMode = replayForScene ? (replayForScene.fastMode ? 'fast' : 'full') : null;
 
-  // 检查是否有保存的完整状态
-  const savedState = loadPersistedState();
+  console.log(
+    '[startSceneFromFrame] replayMode =',
+    replayMode,
+    'frame =',
+    frame,
+    'currentReplay =',
+    currentReplay,
+  );
 
-  // 非开发模式且有保存状态时，直接恢复状态，不重新执行脚本
-  if (!isDevMode && savedState && savedState.scene === sceneName && frame > 0) {
-    console.log('[恢复] 使用已保存的状态直接恢复，不重新执行脚本');
-    defaultRuntime.hydrate(savedState);
+  if (replayForScene && replayMode) {
+    const entryVars = replayForScene.entryVars ?? {};
+    defaultRuntime.hydrate(
+      { ...initialEngineState, vars: entryVars, bindings: store.state.bindings },
+      { clearHistory: true, silent: replayMode === 'fast' },
+    );
+    defaultRuntime.setChoiceTrail(replayForScene.choices);
+    defaultRuntime.replayToFrame(frame, replayMode);
     await store.dispatch('scene', sceneName);
-    return ''; // 不继续执行脚本
+  } else {
+    defaultRuntime.reset();
+    await store.dispatch('scene', sceneName);
   }
-
-  // 开发模式或没有保存状态时，重放脚本
-  defaultRuntime.reset();
-
-  if (frame > 0) {
-    defaultRuntime.replayToFrame(frame);
-    if (replay && Array.isArray(replay.actions)) {
-      defaultRuntime.beginReplay({
-        actions: replay.actions,
-        choices: replay.choices ?? [],
-        targetFrame: frame,
-      });
-    }
-  }
-  await store.dispatch('scene', sceneName);
 
   // 根据环境选择场景加载方式
   const isDev = import.meta.env.DEV;
@@ -229,20 +198,35 @@ onMounted(() => {
   // 注册 engine store，用于语言切换时重新翻译
   registerEngineStore(store);
 
-  const progress = loadPersistedProgress();
-  const _restored = loadPersistedState(); // eslint-disable-line @typescript-eslint/no-unused-vars
+  void (async () => {
+    const loadSlot = typeof route.query.load === 'string' ? route.query.load : null;
+    if (loadSlot) {
+      const r = await store.load(loadSlot);
+      if (r.ok) {
+        void router.replace('/demo');
+      } else {
+        alert(`读取存档失败：${loadSlot}`);
+        void router.push('/saves');
+      }
+      return;
+    }
 
-  // 从场景注册表获取有效的场景ID列表
-  const validSceneIds = new Set(scenes.map((s) => s.id));
+    const replay = store.loadReplay?.() ?? null;
+    const progress = replay ? { scene: replay.scene, frame: replay.frame } : null;
 
-  // 确定初始场景
-  let sceneName: SceneName = 'scene1';
-  if (progress?.scene && validSceneIds.has(progress.scene)) {
-    sceneName = progress.scene as SceneName; // eslint-disable-line @typescript-eslint/no-unnecessary-type-assertion
-  }
+    // 从场景注册表获取有效的场景ID列表
+    const validSceneIds = new Set(scenes.map((s) => s.id));
 
-  const frame = progress?.scene === sceneName ? progress.frame : 0;
-  void runSceneLoop(sceneName, frame);
+    // 确定初始场景
+    let sceneName: SceneName = 'scene1';
+    const candidateScene = (progress?.scene || store.state.scene || '').trim();
+    if (candidateScene && validSceneIds.has(candidateScene)) {
+      sceneName = candidateScene as SceneName; // eslint-disable-line @typescript-eslint/no-unnecessary-type-assertion
+    }
+
+    const frame = progress?.scene === sceneName ? progress.frame : 0;
+    void runSceneLoop(sceneName, frame);
+  })();
 });
 
 watch(
@@ -250,6 +234,13 @@ watch(
   () => {
     const p = store.loadProgress();
     const replay = store.loadReplay?.() ?? null;
+    const shouldSkip = store.shouldSkipScript?.();
+
+    console.log('[watch loadToken] 触发');
+    console.log('[watch loadToken] shouldSkipScript =', shouldSkip);
+    console.log('[watch loadToken] replay =', replay);
+    console.log('[watch loadToken] scene =', p.scene, 'frame =', p.frame);
+    console.log('[watch loadToken] store.shouldSkipScript 函数 =', typeof store.shouldSkipScript);
 
     // 从场景注册表获取有效的场景ID列表
     const validSceneIds = new Set(scenes.map((s) => s.id));
@@ -259,25 +250,10 @@ watch(
 
     // 检查是否应该跳过脚本执行（直接从保存状态恢复）
     // 与 runSceneLoop 的逻辑保持一致
-    if (store.shouldSkipScript?.()) {
+    if (shouldSkip) {
       console.log('[watch loadToken] 跳过脚本执行，直接从保存状态恢复');
       store.clearSkipScript?.();
       showDialog.value = true;
-      // 设置恢复回调，当用户点击"继续"时从当前帧开始执行脚本
-      defaultRuntime.setResumeCallback(() => {
-        console.log('[resumeCallback] 用户点击继续，从当前帧恢复脚本执行');
-        void runSceneLoop(scene, frame);
-      });
-
-      // 检查是否启用了读档后自动继续
-      const autoContinue = settingsStore.displaySettings.autoContinueAfterLoad;
-      if (autoContinue) {
-        console.log('[watch loadToken] 读档后自动继续已启用，延迟触发继续');
-        // 延迟一小段时间让用户看到恢复的状态，然后自动继续
-        setTimeout(() => {
-          store.advance();
-        }, 300);
-      }
       return; // 不执行脚本，状态已在 load() 中通过 hydrate 恢复
     }
 
@@ -285,19 +261,13 @@ watch(
     sceneLoopToken += 1;
     const token = sceneLoopToken;
     void (async () => {
-      const initialReplay: PersistedProgress | null =
-        replay && replay.scene === scene && Array.isArray(replay.actions) ? replay : null;
       let nextScene: SceneName | null = scene;
       let nextFrame = frame;
       while (nextScene) {
         if (token !== sceneLoopToken) return;
         const name = nextScene;
         nextScene = null;
-        const result = await startSceneFromFrame(
-          name,
-          nextFrame,
-          name === scene ? initialReplay : null,
-        );
+        const result = await startSceneFromFrame(name, nextFrame);
         if (token !== sceneLoopToken) return;
         nextFrame = 0;
         const maybeNext = (result || '').trim();
@@ -315,6 +285,17 @@ function onStageClick() {
 function restartScene() {
   clearPersistedProgress();
   showDialog.value = true;
+  const scope = settingsStore.displaySettings.restartScope;
+  if (scope === 'currentScene') {
+    const validSceneIds = new Set(scenes.map((s) => s.id));
+    const candidateScene = (store.state.scene || '').trim();
+    const sceneName: SceneName =
+      candidateScene && validSceneIds.has(candidateScene)
+        ? (candidateScene as SceneName) // eslint-disable-line @typescript-eslint/no-unnecessary-type-assertion
+        : 'scene1';
+    void runSceneLoop(sceneName, 0);
+    return;
+  }
   void runSceneLoop('scene1', 0);
 }
 
@@ -324,7 +305,7 @@ function backToTitle() {
 
 function quickSave(slotNum: number) {
   const slot = `quicksave:${slotNum}`;
-  store.save(slot);
+  void store.save(slot);
 }
 
 // Vite HMR: 监听脚本文件变化，自动重新运行当前场景

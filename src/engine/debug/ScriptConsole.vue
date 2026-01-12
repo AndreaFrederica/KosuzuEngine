@@ -1,31 +1,40 @@
 <template>
-  <div v-if="visible" class="script-console">
-    <q-card class="panel">
-      <q-card-section class="row items-center justify-between">
-        <div class="title">控制台</div>
-        <div class="row q-gutter-sm">
-          <q-btn flat dense label="清屏" @click="clearTerminal" />
-          <q-btn flat dense label="关闭" @click="$emit('close')" />
-        </div>
-      </q-card-section>
-      <q-separator />
-      <q-card-section class="help">
-        <div>
-          可用变量：ctx / stage / runtime / store / log / sleep / BackgroundActor / AudioActor /
-          CharacterActor / Josei06Sailor / Josei07Sailor / AkamafuGirl / NekoAnimal
-        </div>
-        <div>Tab 补全（可循环）；Enter 执行；Ctrl/Cmd+L 清屏；输入 :help 查看命令</div>
-      </q-card-section>
-      <q-separator />
-      <q-card-section class="terminal">
-        <div ref="terminalEl" class="terminal-host" />
-      </q-card-section>
-    </q-card>
-  </div>
+  <FloatingWindow
+    :model-value="visible"
+    @update:model-value="onUpdateOpen"
+    title="控制台"
+    storage-key="panel:console:v2"
+    window-id="panel:console:v2"
+    window-class="bg-grey-10 text-white"
+    :initial-size="{ w: 980, h: 560 }"
+    :min-width="520"
+    :min-height="320"
+  >
+    <div class="fw-content script-console">
+      <q-card class="panel">
+        <q-card-section class="help">
+          <div>
+            可用变量：ctx / stage / runtime / store / log / sleep / BackgroundActor / AudioActor /
+            CharacterActor / Josei06Sailor / Josei07Sailor / AkamafuGirl / NekoAnimal
+          </div>
+          <div>Tab 补全（可循环）；Enter 执行；Ctrl/Cmd+L 或 :clear 清屏；输入 :help 查看命令</div>
+        </q-card-section>
+        <q-separator />
+        <q-card-section class="terminal">
+          <div ref="terminalEl" class="terminal-host" />
+        </q-card-section>
+        <q-separator />
+        <q-card-section class="toolbar row items-center justify-end q-gutter-xs">
+          <q-btn flat dense size="sm" icon="delete_sweep" @click="clearTerminal" title="清屏" />
+          <q-btn flat dense size="sm" icon="download" @click="exportTerminalContent" title="导出" />
+        </q-card-section>
+      </q-card>
+    </div>
+  </FloatingWindow>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue';
+import { ref, onMounted, onBeforeUnmount, watch, nextTick, computed } from 'vue';
 import { useEngineStore } from 'stores/engine-store';
 import { defaultRuntime } from '../core/Runtime';
 import {
@@ -39,9 +48,16 @@ import { Josei06Sailor, Josei07Sailor, AkamafuGirl, NekoAnimal } from '../../gam
 import { Terminal } from 'xterm';
 import { FitAddon } from 'xterm-addon-fit';
 import 'xterm/css/xterm.css';
+import FloatingWindow from 'components/FloatingWindow.vue';
+import { getManual, formatManual, getAllCommandNames, searchCommands } from './commands';
 
-const { visible = false } = defineProps<{ visible?: boolean }>();
-defineEmits<{ (e: 'close'): void }>();
+const props = withDefaults(defineProps<{ visible?: boolean }>(), { visible: false });
+const visible = computed(() => props.visible);
+const emit = defineEmits<{ (e: 'close'): void }>();
+
+function onUpdateOpen(v: boolean) {
+  if (!v) emit('close');
+}
 
 const store = useEngineStore();
 const runtime = defaultRuntime;
@@ -79,9 +95,30 @@ function clearTerminal() {
   renderLine();
 }
 
+function exportTerminalContent() {
+  if (!term) return;
+  const buffer = term.buffer.active;
+  const lines: string[] = [];
+  for (let i = 0; i < buffer.length; i++) {
+    const line = buffer.getLine(i);
+    if (!line) continue;
+    lines.push(line.translateToString(true));
+  }
+  const text = lines.join('\n');
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `kosuzu-console-${new Date().toISOString().replace(/[:.]/g, '-')}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 function writeBanner() {
   writeLine('Kosuzu Console');
-  writeLine('输入 :help 查看命令与快捷键');
+  writeLine('输入 :help 查看命令与快捷键（:clear 清屏）');
 }
 
 function writeLine(text: string) {
@@ -232,20 +269,44 @@ function runCommand(line: string) {
   const cmd = line.trim().slice(1).trim();
   if (!cmd || cmd === 'help') {
     writeLine('Commands:');
-    writeLine('  :help           显示帮助');
-    writeLine('  :clear          清屏');
-    writeLine('  :env            显示可用变量');
-    writeLine('  :vars           显示 ctx.vars');
-    writeLine('  :scene          显示当前 scene');
-    writeLine('  :actors         显示当前 actorIds');
-    writeLine('  :state          打印当前运行时 state(JSON)');
-    writeLine('  :back           触发返回');
-    writeLine('  :restart        重置运行时(会清空进度)');
+    const allCommands = getAllCommandNames();
+    allCommands.forEach((c) => {
+      const manual = getManual(c);
+      if (manual) {
+        writeLine(`  :${c.padEnd(14)} ${manual.description}`);
+      }
+    });
+    writeLine('');
+    writeLine('Use :man <command> to view detailed manual for a command.');
     writeLine('Shortcuts:');
     writeLine('  Tab/Shift+Tab   补全并循环候选');
     writeLine('  ←/→/Home/End    光标移动');
     writeLine('  ↑/↓             历史命令');
     writeLine('  Ctrl/Cmd+L      清屏');
+    return;
+  }
+  if (cmd.startsWith('man ')) {
+    const cmdName = cmd.slice(4).trim();
+    if (!cmdName) {
+      writeLine('Usage: :man <command>');
+      writeLine('');
+      writeLine('Available commands: ' + getAllCommandNames().join(', '));
+      return;
+    }
+    const manual = getManual(cmdName);
+    if (!manual) {
+      writeLine(`No manual found for command: ${cmdName}`);
+      const similar = searchCommands(cmdName);
+      if (similar.length > 0) {
+        writeLine('');
+        writeLine('Did you mean?');
+        similar.slice(0, 5).forEach((m) => {
+          writeLine(`  :man ${m.name}`);
+        });
+      }
+      return;
+    }
+    writeLine(formatManual(manual));
     return;
   }
   if (cmd === 'clear') {
@@ -273,7 +334,67 @@ function runCommand(line: string) {
     return;
   }
   if (cmd === 'vars') {
-    writeLine(JSON.stringify(runtime.state.vars ?? {}, null, 2));
+    const vars = runtime.state.vars ?? {};
+    if (Object.keys(vars).length === 0) {
+      writeLine('(empty)');
+    } else {
+      writeLine(JSON.stringify(vars, null, 2));
+    }
+    return;
+  }
+  if (cmd.startsWith('var ')) {
+    const key = cmd.slice(4).trim();
+    if (!key) {
+      writeLine('Usage: :var <key>');
+      return;
+    }
+    const value = ctx.var(key);
+    writeLine(JSON.stringify(value, null, 2));
+    return;
+  }
+  if (cmd.startsWith('set ')) {
+    const args = cmd.slice(4).trim();
+    const spaceIndex = args.indexOf(' ');
+    if (spaceIndex === -1) {
+      writeLine('Usage: :set <key> <value>');
+      return;
+    }
+    const key = args.slice(0, spaceIndex).trim();
+    const valueStr = args.slice(spaceIndex + 1).trim();
+    // 尝试解析为 JSON，如果失败则作为字符串
+    let value: unknown;
+    try {
+      value = JSON.parse(valueStr);
+    } catch {
+      value = valueStr;
+    }
+    void ctx.setVar(key, value);
+    writeLine(`Set ${key} = ${JSON.stringify(value)}`);
+    return;
+  }
+  if (cmd.startsWith('del ')) {
+    const key = cmd.slice(4).trim();
+    if (!key) {
+      writeLine('Usage: :del <key>');
+      return;
+    }
+    void ctx.delVar(key);
+    writeLine(`Deleted ${key}`);
+    return;
+  }
+  if (cmd.startsWith('store ')) {
+    const ns = cmd.slice(6).trim();
+    if (!ns) {
+      writeLine('Usage: :store <namespace>');
+      return;
+    }
+    const storeObj = ctx.store(ns);
+    const allVars = storeObj.getAll();
+    if (Object.keys(allVars).length === 0) {
+      writeLine(`(empty namespace: ${ns})`);
+    } else {
+      writeLine(JSON.stringify(allVars, null, 2));
+    }
     return;
   }
   if (cmd === 'scene') {
@@ -288,6 +409,19 @@ function runCommand(line: string) {
     writeLine(JSON.stringify(runtime.state, null, 2));
     return;
   }
+  if (cmd.startsWith('show ')) {
+    const args = cmd.slice(5).trim();
+    if (!args) {
+      writeLine('Usage: :show <expr> [depth]');
+      return;
+    }
+    // 解析表达式和深度参数
+    const parts = args.split(/\s+/);
+    const expr = parts[0]!;
+    const depth = parts[1] ? parseInt(parts[1], 10) : 2;
+    void showExpression(expr, isNaN(depth) ? 2 : depth);
+    return;
+  }
   if (cmd === 'back') {
     store.back();
     return;
@@ -297,6 +431,52 @@ function runCommand(line: string) {
     return;
   }
   writeLine(`Unknown command: ${cmd}`);
+}
+
+async function showExpression(expr: string, depth: number = 2) {
+  try {
+    const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor as new (
+      ...args: string[]
+    ) => (...fnArgs: unknown[]) => Promise<unknown>;
+    const fn = new AsyncFunction(
+      'ctx',
+      'stage',
+      'runtime',
+      'store',
+      'BackgroundActor',
+      'AudioActor',
+      'CharacterActor',
+      'Josei06Sailor',
+      'Josei07Sailor',
+      'AkamafuGirl',
+      'NekoAnimal',
+      `return (${expr})`,
+    );
+    const result = await fn(
+      ctx,
+      stage,
+      runtime,
+      store,
+      BackgroundActor,
+      AudioActor,
+      CharacterActor,
+      Josei06Sailor,
+      Josei07Sailor,
+      AkamafuGirl,
+      NekoAnimal,
+    );
+    if (result === undefined) {
+      writeLine('undefined');
+    } else if (result === null) {
+      writeLine('null');
+    } else if (typeof result === 'object') {
+      writeLine(JSON.stringify(result, null, Math.max(0, Math.min(10, depth))));
+    } else {
+      writeLine(stringifyOne(result));
+    }
+  } catch (e) {
+    writeLine(e instanceof Error ? `${e.name}: ${e.message}` : String(e));
+  }
 }
 
 function insertText(text: string) {
@@ -404,6 +584,7 @@ function setupTerminal() {
     convertEol: true,
     cursorBlink: true,
     fontSize: 12,
+    scrollback: 100000,
     theme: {
       background: '#0b0e14',
       foreground: '#e6e1cf',
@@ -525,7 +706,7 @@ function disposeTerminal() {
 }
 
 onMounted(() => {
-  if (visible) setupTerminal();
+  if (visible.value) setupTerminal();
 });
 
 onBeforeUnmount(() => {
@@ -533,7 +714,7 @@ onBeforeUnmount(() => {
 });
 
 watch(
-  () => visible,
+  () => visible.value,
   async (v) => {
     if (v) {
       await nextTick();
@@ -547,21 +728,15 @@ watch(
 
 <style scoped>
 .script-console {
-  position: absolute;
-  left: 12px;
-  right: 12px;
-  top: 56px;
-  bottom: 260px;
-  z-index: 3000;
-  pointer-events: auto;
+  height: 100%;
+  overflow: hidden;
 }
 .panel {
   height: 100%;
   display: flex;
   flex-direction: column;
-}
-.title {
-  font-weight: 700;
+  background: rgba(0, 0, 0, 0.85);
+  color: rgba(255, 255, 255, 0.9);
 }
 .help {
   font-size: 12px;
@@ -574,5 +749,13 @@ watch(
 }
 .terminal-host {
   height: 100%;
+  background: #000;
+}
+.toolbar {
+  padding: 4px 8px;
+}
+:deep(.toolbar .q-btn) {
+  min-height: 24px;
+  min-width: 24px;
 }
 </style>

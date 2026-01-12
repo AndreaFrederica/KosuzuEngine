@@ -1,62 +1,75 @@
 <template>
-  <div v-if="visible" class="sl-panel" @click.stop>
-    <div class="sl-header">
-      <div class="title">{{ uiText.title }}</div>
-      <button class="close-btn" @click="$emit('close')">{{ uiText.close }}</button>
-    </div>
-    <div class="sl-body">
-      <div class="row">
-        <input
-          v-model="slot"
-          class="slot-input"
-          type="text"
-          :placeholder="uiText.slotPlaceholder"
-        />
-        <button class="action-btn" @click="onPrimary">
-          {{ mode === 'save' ? uiText.saveBtn : uiText.loadBtn }}
-        </button>
-        <button class="action-btn" @click="refresh">{{ uiText.refresh }}</button>
-      </div>
-      <div class="quick-save-section">
-        <div class="quick-save-label">
-          {{ mode === 'save' ? '快速存档' : '快速读取' }} /
-          {{ mode === 'save' ? 'Quick Save' : 'Quick Load' }}
+  <FloatingWindow
+    :model-value="visible"
+    @update:model-value="onUpdateOpen"
+    :title="uiText.title"
+    :storage-key="storageKey"
+    :window-id="windowId"
+    window-class="bg-grey-10 text-white"
+    :initial-size="{ w: 760, h: 560 }"
+    :min-width="560"
+    :min-height="360"
+  >
+    <div class="fw-content sl-panel">
+      <div class="sl-body">
+        <div class="row">
+          <input
+            v-model="slot"
+            class="slot-input"
+            type="text"
+            :placeholder="uiText.slotPlaceholder"
+          />
+          <button class="action-btn" @click="onPrimary">
+            {{ mode === 'save' ? uiText.saveBtn : uiText.loadBtn }}
+          </button>
+          <button class="action-btn" @click="refresh">{{ uiText.refresh }}</button>
         </div>
-        <div class="quick-save-slots">
-          <button class="quick-save-btn" @click="onQuickSave(1)">QS1</button>
-          <button class="quick-save-btn" @click="onQuickSave(2)">QS2</button>
-          <button class="quick-save-btn" @click="onQuickSave(3)">QS3</button>
-        </div>
-      </div>
-      <div class="list">
-        <div v-for="s in saves" :key="s.slot" class="item" @click="onItem(s.slot)">
-          <div class="meta">
-            <div class="slot-name">{{ s.slot }}</div>
-            <div class="scene">{{ s.scene || uiText.unnamedScenario }}</div>
-            <div class="text">{{ truncate(s.text || '') }}</div>
-            <div class="time">{{ formatTime(s.time) }}</div>
+        <div class="quick-save-section">
+          <div class="quick-save-label">
+            {{ mode === 'save' ? '快速存档' : '快速读取' }} /
+            {{ mode === 'save' ? 'Quick Save' : 'Quick Load' }}
           </div>
-          <div class="btns">
-            <button class="mini-btn" @click.stop="onItem(s.slot)">
-              {{ mode === 'save' ? uiText.overwrite : uiText.loadBtn }}
-            </button>
-            <button class="mini-btn danger" @click.stop="onDelete(s.slot)">
-              {{ uiText.delete }}
-            </button>
+          <div class="quick-save-slots">
+            <button class="quick-save-btn" @click="onQuickSave(1)">QS1</button>
+            <button class="quick-save-btn" @click="onQuickSave(2)">QS2</button>
+            <button class="quick-save-btn" @click="onQuickSave(3)">QS3</button>
           </div>
         </div>
-        <div v-if="saves.length === 0" class="empty">{{ uiText.noSaves }}</div>
+        <div class="list">
+          <div v-for="s in saves" :key="s.slot" class="item" @click="onItem(s.slot)">
+            <div class="meta">
+              <div class="slot-name">{{ s.slot }}</div>
+              <div class="scene">{{ s.scene || uiText.unnamedScenario }}</div>
+              <div class="text">{{ truncate(s.text || '') }}</div>
+              <div class="time">{{ formatTime(s.time) }}</div>
+            </div>
+            <div class="btns">
+              <button class="mini-btn" @click.stop="onItem(s.slot)">
+                {{ mode === 'save' ? uiText.overwrite : uiText.loadBtn }}
+              </button>
+              <button class="mini-btn danger" @click.stop="onDelete(s.slot)">
+                {{ uiText.delete }}
+              </button>
+            </div>
+          </div>
+          <div v-if="saves.length === 0" class="empty">{{ uiText.noSaves }}</div>
+        </div>
       </div>
     </div>
-  </div>
+  </FloatingWindow>
 </template>
 
 <script setup lang="ts">
 import { ref, watchEffect, computed, onMounted, onUnmounted } from 'vue';
 import { useEngineStore } from 'stores/engine-store';
 import { getI18nManager, type SupportedLocale } from '../../engine/i18n';
-const props = defineProps<{ visible?: boolean; mode?: 'save' | 'load' }>();
-defineEmits<{ (e: 'close'): void }>();
+import FloatingWindow from 'components/FloatingWindow.vue';
+
+const props = withDefaults(defineProps<{ visible?: boolean; mode?: 'save' | 'load' }>(), {
+  visible: false,
+  mode: 'save',
+});
+const emit = defineEmits<{ (e: 'close'): void }>();
 const store = useEngineStore();
 const slot = ref('');
 const saves = ref<Array<{ slot: string; scene?: string; text?: string; time?: number }>>([]);
@@ -64,6 +77,13 @@ const saves = ref<Array<{ slot: string; scene?: string; text?: string; time?: nu
 // i18n 管理器和当前语言
 const i18n = getI18nManager();
 const currentLocale = ref<SupportedLocale>(i18n.getLocale());
+
+const windowId = computed(() => `panel:saveLoad:${props.mode}`);
+const storageKey = computed(() => `panel:saveLoad:${props.mode}`);
+
+function onUpdateOpen(v: boolean) {
+  if (!v) emit('close');
+}
 
 // 监听语言变化
 let unlistenLocale: (() => void) | null = null;
@@ -104,17 +124,19 @@ const uiText = computed(() => {
   };
 });
 function refresh() {
-  saves.value = store.listSaves();
+  void store.listSaves().then((v) => {
+    saves.value = v;
+  });
 }
 function onPrimary() {
   if (!slot.value) {
     slot.value = defaultSlot();
   }
   if (props.mode === 'save') {
-    store.save(slot.value);
+    void store.save(slot.value);
     refresh();
   } else {
-    store.load(slot.value);
+    void store.load(slot.value);
   }
 }
 function onItem(s: string) {
@@ -123,25 +145,25 @@ function onItem(s: string) {
     if (!slot.value) {
       slot.value = s;
     }
-    store.save(s);
+    void store.save(s);
     refresh();
   } else {
     // 读取模式：直接读取，不更新输入框
-    store.load(s);
+    void store.load(s);
   }
 }
 function onDelete(s: string) {
-  store.deleteSave?.(s);
+  void store.deleteSave?.(s);
   if (slot.value === s) slot.value = '';
   refresh();
 }
 function onQuickSave(slotNum: number) {
   const qsSlot = `quicksave:${slotNum}`;
   if (props.mode === 'save') {
-    store.save(qsSlot);
+    void store.save(qsSlot);
     refresh();
   } else {
-    store.load(qsSlot);
+    void store.load(qsSlot);
   }
 }
 
@@ -180,33 +202,9 @@ function formatTime(time?: number) {
 
 <style scoped>
 .sl-panel {
-  position: absolute;
-  left: 50%;
-  bottom: 220px;
-  transform: translateX(-50%);
-  width: min(680px, calc(100% - 32px));
-  background: rgba(0, 0, 0, 0.6);
+  height: 100%;
   color: #fff;
-  border-radius: 8px;
   padding: 10px;
-  z-index: 1002;
-}
-.sl-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-.title {
-  font-weight: 600;
-}
-.close-btn {
-  background: rgba(255, 255, 255, 0.2);
-  color: #fff;
-  border: none;
-  border-radius: 4px;
-  padding: 4px 10px;
-  cursor: pointer;
 }
 .row {
   display: flex;

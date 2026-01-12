@@ -2,7 +2,7 @@ import { defineStore } from 'pinia';
 import { reactive, watch } from 'vue';
 import { defaultRuntime } from '../engine/core/Runtime';
 import { initialEngineState, selectors, type EngineState } from '../engine/core/EngineContext';
-import type { ActionResult, ActionType, ActorAction } from '../engine/core/ActorAction';
+import type { ActionResult, ActionType } from '../engine/core/ActorAction';
 import {
   enablePersistence,
   loadPersistedProgress,
@@ -10,7 +10,7 @@ import {
   clearPersistedProgress,
   type PersistedProgress,
 } from '../engine/core/Persistence';
-import { useSettingsStore } from './settings-store';
+import { useSettingsStore, type RecoveryMode } from './settings-store';
 
 const DEV_MODE_KEY = 'engine:devMode';
 
@@ -47,27 +47,38 @@ export const useEngineStore = defineStore('engine', () => {
   const progress = loadPersistedProgress();
   const settingsStore = useSettingsStore();
   const skipReplay = settingsStore.displaySettings.skipReplay;
+  const recoveryMode: RecoveryMode = skipReplay ? 'direct' : settingsStore.displaySettings.recoveryMode;
 
-  if (skipReplay && progress) {
-    // 跳过重播模式：清除自动重放进度，直接从最后保存的状态恢复
-    console.log('[engine-store] 跳过重播模式已开启，清除自动重放进度');
-    clearPersistedProgress();
+  watch(
+    () => settingsStore.otherSettings.useIndexedDBSaves,
+    (v) => {
+      runtime.setUseIndexedDB(v);
+    },
+    { immediate: true },
+  );
+
+  if (recoveryMode === 'direct') {
+    const savedFrame = progress?.frame;
+    if (progress) clearPersistedProgress();
     const restored = loadPersistedState();
     if (restored) {
-      console.log('[engine-store] 从持久化状态恢复（跳过重播）');
       runtime.hydrate(restored);
+      if (typeof savedFrame === 'number') (loadProgress as { frame: number }).frame = savedFrame;
       Object.assign(state, restored);
+      skipScript.value = true;
     }
   } else if (!progress) {
     // 没有进度记录：从持久化状态恢复
     const restored = loadPersistedState();
     if (restored) {
       console.log('[engine-store] 从持久化状态恢复');
-      runtime.hydrate(restored);
+      runtime.hydrate(restored, { clearHistory: true });
       Object.assign(state, restored);
+      skipScript.value = true;
     }
   } else {
     console.log('[engine-store] 从进度记录恢复（将重放操作）');
+    loadReplay.value = { ...progress, fastMode: recoveryMode === 'fast' };
   }
   let prevActors: EngineState['actors'] = {};
   let prevBgName: string | undefined = undefined;
@@ -119,6 +130,16 @@ export const useEngineStore = defineStore('engine', () => {
     runtime.advance();
   }
 
+  function reset() {
+    Object.assign(state, initialEngineState);
+    loadToken.value = 0;
+    loadProgress.scene = undefined;
+    loadProgress.frame = undefined;
+    loadReplay.value = null;
+    skipScript.value = false;
+    runtime.reset();
+  }
+
   return {
     state,
     dialog: () => selectors.dialog(state),
@@ -153,72 +174,69 @@ export const useEngineStore = defineStore('engine', () => {
     save(slot: string) {
       return runtime.save(slot);
     },
-    load(slot: string) {
+    async hasSave(slot: string) {
+      const saveData = await runtime.getSaveData(slot);
+      return saveData !== null;
+    },
+    async load(slot: string) {
       console.log('[load] ========== 开始 load ==========');
       console.log('[load] slot =', slot);
-      console.log('[load] 调用栈:', new Error().stack);
 
-      const key = `save:${slot}`;
-      const raw = localStorage.getItem(key);
-      if (!raw) {
+      const saveData = await runtime.getSaveData(slot);
+      if (!saveData) {
         console.log('[load] 没有找到存档数据');
         return { ok: false } as ActionResult<void>;
       }
 
-      const parsed = JSON.parse(raw) as
-        | { meta?: { scene?: string; frame?: number; time?: number }; state?: EngineState; actions?: unknown; choices?: unknown }
-        | EngineState;
-      const savedState: EngineState | null =
-        parsed && typeof parsed === 'object' && 'state' in parsed && parsed.state ? (parsed.state) : null;
+      const parsedMeta = saveData.meta;
+      const savedState = (saveData.state ?? null) as EngineState | null;
 
-      console.log('[load] savedState.scene =', savedState?.scene);
+      console.log('[load] savedState.scene =', (savedState)?.scene);
       console.log('[load] runtime.state.scene =', runtime.state.scene);
       const scene =
-        (parsed && typeof parsed === 'object' && 'meta' in parsed && parsed.meta && typeof parsed.meta.scene === 'string'
-          ? parsed.meta.scene
-          : savedState?.scene) ?? 'scene1';
+        (parsedMeta && typeof parsedMeta.scene === 'string' ? parsedMeta.scene : savedState?.scene) ?? 'scene1';
       const frame =
-        parsed && typeof parsed === 'object' && 'meta' in parsed && parsed.meta && typeof parsed.meta.frame === 'number'
-          ? parsed.meta.frame
-          : (savedState?.history?.length ?? 0);
+        parsedMeta && typeof parsedMeta.frame === 'number' ? parsedMeta.frame : (savedState?.history?.length ?? 0);
 
       loadProgress.scene = scene;
       loadProgress.frame = frame;
 
-      // 检查是否设置了跳过重放
+      // 获取恢复模式设置
       const settingsStore = useSettingsStore();
-      const skipReplay = settingsStore.displaySettings.skipReplay;
+      const recoveryMode: RecoveryMode = settingsStore.displaySettings.recoveryMode;
 
-      console.log('[load] skipReplay =', skipReplay);
-      console.log('[load] skipReplay type =', typeof skipReplay);
+      console.log('[load] recoveryMode =', recoveryMode);
+      console.log('[load] frame =', frame);
 
-      if (
-        !skipReplay &&
-        parsed &&
-        typeof parsed === 'object' &&
-        'actions' in parsed &&
-        Array.isArray(parsed.actions) &&
-        parsed.actions.length > 0
-      ) {
-        console.log('[load] 进入重放模式');
-        const time =
-          'meta' in parsed && parsed.meta && typeof parsed.meta.time === 'number' ? parsed.meta.time : Date.now();
-        const out: PersistedProgress = { scene, frame, time, actions: parsed.actions as ActorAction<unknown>[] };
-        if ('choices' in parsed && Array.isArray(parsed.choices)) out.choices = parsed.choices as string[];
-        loadReplay.value = out;
-        skipScript.value = false; // 有 actions，需要重新执行脚本
-      } else {
-        console.log('[load] 进入 hydrate 模式');
+      // 根据恢复模式决定如何加载
+      if (recoveryMode === 'direct') {
+        // 直接恢复模式：只恢复状态，不执行脚本
+        console.log('[load] 进入直接恢复模式');
         loadReplay.value = null;
-        skipScript.value = true; // 跳过重放或没有 actions，直接恢复状态
+        skipScript.value = true;
         if (savedState) {
-          runtime.hydrate(savedState);
+          runtime.hydrate(savedState, { clearHistory: true });
         }
+      } else {
+        console.log(recoveryMode === 'fast' ? '[load] 进入快速恢复模式' : '[load] 进入完整重放模式');
+        const choices = Array.isArray(saveData.choices) ? saveData.choices : undefined;
+        const entryVars = saveData.entryVars && typeof saveData.entryVars === 'object' ? saveData.entryVars : undefined;
+        loadReplay.value = {
+          scene,
+          frame,
+          time: Date.now(),
+          fastMode: recoveryMode === 'fast',
+          ...(choices ? { choices } : {}),
+          ...(entryVars ? { entryVars } : {}),
+        };
+        skipScript.value = false;
       }
+
+      console.log('[load] skipScript.value =', skipScript.value);
       loadToken.value += 1;
       return { ok: true } as ActionResult<void>;
     },
-    listSaves(): Array<{ slot: string; scene?: string; text?: string; time?: number }> {
+    listSaves(): Promise<Array<{ slot: string; scene?: string; text?: string; time?: number }>> {
       return runtime.listSaves();
     },
     deleteSave(slot: string) {
@@ -238,5 +256,6 @@ export const useEngineStore = defineStore('engine', () => {
     // 检查是否正在恢复位置（Dev 模式下快速重放时禁用 CSS 动画）
     // 需要同时检查：开发模式开关 AND 正在恢复位置
     isRestoring: () => devMode.value && runtime.isRestoring(),
+    reset,
   };
 });

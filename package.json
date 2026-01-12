@@ -18,7 +18,10 @@
   "dependencies": {
     "@quasar/extras": "^1.16.4",
     "axios": "^1.2.1",
+    "monaco-editor": "^0.55.1",
     "pinia": "^3.0.1",
+    "pixi-live2d-display": "0.5.0-beta",
+    "pixi.js": "^7.4.3",
     "quasar": "^2.16.0",
     "vue": "^3.5.22",
     "vue-i18n": "^11.0.0",
@@ -39,7 +42,7 @@
     "eslint-plugin-vue": "^10.4.0",
     "globals": "^16.4.0",
     "prettier": "^3.3.3",
-    "typescript": "^5.9.2",
+    "typescript": "^5.9.3",
     "vite-plugin-checker": "^0.11.0",
     "vue-eslint-parser": "^10.2.0",
     "vue-tsc": "^3.0.7"

@@ -41,6 +41,12 @@ export interface VoiceSettings {
   browserVoiceId: string;
 }
 
+/** 恢复模式 */
+export type RecoveryMode = 'full' | 'fast' | 'direct';
+
+/** “回到开头”范围 */
+export type RestartScope = 'currentScene' | 'allScripts';
+
 /** 显示设置 */
 export interface DisplaySettings {
   /** 对话框差异模式 */
@@ -59,12 +65,22 @@ export interface DisplaySettings {
   autoMode: boolean;
   /** 自动播放等待延迟（毫秒） */
   autoWaitDelay: number;
+  /** 闲置时自动卸载 Live2D 引擎以节能 */
+  autoUnloadLive2D: boolean;
+  /** “回到开头”范围：currentScene=当前场景开头, allScripts=所有剧本开头 */
+  restartScope: RestartScope;
+  /** 恢复模式：full=完整重放, fast=快速跳转（跳过目标帧前的所有命令）, direct=直接恢复 */
+  recoveryMode: RecoveryMode;
+  /** 窗口管理器快捷键（例如 '`'） */
+  windowManagerHotkey: string;
 }
 
 /** 其他设置 */
 export interface OtherSettings {
   /** 跳过已读文本 */
   skipRead: boolean;
+  /** 使用 IndexedDB 存档（否则使用 localStorage） */
+  useIndexedDBSaves: boolean;
 }
 
 /** 语言设置 */
@@ -113,10 +129,15 @@ const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = {
   skipReplay: false,
   autoMode: false,
   autoWaitDelay: 1000,
+  autoUnloadLive2D: true,
+  restartScope: 'currentScene',
+  recoveryMode: 'fast',
+  windowManagerHotkey: '`',
 };
 
 const DEFAULT_OTHER_SETTINGS: OtherSettings = {
   skipRead: false,
+  useIndexedDBSaves: false,
 };
 
 const DEFAULT_LOCALE_SETTINGS: LocaleSettings = {
@@ -151,9 +172,14 @@ const STORAGE_KEYS = {
     SKIP_REPLAY: 'engine:skipReplay',
     AUTO_MODE: 'engine:autoMode',
     AUTO_WAIT_DELAY: 'engine:autoWaitDelay',
+    AUTO_UNLOAD_LIVE2D: 'engine:autoUnloadLive2D',
+    RESTART_SCOPE: 'engine:restartScope',
+    RECOVERY_MODE: 'engine:recoveryMode',
+    WINDOW_MANAGER_HOTKEY: 'engine:windowManagerHotkey',
   },
   OTHER: {
     SKIP_READ: 'game:skipRead',
+    USE_INDEXEDDB_SAVES: 'engine:useIndexedDBSaves',
   },
   LOCALE: {
     CURRENT_LOCALE: 'i18n:locale',
@@ -236,7 +262,13 @@ export const useSettingsStore = defineStore('settings', () => {
     displaySettings.value.showTypewriterDebug = localStorage.getItem(STORAGE_KEYS.DISPLAY.TYPEWRITER_DEBUG) === 'true';
     displaySettings.value.skipReplay = localStorage.getItem(STORAGE_KEYS.DISPLAY.SKIP_REPLAY) === 'true';
     displaySettings.value.autoMode = localStorage.getItem(STORAGE_KEYS.DISPLAY.AUTO_MODE) === 'true';
-    displaySettings.value.autoWaitDelay = parseInt(localStorage.getItem(STORAGE_KEYS.DISPLAY.AUTO_WAIT_DELAY) || '1000', 10);
+    displaySettings.value.autoWaitDelay = Number.parseInt(localStorage.getItem(STORAGE_KEYS.DISPLAY.AUTO_WAIT_DELAY) || '1000', 10);
+    displaySettings.value.autoUnloadLive2D = localStorage.getItem(STORAGE_KEYS.DISPLAY.AUTO_UNLOAD_LIVE2D) !== 'false';
+    const restartScopeStr = localStorage.getItem(STORAGE_KEYS.DISPLAY.RESTART_SCOPE);
+    displaySettings.value.restartScope = (restartScopeStr === 'currentScene' || restartScopeStr === 'allScripts') ? restartScopeStr : 'currentScene';
+    const recoveryModeStr = localStorage.getItem(STORAGE_KEYS.DISPLAY.RECOVERY_MODE);
+    displaySettings.value.recoveryMode = (recoveryModeStr === 'full' || recoveryModeStr === 'fast' || recoveryModeStr === 'direct') ? recoveryModeStr : 'fast';
+    displaySettings.value.windowManagerHotkey = localStorage.getItem(STORAGE_KEYS.DISPLAY.WINDOW_MANAGER_HOTKEY) || '`';
 
     // 尝试从旧格式加载
     loadFromLegacy('dialogDiffEnabled', (v) => displaySettings.value.dialogDiffEnabled = Boolean(v));
@@ -247,6 +279,7 @@ export const useSettingsStore = defineStore('settings', () => {
 
   function loadOtherSettings(): void {
     otherSettings.value.skipRead = localStorage.getItem(STORAGE_KEYS.OTHER.SKIP_READ) === 'true';
+    otherSettings.value.useIndexedDBSaves = localStorage.getItem(STORAGE_KEYS.OTHER.USE_INDEXEDDB_SAVES) === 'true';
 
     // 尝试从旧格式加载
     loadFromLegacy('skipRead', (v) => otherSettings.value.skipRead = Boolean(v));
@@ -319,10 +352,15 @@ export const useSettingsStore = defineStore('settings', () => {
     localStorage.setItem(STORAGE_KEYS.DISPLAY.SKIP_REPLAY, String(displaySettings.value.skipReplay));
     localStorage.setItem(STORAGE_KEYS.DISPLAY.AUTO_MODE, String(displaySettings.value.autoMode));
     localStorage.setItem(STORAGE_KEYS.DISPLAY.AUTO_WAIT_DELAY, String(displaySettings.value.autoWaitDelay));
+    localStorage.setItem(STORAGE_KEYS.DISPLAY.AUTO_UNLOAD_LIVE2D, String(displaySettings.value.autoUnloadLive2D));
+    localStorage.setItem(STORAGE_KEYS.DISPLAY.RESTART_SCOPE, displaySettings.value.restartScope);
+    localStorage.setItem(STORAGE_KEYS.DISPLAY.RECOVERY_MODE, displaySettings.value.recoveryMode);
+    localStorage.setItem(STORAGE_KEYS.DISPLAY.WINDOW_MANAGER_HOTKEY, displaySettings.value.windowManagerHotkey);
   }
 
   function saveOtherSettings(): void {
     localStorage.setItem(STORAGE_KEYS.OTHER.SKIP_READ, String(otherSettings.value.skipRead));
+    localStorage.setItem(STORAGE_KEYS.OTHER.USE_INDEXEDDB_SAVES, String(otherSettings.value.useIndexedDBSaves));
   }
 
   function saveLocaleSettings(): void {
@@ -483,10 +521,25 @@ export const useSettingsStore = defineStore('settings', () => {
     setAutoWaitDelay(value: number) {
       displaySettings.value.autoWaitDelay = value;
     },
+    setAutoUnloadLive2D(value: boolean) {
+      displaySettings.value.autoUnloadLive2D = value;
+    },
+    setRestartScope(value: RestartScope) {
+      displaySettings.value.restartScope = value;
+    },
+    setRecoveryMode(value: RecoveryMode) {
+      displaySettings.value.recoveryMode = value;
+    },
+    setWindowManagerHotkey(value: string) {
+      displaySettings.value.windowManagerHotkey = value;
+    },
 
     // 其他设置快捷方法
     setSkipRead(value: boolean) {
       otherSettings.value.skipRead = value;
+    },
+    setUseIndexedDBSaves(value: boolean) {
+      otherSettings.value.useIndexedDBSaves = value;
     },
 
     // 语言设置快捷方法
@@ -503,7 +556,7 @@ export const useSettingsStore = defineStore('settings', () => {
  * 派发设置变化事件
  */
 function dispatchSettingChanged(key: string, value: string): void {
-  window.dispatchEvent(
+  globalThis.dispatchEvent(
     new CustomEvent('engine-setting-changed', {
       detail: { key, value },
     }),

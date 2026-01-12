@@ -301,13 +301,20 @@ onMounted(() => {
 
 .volume-slider {
   width: 60px;
-  height: 3px;
+  height: 20px;
   -webkit-appearance: none;
   appearance: none;
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 2px;
+  background: transparent;
   outline: none;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+.volume-slider::-webkit-slider-runnable-track {
+  height: 3px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
 }
 
 .volume-slider::-webkit-slider-thumb {
@@ -318,6 +325,13 @@ onMounted(() => {
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.8);
   cursor: pointer;
+  margin-top: -3.5px; /* (3px - 10px) / 2 */
+}
+
+.volume-slider::-moz-range-track {
+  height: 3px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
 }
 
 .volume-slider::-moz-range-thumb {
@@ -349,13 +363,20 @@ onMounted(() => {
 
 .progress-slider {
   width: 80px;
-  height: 3px;
+  height: 20px;
   -webkit-appearance: none;
   appearance: none;
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 2px;
+  background: transparent;
   outline: none;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+.progress-slider::-webkit-slider-runnable-track {
+  height: 3px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
 }
 
 .progress-slider::-webkit-slider-thumb {
@@ -366,6 +387,13 @@ onMounted(() => {
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.8);
   cursor: pointer;
+  margin-top: -2.5px; /* (3px - 8px) / 2 */
+}
+
+.progress-slider::-moz-range-track {
+  height: 3px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
 }
 
 .progress-slider::-moz-range-thumb {
