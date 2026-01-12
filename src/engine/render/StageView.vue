@@ -20,6 +20,7 @@
       <Live2DLayer style="z-index: 0" />
       <div v-for="id in actorIds" :key="id" class="actor-node" :style="actorNodeStyleById(id)">
         <img
+          v-if="!isLive2DActorById(id)"
           class="actor-img"
           :src="spriteSrcById(id)"
           :style="actorImgStyleById(id)"
@@ -228,6 +229,11 @@ function actorNodeStyleById(id: string): CSSProperties {
     maxWidth: '40%',
     transition: `transform ${trans} ease, left ${trans} ease, top ${trans} ease, opacity ${trans} ease`,
   };
+}
+
+function isLive2DActorById(id: string) {
+  const a = store.state.actors[id];
+  return a?.mode === 'live2d' && !!a?.live2d?.modelId;
 }
 
 function actorImgStyleById(id: string): CSSProperties {

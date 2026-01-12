@@ -93,6 +93,7 @@ export class PixiLive2DBackend implements ILive2DBackend {
   private app: PIXI.Application | null = null;
   private viewport = new PIXI.Container();
   private root = new PIXI.Container();
+  private generation = 0;
 
   private models: Map<string, Live2DModel> = new Map();
   private actorContainers: Map<string, PIXI.Container> = new Map();
@@ -188,6 +189,7 @@ export class PixiLive2DBackend implements ILive2DBackend {
   }
 
   dispose() {
+    this.generation += 1;
     const app = this.app;
     if (!app) return;
 
@@ -202,6 +204,12 @@ export class PixiLive2DBackend implements ILive2DBackend {
     this.app = null;
     this.viewport = new PIXI.Container();
     this.root = new PIXI.Container();
+  }
+
+  unloadAll() {
+    for (const actorId of [...this.models.keys()]) {
+      this.unload(actorId);
+    }
   }
 
   registerSource(actorId: string, source: Live2DSource) {
@@ -567,6 +575,7 @@ export class PixiLive2DBackend implements ILive2DBackend {
   }
 
   async load(actorId: string, source?: Live2DSource) {
+    const gen = this.generation;
     this.resume();
     const actualSource = this.normalizeSource(this.modelSources.get(actorId) ?? source ?? '');
     if (!actualSource) throw new Error(`[PixiLive2DBackend] No source for ${actorId}`);
@@ -585,6 +594,10 @@ export class PixiLive2DBackend implements ILive2DBackend {
       autoUpdate: false,
       motionPreload: MotionPreloadStrategy.NONE,
     });
+    if (gen !== this.generation) {
+      model.destroy({ children: true });
+      return;
+    }
     model.anchor.set(0.5, 0.5);
     model.eventMode = 'none';
     const automator = (model as unknown as { automator?: { autoHitTest?: boolean; autoFocus?: boolean } }).automator;

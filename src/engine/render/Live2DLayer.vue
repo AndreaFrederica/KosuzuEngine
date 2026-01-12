@@ -1,11 +1,11 @@
 <template>
-  <div v-if="hasLive2DActors || system" class="live2d-layer">
+  <div v-show="hasLive2DActors" class="live2d-layer">
     <canvas ref="canvasRef"></canvas>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onBeforeUnmount, computed } from 'vue';
+import { ref, watch, onBeforeUnmount, computed, shallowRef } from 'vue';
 import { getLive2DBackend } from '../live2d/runtime';
 import { Live2DSystem } from '../live2d/system';
 import { useEngineStore } from 'stores/engine-store';
@@ -17,12 +17,12 @@ const store = useEngineStore();
 const settingsStore = useSettingsStore();
 const debugStore = useLive2DDebugStore();
 const backend = getLive2DBackend();
-let system: Live2DSystem | null = null;
+const system = shallowRef<Live2DSystem | null>(null);
 let resizeObserver: ResizeObserver | null = null;
 
 // 初始化 Live2D 系统
 function initSystem() {
-  if (system || !canvasRef.value) return;
+  if (system.value || !canvasRef.value) return;
 
   const rect = canvasRef.value.parentElement?.getBoundingClientRect();
   backend.init({
@@ -31,7 +31,7 @@ function initSystem() {
     height: rect?.height || 720,
   });
 
-  system = new Live2DSystem(backend, {
+  system.value = new Live2DSystem(backend, {
     onInspect: (actorId, inspection) => debugStore.setInspection(actorId, inspection),
     onSnapshot: (actorId, snapshot) => debugStore.setSnapshot(actorId, snapshot),
     onMotionStart: (actorId, e) => {
@@ -52,15 +52,19 @@ function initSystem() {
   });
 
   // 立即同步当前状态
-  void system.syncActors(store.state.actors);
+  void system.value.syncActors(store.state.actors);
 }
 
-// 销毁 Live2D 系统
-function disposeSystem() {
-  if (!system) return;
+function disposeSystem(options?: { destroyBackend?: boolean }) {
+  if (!system.value) return;
 
-  system = null;
-  backend.dispose();
+  system.value = null;
+  if (options?.destroyBackend) {
+    backend.dispose();
+  } else {
+    (backend as unknown as { unloadAll?: () => void }).unloadAll?.();
+    backend.pause?.();
+  }
 
   // 清理调试信息
   for (const actorId of Object.keys(store.state.actors || {})) {
@@ -79,7 +83,7 @@ watch(
   ([autoUnload, hasActors, canvas]) => {
     if (!hasActors) {
       if (autoUnload) {
-        disposeSystem();
+        disposeSystem({ destroyBackend: false });
       } else {
         backend.pause?.();
       }
@@ -116,7 +120,7 @@ watch(
   () => store.state.actors,
   (actors) => {
     // 如果系统已卸载，不进行同步（由上述 watch 负责在需要时重新初始化）
-    void system?.syncActors(actors);
+    void system.value?.syncActors(actors);
   },
   { deep: true },
 );
@@ -124,7 +128,7 @@ watch(
 onBeforeUnmount(() => {
   resizeObserver?.disconnect();
   resizeObserver = null;
-  disposeSystem();
+  disposeSystem({ destroyBackend: true });
 });
 </script>
 
