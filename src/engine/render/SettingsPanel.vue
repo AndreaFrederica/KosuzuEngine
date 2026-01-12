@@ -325,6 +325,16 @@
           </div>
           <div class="setting-item">
             <div class="setting-info">
+              <div class="setting-label">回到开头范围</div>
+              <div class="setting-desc">“回到开头”是回到当前场景还是所有剧本</div>
+            </div>
+            <select v-model="restartScope" @change="onRestartScopeChange" class="setting-select">
+              <option value="currentScene">当前场景开头</option>
+              <option value="allScripts">所有剧本开头</option>
+            </select>
+          </div>
+          <div class="setting-item">
+            <div class="setting-info">
               <div class="setting-label">恢复模式</div>
               <div class="setting-desc">读档时的恢复方式 / Recovery mode when loading</div>
             </div>
@@ -462,6 +472,7 @@ const voiceEnabled = computed(() => settingsStore.voiceSettings.enabled);
 const ttsEngine = computed(() => settingsStore.voiceSettings.engine);
 const typewriterEnabled = computed(() => settingsStore.textSettings.typewriterEnabled);
 const recoveryMode = computed(() => settingsStore.displaySettings.recoveryMode);
+const restartScope = computed(() => settingsStore.displaySettings.restartScope);
 
 // 语音设置
 const browserVoices = ref<SpeechSynthesisVoice[]>([]);
@@ -576,6 +587,12 @@ function onAutoWaitDelayChange(value: number | null) {
 
 function onAutoUnloadLive2DChange(value: boolean) {
   settingsStore.setAutoUnloadLive2D(value);
+}
+
+function onRestartScopeChange(event: Event) {
+  const target = event.target as HTMLSelectElement;
+  const scope = target.value as 'currentScene' | 'allScripts';
+  settingsStore.setRestartScope(scope);
 }
 
 function onRecoveryModeChange(event: Event) {

@@ -44,6 +44,9 @@ export interface VoiceSettings {
 /** 恢复模式 */
 export type RecoveryMode = 'full' | 'fast' | 'direct';
 
+/** “回到开头”范围 */
+export type RestartScope = 'currentScene' | 'allScripts';
+
 /** 显示设置 */
 export interface DisplaySettings {
   /** 对话框差异模式 */
@@ -64,6 +67,8 @@ export interface DisplaySettings {
   autoWaitDelay: number;
   /** 闲置时自动卸载 Live2D 引擎以节能 */
   autoUnloadLive2D: boolean;
+  /** “回到开头”范围：currentScene=当前场景开头, allScripts=所有剧本开头 */
+  restartScope: RestartScope;
   /** 恢复模式：full=完整重放, fast=快速跳转（跳过目标帧前的所有命令）, direct=直接恢复 */
   recoveryMode: RecoveryMode;
   /** 窗口管理器快捷键（例如 '`'） */
@@ -125,6 +130,7 @@ const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = {
   autoMode: false,
   autoWaitDelay: 1000,
   autoUnloadLive2D: true,
+  restartScope: 'currentScene',
   recoveryMode: 'fast',
   windowManagerHotkey: '`',
 };
@@ -167,6 +173,7 @@ const STORAGE_KEYS = {
     AUTO_MODE: 'engine:autoMode',
     AUTO_WAIT_DELAY: 'engine:autoWaitDelay',
     AUTO_UNLOAD_LIVE2D: 'engine:autoUnloadLive2D',
+    RESTART_SCOPE: 'engine:restartScope',
     RECOVERY_MODE: 'engine:recoveryMode',
     WINDOW_MANAGER_HOTKEY: 'engine:windowManagerHotkey',
   },
@@ -257,6 +264,8 @@ export const useSettingsStore = defineStore('settings', () => {
     displaySettings.value.autoMode = localStorage.getItem(STORAGE_KEYS.DISPLAY.AUTO_MODE) === 'true';
     displaySettings.value.autoWaitDelay = Number.parseInt(localStorage.getItem(STORAGE_KEYS.DISPLAY.AUTO_WAIT_DELAY) || '1000', 10);
     displaySettings.value.autoUnloadLive2D = localStorage.getItem(STORAGE_KEYS.DISPLAY.AUTO_UNLOAD_LIVE2D) !== 'false';
+    const restartScopeStr = localStorage.getItem(STORAGE_KEYS.DISPLAY.RESTART_SCOPE);
+    displaySettings.value.restartScope = (restartScopeStr === 'currentScene' || restartScopeStr === 'allScripts') ? restartScopeStr : 'currentScene';
     const recoveryModeStr = localStorage.getItem(STORAGE_KEYS.DISPLAY.RECOVERY_MODE);
     displaySettings.value.recoveryMode = (recoveryModeStr === 'full' || recoveryModeStr === 'fast' || recoveryModeStr === 'direct') ? recoveryModeStr : 'fast';
     displaySettings.value.windowManagerHotkey = localStorage.getItem(STORAGE_KEYS.DISPLAY.WINDOW_MANAGER_HOTKEY) || '`';
@@ -344,6 +353,7 @@ export const useSettingsStore = defineStore('settings', () => {
     localStorage.setItem(STORAGE_KEYS.DISPLAY.AUTO_MODE, String(displaySettings.value.autoMode));
     localStorage.setItem(STORAGE_KEYS.DISPLAY.AUTO_WAIT_DELAY, String(displaySettings.value.autoWaitDelay));
     localStorage.setItem(STORAGE_KEYS.DISPLAY.AUTO_UNLOAD_LIVE2D, String(displaySettings.value.autoUnloadLive2D));
+    localStorage.setItem(STORAGE_KEYS.DISPLAY.RESTART_SCOPE, displaySettings.value.restartScope);
     localStorage.setItem(STORAGE_KEYS.DISPLAY.RECOVERY_MODE, displaySettings.value.recoveryMode);
     localStorage.setItem(STORAGE_KEYS.DISPLAY.WINDOW_MANAGER_HOTKEY, displaySettings.value.windowManagerHotkey);
   }
@@ -513,6 +523,9 @@ export const useSettingsStore = defineStore('settings', () => {
     },
     setAutoUnloadLive2D(value: boolean) {
       displaySettings.value.autoUnloadLive2D = value;
+    },
+    setRestartScope(value: RestartScope) {
+      displaySettings.value.restartScope = value;
     },
     setRecoveryMode(value: RecoveryMode) {
       displaySettings.value.recoveryMode = value;

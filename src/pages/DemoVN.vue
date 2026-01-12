@@ -58,6 +58,7 @@ import AudioChannelsPanel from '../engine/render/AudioChannelsPanel.vue';
 import AudioPrompt from '../engine/render/AudioPrompt.vue';
 import { onMounted, ref, watch } from 'vue';
 import { useEngineStore } from 'stores/engine-store';
+import { useSettingsStore } from 'stores/settings-store';
 import { loadPersistedProgress, clearPersistedProgress } from '../engine/core/Persistence';
 import { initialEngineState } from '../engine/core/EngineContext';
 import { scenes, getSceneFn, hasScene } from '../game/scenes';
@@ -76,6 +77,7 @@ const showSettings = ref(false);
 const showAudioChannels = ref(false);
 const slMode = ref<'save' | 'load'>('save');
 const store = useEngineStore();
+const settingsStore = useSettingsStore();
 const router = useRouter();
 const route = useRoute();
 
@@ -283,6 +285,17 @@ function onStageClick() {
 function restartScene() {
   clearPersistedProgress();
   showDialog.value = true;
+  const scope = settingsStore.displaySettings.restartScope;
+  if (scope === 'currentScene') {
+    const validSceneIds = new Set(scenes.map((s) => s.id));
+    const candidateScene = (store.state.scene || '').trim();
+    const sceneName: SceneName =
+      candidateScene && validSceneIds.has(candidateScene)
+        ? (candidateScene as SceneName) // eslint-disable-line @typescript-eslint/no-unnecessary-type-assertion
+        : 'scene1';
+    void runSceneLoop(sceneName, 0);
+    return;
+  }
   void runSceneLoop('scene1', 0);
 }
 

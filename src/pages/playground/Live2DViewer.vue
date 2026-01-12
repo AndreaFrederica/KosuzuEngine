@@ -86,6 +86,9 @@
             >
               <q-tooltip>Internal</q-tooltip>
             </q-btn>
+            <q-btn round dense unelevated color="dark" icon="home" @click="goHome">
+              <q-tooltip>返回主界面 / Back to Menu</q-tooltip>
+            </q-btn>
           </div>
 
           <!-- Debug info overlay -->
@@ -238,6 +241,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, reactive, watch, computed, nextTick } from 'vue';
+import { useRouter } from 'vue-router';
 import { useEngineStore } from 'stores/engine-store';
 import { useLive2DDebugStore } from 'stores/live2d-debug-store';
 import { getLive2DBackend } from '../../engine/live2d/runtime';
@@ -258,6 +262,7 @@ import FloatingWindow from 'components/FloatingWindow.vue';
 import DialogBox from '../../engine/render/DialogBox.vue';
 
 const store = useEngineStore();
+const router = useRouter();
 const live2dDebugStore = useLive2DDebugStore();
 const backend = getLive2DBackend();
 
@@ -282,6 +287,10 @@ const toolsVisible = ref(true);
 const viewerSplitterModel = ref(70);
 const viewerSplitterModelBackup = ref(70);
 const showInternal = ref(false);
+
+function goHome() {
+  void router.push('/title');
+}
 
 // View State (Pan/Zoom)
 const view = reactive({ x: 0, y: 0, scale: 1 });

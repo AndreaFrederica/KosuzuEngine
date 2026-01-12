@@ -369,17 +369,19 @@ onUnmounted(() => {
 
 .volume-slider {
   flex: 1;
-  height: 6px;
-  border-radius: 3px;
-  background: rgba(255, 255, 255, 0.1);
+  height: 24px;
+  background: transparent;
   outline: none;
   -webkit-appearance: none;
   cursor: pointer;
+  display: flex;
+  align-items: center;
 }
 
 .volume-slider::-webkit-slider-runnable-track {
   height: 6px;
   border-radius: 3px;
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .volume-slider::-webkit-slider-thumb {
@@ -389,10 +391,31 @@ onUnmounted(() => {
   border-radius: 50%;
   background: #fff;
   cursor: pointer;
+  margin-top: -4px; /* (6px - 14px) / 2 */
   transition: transform 0.1s;
 }
 
 .volume-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+.volume-slider::-moz-range-track {
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.volume-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  cursor: pointer;
+  border: none;
+  transition: transform 0.1s;
+}
+
+.volume-slider::-moz-range-thumb:hover {
   transform: scale(1.2);
 }
 
