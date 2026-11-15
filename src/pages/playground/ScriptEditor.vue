@@ -84,9 +84,9 @@ import HtmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker';
 import JsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker';
 import TsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker';
 import * as ts from 'typescript';
-import { defaultRuntime } from '../../engine/core/Runtime';
-import { ContextOps, StageOps } from '../../engine/core/BaseActor';
-import { useEngineStore } from 'stores/engine-store';
+import sdkSource from 'virtual:script-sdk';
+import { scriptSession } from '../../engine/script/ScriptSession';
+import { compileScript } from '../../engine/script/compileScript';
 import { useQuasar } from 'quasar';
 
 const props = defineProps<{
@@ -94,7 +94,6 @@ const props = defineProps<{
   actor: any;
 }>();
 
-const engineStore = useEngineStore();
 const $q = useQuasar();
 
 const editorContainer = ref<HTMLElement | null>(null);
@@ -250,7 +249,9 @@ function setupTypeSystem() {
     `declare const stage: StageOps;`,
     `declare const store: any;`,
     `declare const log: { info: (...args: any[]) => void; warn: (...args: any[]) => void; error: (...args: any[]) => void; debug: (...args: any[]) => void };`,
+    `declare const external: Record<string, (...args: any[]) => any>;`,
     `declare function sleep(ms: number): Promise<void>;`,
+    `declare const external: Record<string, (...args: any[]) => any>;`,
   ].join('\n');
 
   tsDefaults.addExtraLib(typings, 'inmemory://model/engine-globals.d.ts');
@@ -352,6 +353,7 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  onStop();
   if (editor) editor.dispose();
   editor = null;
   modelChangeDisposable?.dispose();
@@ -430,95 +432,6 @@ async function onOpenFileChange(e: Event) {
   input.value = '';
 }
 
-function createTraceTransformer() {
-  return (context: ts.TransformationContext) => {
-    const f = context.factory;
-    let sourceFile: ts.SourceFile;
-
-    const makeTrace = (line: number) =>
-      f.createExpressionStatement(
-        f.createAwaitExpression(
-          f.createCallExpression(f.createIdentifier('__trace'), undefined, [
-            f.createNumericLiteral(line),
-          ]),
-        ),
-      );
-
-    const isTraceStatement = (s: ts.Statement) => {
-      if (!ts.isExpressionStatement(s)) return false;
-      const expr = s.expression;
-      const inner = ts.isAwaitExpression(expr) ? expr.expression : expr;
-      if (!ts.isCallExpression(inner)) return false;
-      const callee = inner.expression;
-      return ts.isIdentifier(callee) && callee.text === '__trace';
-    };
-
-    const instrumentStatements = (stmts: readonly ts.Statement[]) => {
-      const out: ts.Statement[] = [];
-      for (const s of stmts) {
-        if (
-          ts.isEmptyStatement(s) ||
-          ts.isFunctionDeclaration(s) ||
-          ts.isClassDeclaration(s) ||
-          isTraceStatement(s)
-        ) {
-          out.push(s);
-          continue;
-        }
-        const start = s.getStart(sourceFile);
-        const lc = sourceFile.getLineAndCharacterOfPosition(start);
-        out.push(makeTrace(Math.max(1, lc.line)), s);
-      }
-      return f.createNodeArray(out);
-    };
-
-    const visit: ts.Visitor = (node) => {
-      if (ts.isBlock(node)) {
-        const visited = ts.visitEachChild(node, visit, context);
-        const updatedStatements = instrumentStatements(visited.statements);
-        return f.updateBlock(visited, updatedStatements);
-      }
-
-      if (ts.isCaseClause(node)) {
-        const visited = ts.visitEachChild(node, visit, context);
-        const updatedStatements = instrumentStatements(visited.statements);
-        return f.updateCaseClause(visited, visited.expression, updatedStatements);
-      }
-
-      if (ts.isDefaultClause(node)) {
-        const visited = ts.visitEachChild(node, visit, context);
-        const updatedStatements = instrumentStatements(visited.statements);
-        return f.updateDefaultClause(visited, updatedStatements);
-      }
-
-      return ts.visitEachChild(node, visit, context);
-    };
-
-    return (sf: ts.SourceFile) => {
-      sourceFile = sf;
-      return ts.visitNode(sf, visit) as ts.SourceFile;
-    };
-  };
-}
-
-function compileWithTrace(tsCode: string) {
-  const wrappedTs = `{\n${tsCode}\n}`;
-  const res = ts.transpileModule(wrappedTs, {
-    compilerOptions: {
-      target: ts.ScriptTarget.ES2022,
-      module: ts.ModuleKind.ESNext,
-      strict: true,
-      esModuleInterop: true,
-      sourceMap: false,
-      inlineSourceMap: false,
-    },
-    transformers: {
-      before: [createTraceTransformer()],
-    },
-  });
-  return res.outputText;
-}
-
 async function trace(line: number) {
   currentLine = line;
   setExecLine(line);
@@ -549,19 +462,21 @@ async function startExecution(mode: DebugMode) {
   runState.value = 'running';
 
   try {
-    const jsCode = compileWithTrace(tsCode);
-    const wrapped = `return (async (actor, runtime, ctx, stage, store, log, sleep, __trace) => { ${jsCode} })`;
-    // eslint-disable-next-line @typescript-eslint/no-implied-eval
-    const func = new Function(wrapped)();
+    const actorInfo = props.actor as { id: string; name: string };
+    const source = `${sdkSource}
+      const actor = new ScriptSDK.CharacterActor(${JSON.stringify(actorInfo.name)}, ${JSON.stringify(actorInfo.id)});
+      const runtime = ScriptSDK.defaultRuntime;
+      const ctx = new ScriptSDK.ContextOps();
+      ctx.getVar = ctx.var.bind(ctx);
+      const stage = new ScriptSDK.StageOps();
+      const store = new Proxy({}, { get: (_, key) => key === 'state' ? runtime.state : (...args) => __call('store.' + String(key), ...args) });
+      ${compileScript(tsCode, fileName.value)}
+    `;
+    const vm = await scriptSession.start('editor', source, {
+      '__trace': { call: (line) => trace(Number(line)), resume: () => undefined },
 
-    const runtime = defaultRuntime;
-    const ctx = new ContextOps(runtime);
-    const stage = new StageOps(runtime);
-    const store = engineStore;
-    const log = console;
-    const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
-
-    await func(props.actor, runtime, ctx, stage, store, log, sleep, trace);
+    }, { file: fileName.value, source: tsCode });
+    await vm?.finished;
   } catch (e) {
     if (currentLine > 0) setExecLine(currentLine);
     console.error('Script Error:', e);
@@ -600,6 +515,7 @@ function onStop() {
   if (runState.value === 'idle') return;
   shouldStop = true;
   resume?.();
+  scriptSession.stop();
 }
 
 function setValue(code: string) {

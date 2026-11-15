@@ -5,12 +5,10 @@ import { initialEngineState, selectors, type EngineState } from '../engine/core/
 import type { ActionResult, ActionType } from '../engine/core/ActorAction';
 import {
   enablePersistence,
-  loadPersistedProgress,
-  loadPersistedState,
-  clearPersistedProgress,
   type PersistedProgress,
 } from '../engine/core/Persistence';
-import { useSettingsStore, type RecoveryMode } from './settings-store';
+import { useSettingsStore } from './settings-store';
+import { scriptSession } from '../engine/script/ScriptSession';
 
 const DEV_MODE_KEY = 'engine:devMode';
 
@@ -44,10 +42,7 @@ export const useEngineStore = defineStore('engine', () => {
   runtime.setDevModeCallback(() => devMode.value);
 
   enablePersistence(runtime);
-  const progress = loadPersistedProgress();
   const settingsStore = useSettingsStore();
-  const skipReplay = settingsStore.displaySettings.skipReplay;
-  const recoveryMode: RecoveryMode = skipReplay ? 'direct' : settingsStore.displaySettings.recoveryMode;
 
   watch(
     () => settingsStore.otherSettings.useIndexedDBSaves,
@@ -57,29 +52,6 @@ export const useEngineStore = defineStore('engine', () => {
     { immediate: true },
   );
 
-  if (recoveryMode === 'direct') {
-    const savedFrame = progress?.frame;
-    if (progress) clearPersistedProgress();
-    const restored = loadPersistedState();
-    if (restored) {
-      runtime.hydrate(restored);
-      if (typeof savedFrame === 'number') (loadProgress as { frame: number }).frame = savedFrame;
-      Object.assign(state, restored);
-      skipScript.value = true;
-    }
-  } else if (!progress) {
-    // 没有进度记录：从持久化状态恢复
-    const restored = loadPersistedState();
-    if (restored) {
-      console.log('[engine-store] 从持久化状态恢复');
-      runtime.hydrate(restored, { clearHistory: true });
-      Object.assign(state, restored);
-      skipScript.value = true;
-    }
-  } else {
-    console.log('[engine-store] 从进度记录恢复（将重放操作）');
-    loadReplay.value = { ...progress, fastMode: recoveryMode === 'fast' };
-  }
   let prevActors: EngineState['actors'] = {};
   let prevBgName: string | undefined = undefined;
 
@@ -188,6 +160,15 @@ export const useEngineStore = defineStore('engine', () => {
         return { ok: false } as ActionResult<void>;
       }
 
+      if (saveData.script) {
+        await runtime.restoreSave(saveData);
+        loadReplay.value = null;
+        skipScript.value = true;
+        loadToken.value += 1;
+        return { ok: true } as ActionResult<void>;
+      }
+      scriptSession.stop();
+
       const parsedMeta = saveData.meta;
       const savedState = (saveData.state ?? null) as EngineState | null;
 
@@ -201,38 +182,18 @@ export const useEngineStore = defineStore('engine', () => {
       loadProgress.scene = scene;
       loadProgress.frame = frame;
 
-      // 获取恢复模式设置
-      const settingsStore = useSettingsStore();
-      const recoveryMode: RecoveryMode = settingsStore.displaySettings.recoveryMode;
-
-      console.log('[load] recoveryMode =', recoveryMode);
-      console.log('[load] frame =', frame);
-
-      // 根据恢复模式决定如何加载
-      if (recoveryMode === 'direct') {
-        // 直接恢复模式：只恢复状态，不执行脚本
-        console.log('[load] 进入直接恢复模式');
-        loadReplay.value = null;
-        skipScript.value = true;
-        if (savedState) {
-          runtime.hydrate(savedState, { clearHistory: true });
-        }
-      } else {
-        console.log(recoveryMode === 'fast' ? '[load] 进入快速恢复模式' : '[load] 进入完整重放模式');
-        const choices = Array.isArray(saveData.choices) ? saveData.choices : undefined;
-        const entryVars = saveData.entryVars && typeof saveData.entryVars === 'object' ? saveData.entryVars : undefined;
-        loadReplay.value = {
-          scene,
-          frame,
-          time: Date.now(),
-          fastMode: recoveryMode === 'fast',
-          ...(choices ? { choices } : {}),
-          ...(entryVars ? { entryVars } : {}),
-        };
-        skipScript.value = false;
-      }
-
-      console.log('[load] skipScript.value =', skipScript.value);
+      // Legacy saves contain no VM heap. Replay once to migrate them into a live VM.
+      runtime.reset();
+      runtime.hydrate({
+        ...initialEngineState,
+        vars: saveData.entryVars ?? {},
+        bindings: savedState?.bindings ?? {},
+      }, { silent: true });
+      runtime.setChoiceTrail(saveData.choices);
+      runtime.replayToFrame(frame, 'fast');
+      await scriptSession.startGame(scene);
+      loadReplay.value = null;
+      skipScript.value = false;
       loadToken.value += 1;
       return { ok: true } as ActionResult<void>;
     },
@@ -259,3 +220,5 @@ export const useEngineStore = defineStore('engine', () => {
     reset,
   };
 });
+
+export type EngineStore = ReturnType<typeof useEngineStore>;

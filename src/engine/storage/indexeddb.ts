@@ -3,6 +3,8 @@
  * 为存档系统提供大容量、结构化的存储支持
  */
 
+import type { SavedScript } from '../script/ScriptSession';
+
 interface SaveMetadata {
   slot: string;
   scene?: string;
@@ -12,6 +14,7 @@ interface SaveMetadata {
 }
 
 export interface SaveData {
+  script?: SavedScript;
   meta: SaveMetadata;
   state: unknown;
   entryVars?: Record<string, unknown>;
@@ -66,7 +69,8 @@ export async function saveToIndexedDB(saveData: SaveData): Promise<void> {
     const store = transaction.objectStore(STORE_NAME);
     const request = store.put(saveData);
 
-    request.onsuccess = () => resolve();
+    transaction.oncomplete = () => resolve();
+    transaction.onabort = () => reject(new Error(`Failed to commit save: ${transaction.error}`));
     request.onerror = () => reject(new Error(`Failed to save: ${request.error}`));
   });
 }

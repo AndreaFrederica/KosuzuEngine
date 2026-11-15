@@ -35,11 +35,11 @@
   --ke-dialog-text-line-height: 1.7;
 
   // 继续按钮
-  --ke-continue-btn-bg: transparent;
-  --ke-continue-btn-color: transparent;
+  --ke-continue-btn-bg: rgba(255, 255, 255, 0.08);
+  --ke-continue-btn-color: rgba(255, 255, 255, 0.95);
   --ke-continue-btn-border-radius: 0;
-  --ke-continue-btn-padding: 0;
-  --ke-continue-btn-hover-bg: transparent;
+  --ke-continue-btn-padding: 8px 16px;
+  --ke-continue-btn-hover-bg: rgba(255, 255, 255, 0.16);
 }
 
 // ========================================

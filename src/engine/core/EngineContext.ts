@@ -80,6 +80,8 @@ export interface EngineState {
   history: HistoryEntry[];
   vars?: Record<string, unknown>;
   bindings: BindingsRegistry;
+  /** Completed resumable script commands, keyed by source location and occurrence. */
+  flow?: Record<string, { value?: unknown }>;
 }
 
 export const initialEngineState: EngineState = {
@@ -92,6 +94,7 @@ export const initialEngineState: EngineState = {
   history: [],
   vars: {},
   bindings: {},
+  flow: {},
 };
 
 export type Reducer = (

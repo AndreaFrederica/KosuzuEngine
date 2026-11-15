@@ -116,37 +116,6 @@
   }
 }
 
-// 继续指示器动画（替代继续按钮）
-.dialog-content::after {
-  content: '';
-  position: absolute;
-  bottom: 20px;
-  right: 24px;
-  width: 0;
-  height: 0;
-  border-left: 6px solid transparent;
-  border-right: 6px solid transparent;
-  border-top: 8px solid rgba(255, 255, 255, 0.6);
-  animation: continueBounce 1.2s ease-in-out infinite;
-  animation-delay: 0.5s;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-.dialog-box:not(.typing)::after {
-  opacity: 1;
-}
-
-@keyframes continueBounce {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(6px);
-  }
-}
-
 // 响应式优化
 @media (max-width: 768px) {
   .dialog-content {
@@ -157,11 +126,6 @@
     --ke-dialog-text-font-size: 0.95rem;
     --ke-dialog-speaker-font-size: 0.95rem;
     --ke-dialog-box-margin: 12px;
-  }
-
-  .dialog-content::after {
-    bottom: 16px;
-    right: 20px;
   }
 }
 
@@ -174,13 +138,5 @@
     --ke-dialog-text-font-size: 0.9rem;
     --ke-dialog-speaker-font-size: 0.9rem;
     --ke-dialog-box-margin: 8px;
-  }
-
-  .dialog-content::after {
-    bottom: 12px;
-    right: 16px;
-    border-left-width: 5px;
-    border-top-width: 3px;
-    border-bottom-width: 3px;
   }
 }

@@ -1,4 +1,5 @@
 import type { TransformState } from '../core/BaseActor';
+import type { Container } from 'pixi.js';
 
 export type Live2DSource = string | File[];
 
@@ -85,6 +86,7 @@ export interface ILive2DBackend {
   dispose(): void;
   pause?(): void;
   resume?(): void;
+  getViewportContainer(): Container;
 
   registerSource(actorId: string, source: Live2DSource): void;
   load(actorId: string, source?: Live2DSource): Promise<void>;

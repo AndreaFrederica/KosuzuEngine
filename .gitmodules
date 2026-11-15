@@ -1,0 +1,3 @@
+[submodule "external/Live2dRender"]
+	path = external/Live2dRender
+	url = https://github.com/AndreaFrederica/Live2dRender.git

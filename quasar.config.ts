@@ -3,6 +3,7 @@
 
 import { defineConfig } from '#q-app/wrappers';
 import { fileURLToPath } from 'node:url';
+import { scriptVmPlugin } from './build/script-vm-plugin';
 
 export default defineConfig((ctx) => {
   return {
@@ -71,8 +72,23 @@ export default defineConfig((ctx) => {
 
       // 配置 Vite 构建选项，对 game 文件夹进行代码分割
       extendViteConf(viteConf) {
+        viteConf.plugins ??= [];
+        viteConf.plugins.push(scriptVmPlugin());
         // 只有在非 bundle 模式下才启用代码分割
         const enableCodeSplitting = process.env.ENABLE_CODE_SPLITTING !== 'false';
+
+        if (!viteConf.resolve) {
+          viteConf.resolve = {};
+        }
+        if (!viteConf.resolve.alias) {
+          viteConf.resolve.alias = {};
+        }
+
+        // 添加 Live2D Framework 的别名映射
+        const frameworkPath = fileURLToPath(new URL('./external/Live2D/CubismSdkForWeb/Framework/src', import.meta.url));
+        (viteConf.resolve.alias as Record<string, string>)['@framework'] = frameworkPath;
+        const nativeBackendPath = fileURLToPath(new URL('./external/Live2dRender/src/core/native-backend.ts', import.meta.url));
+        (viteConf.resolve.alias as Record<string, string>)['live2d-native-backend'] = nativeBackendPath;
 
         if (!viteConf.build) {
           viteConf.build = {};

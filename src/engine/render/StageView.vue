@@ -98,10 +98,9 @@ async function syncBgmState() {
   });
 
   // 情况1：期望播放某个音乐，但实际状态不一致
-  if (expectedTrack) {
+  if (expectedName) {
     console.log('[StageView] 重新播放 BGM:', expectedName);
-    // expectedTrack 存在时 expectedName 必定存在
-    await audioManager.play(expectedName!, { fadeIn: bgmFadeDuration.value ?? 800 });
+    await audioManager.play(expectedName, { fadeIn: bgmFadeDuration.value ?? 800 });
   }
   // 情况2：期望停止音乐，但实际还在播放
   else if (managerStatus.currentTrack && managerStatus.isPlaying) {

@@ -205,7 +205,8 @@ async function startNewGame() {
   // 停止背景音乐并切换到游戏界面
   await bgm.stop({ fadeOut: 500 });
   console.log('[TitleScreen] BGM已停止，准备导航到游戏界面...');
-  await router.push('/demo');
+  store.reset();
+  await router.push({ path: '/demo', query: { new: '1' } });
   console.log('[TitleScreen] 导航命令已执行');
 }
 
