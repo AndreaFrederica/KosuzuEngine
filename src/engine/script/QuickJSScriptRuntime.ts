@@ -149,6 +149,7 @@ export class QuickJSScriptRuntime {
       runtime.vm = await QuickJS.restore(QuickJS.deserializeSnapshot(bytes), options);
       runtime.vm.registerHostCallback('__hostInvoke', (...args) => runtime.invoke(args));
       runtime.location = snapshot.location;
+      runtime.filename = snapshot.location?.file ?? 'script.ts';
       // Restored continuations are reattached explicitly after engine state is hydrated.
       for (const call of snapshot.pending) {
         runtime.pending.set(call.id, { ...call, started: Date.now() });

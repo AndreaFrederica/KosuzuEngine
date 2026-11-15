@@ -128,8 +128,8 @@ export class ScriptSession implements ScriptController {
     // Validate and instantiate first: invalid snapshots leave the current VM intact.
     const vm = await QuickJSScriptRuntime.create(await loadScriptWasm(), {
       ...createEngineHosts(this.runtime),
-      ...this.extraHosts,
       '__trace': { call: (file, line) => { this.currentFile = String(file); this.currentLine = Number(line); }, resume: () => undefined },
+      ...this.extraHosts,
     }, await decompressSnapshot(script.vm));
     if (generation !== this.generation) { vm.stop(); return; }
     this.active?.stop();

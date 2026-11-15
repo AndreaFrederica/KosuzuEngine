@@ -192,14 +192,15 @@ test('runtime save/load and back restore the script position with the displayed 
   const unsubscribe = session.subscribeExecution(state => executionUpdates.push(state));
   assert.equal(executionUpdates.at(-1).status, 'idle');
   runtime.setScriptController(session);
+  const editorTraceCalls = [];
   await session.start('editor', `
     await __call('runtime.dispatch', {type:'scene',payload:'test'});
     let count = 10;
     for (let i=0; i<3; i++) {
-      __trace('test.ts', 5 + i);
+      __trace(5 + i);
       await __call('runtime.dispatch', {type:'say',payload:{text:String(count++)}});
     }
-  `, {}, { file: 'test.ts', source: 'original editor source' });
+  `, { __trace: { call: line => editorTraceCalls.push(line), resume: () => undefined } }, { file: 'test.ts', source: 'original editor source' });
   await tick();
   assert.equal(runtime.state.dialog.text, '10');
   assert.equal(executionUpdates.at(-1).location.line, 5);
@@ -215,6 +216,8 @@ test('runtime save/load and back restore the script position with the displayed 
   assert.equal(runtime.state.history.length,1);
   runtime.advance(); await tick();
   assert.equal(runtime.state.dialog.text, '11', 'local count resumes, not reset or incremented twice');
+  assert.deepEqual(editorTraceCalls, [5, 6, 6], 'restoring keeps the editor debugger host');
+  assert.equal(executionUpdates.at(-1).location.file, 'test.ts', 'numeric editor traces retain their filename after restore');
   runtime.back();
   for(let i=0;i<50 && runtime.state.dialog.text!=='10';i++) await new Promise(r=>setTimeout(r,10));
   assert.equal(runtime.state.dialog.text, '10');

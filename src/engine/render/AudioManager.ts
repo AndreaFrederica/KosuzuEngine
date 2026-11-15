@@ -25,7 +25,6 @@ export class AudioManager {
   private channels: Map<string, AudioChannel> = new Map();
   private channelCounter: number = 0;
   private pendingPlays: Map<string, { url: string; fadeInMs: number }> = new Map();
-  private hasUserInteracted: boolean = false;
   private interactionHandlerBound: boolean = false;
 
   // 默认 BGM 通道（向后兼容）
@@ -172,9 +171,7 @@ export class AudioManager {
 
     const events = ['click', 'keydown', 'touchstart', 'mousedown'];
     const handler = () => {
-      if (!this.hasUserInteracted) {
-        this.handleUserInteraction();
-      }
+      this.handleUserInteraction();
 
       // 移除事件监听
       events.forEach(event => {
@@ -192,11 +189,7 @@ export class AudioManager {
    * 处理用户交互（播放待处理的音频）
    */
   handleUserInteraction() {
-    if (this.hasUserInteracted) {
-      return; // 已经处理过，直接返回
-    }
     console.log('[AudioManager] 检测到用户交互');
-    this.hasUserInteracted = true;
 
     // 隐藏交互提示（如果存在）
     if (hidePromptCallback) {
@@ -224,6 +217,8 @@ export class AudioManager {
       console.error(`[AudioManager] 通道不存在: ${channelId}`);
       return false;
     }
+
+    this.pendingPlays.delete(channelId);
 
     try {
       return await channel.play(url, fadeInMs);
@@ -491,6 +486,7 @@ export class AudioManager {
     if (!channel) {
       return {
         isPlaying: false,
+        isLoading: false,
         currentTrack: null,
         volume: 0,
         audioPaused: true,
@@ -505,6 +501,7 @@ export class AudioManager {
 
     return {
       isPlaying: status.isPlaying,
+      isLoading: status.isLoading,
       currentTrack: status.currentTrack,
       volume: status.volume,
       audioPaused: status.audioPaused,

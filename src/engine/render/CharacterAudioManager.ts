@@ -3,21 +3,8 @@
  * 每个角色可以创建和管理多个独立的语音通道
  */
 
-import { AudioManager } from './AudioManager';
+import { audioManager, type AudioManager } from './AudioManager';
 import type { ChannelConfig } from './AudioChannel';
-
-// 全局 AudioManager 单例
-let audioManagerInstance: AudioManager | null = null;
-
-function getAudioManager(): AudioManager {
-  if (!audioManagerInstance) {
-    // 动态导入避免循环依赖
-    void import('./AudioManager').then((module) => {
-      audioManagerInstance = module.audioManager;
-    });
-  }
-  return audioManagerInstance ?? (window as unknown as { __audioManager__?: AudioManager }).__audioManager__ ?? new AudioManager();
-}
 
 /**
  * 角色音频通道状态
@@ -42,7 +29,7 @@ export class CharacterAudioManager {
 
   constructor(characterName: string) {
     this.characterName = characterName;
-    this.audioManager = getAudioManager();
+    this.audioManager = audioManager;
   }
 
   /**

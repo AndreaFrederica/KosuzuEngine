@@ -10,13 +10,13 @@
     <div class="col relative-position" ref="editorContainer"></div>
     <div class="q-pa-sm bg-grey-10 row items-center justify-between">
       <div class="row items-center">
-        <q-btn dense round flat color="primary" icon="save" @click="onSave">
+        <q-btn dense round flat color="primary" icon="save" aria-label="保存脚本" @click="onSave">
           <q-tooltip>保存</q-tooltip>
         </q-btn>
-        <q-btn dense round flat color="primary" icon="save_as" @click="onSaveAs">
+        <q-btn dense round flat color="primary" icon="save_as" aria-label="另存脚本" @click="onSaveAs">
           <q-tooltip>另存为</q-tooltip>
         </q-btn>
-        <q-btn dense round flat color="primary" icon="folder_open" @click="onOpen">
+        <q-btn dense round flat color="primary" icon="folder_open" aria-label="读取脚本" @click="onOpen">
           <q-tooltip>读取</q-tooltip>
         </q-btn>
       </div>
@@ -27,6 +27,7 @@
           round
           color="primary"
           icon="play_arrow"
+          aria-label="运行脚本"
           @click="onRun"
           :loading="runState === 'running'"
           :disable="runState === 'running'"
@@ -40,6 +41,7 @@
           outline
           color="primary"
           icon="skip_next"
+          aria-label="脚本单步"
           @click="onStep"
           :disable="runState === 'running'"
         >
@@ -52,6 +54,7 @@
           outline
           color="primary"
           icon="play_circle"
+          aria-label="继续执行脚本"
           @click="onContinue"
           :disable="runState !== 'paused'"
         >
@@ -64,6 +67,7 @@
           outline
           color="negative"
           icon="stop"
+          aria-label="停止脚本"
           @click="onStop"
           :disable="runState === 'idle'"
         >
@@ -114,6 +118,7 @@ let debugMode: DebugMode = 'run';
 let shouldStop = false;
 let resume: (() => void) | null = null;
 let currentLine = 0;
+let unsubscribeExecution: (() => void) | undefined;
 let execDecorationIds: string[] = [];
 let breakpointDecorationIds: string[] = [];
 const breakpoints = ref<Set<number>>(new Set());
@@ -249,7 +254,6 @@ function setupTypeSystem() {
     `declare const stage: StageOps;`,
     `declare const store: any;`,
     `declare const log: { info: (...args: any[]) => void; warn: (...args: any[]) => void; error: (...args: any[]) => void; debug: (...args: any[]) => void };`,
-    `declare const external: Record<string, (...args: any[]) => any>;`,
     `declare function sleep(ms: number): Promise<void>;`,
     `declare const external: Record<string, (...args: any[]) => any>;`,
   ].join('\n');
@@ -306,6 +310,19 @@ function toggleBreakpoint(line: number) {
 }
 
 onMounted(() => {
+  unsubscribeExecution = scriptSession.subscribeExecution((state) => {
+    if (state.location?.file === fileName.value) {
+      currentLine = state.location.line;
+      setExecLine(currentLine);
+      if (state.status === 'running' || state.status === 'waiting') {
+        if (runState.value !== 'paused') runState.value = 'running';
+      }
+    }
+    if (['completed', 'stopped', 'error'].includes(state.status)) {
+      runState.value = 'idle';
+      resume = null;
+    }
+  });
   ensureMonacoWorkers();
   setupTypeSystem();
   if (editorContainer.value) {
@@ -354,6 +371,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   onStop();
+  unsubscribeExecution?.();
   if (editor) editor.dispose();
   editor = null;
   modelChangeDisposable?.dispose();
@@ -473,7 +491,7 @@ async function startExecution(mode: DebugMode) {
       ${compileScript(tsCode, fileName.value)}
     `;
     const vm = await scriptSession.start('editor', source, {
-      '__trace': { call: (line) => trace(Number(line)), resume: () => undefined },
+      '__trace': { call: (line) => trace(Number(line)), resume: (call) => trace(Number(call.args[0])) },
 
     }, { file: fileName.value, source: tsCode });
     await vm?.finished;
@@ -482,8 +500,10 @@ async function startExecution(mode: DebugMode) {
     console.error('Script Error:', e);
     alert('Script Error: ' + String(e));
   } finally {
-    runState.value = 'idle';
-    resume = null;
+    if (!['running', 'waiting'].includes(scriptSession.executionState.status)) {
+      runState.value = 'idle';
+      resume = null;
+    }
   }
 }
 
