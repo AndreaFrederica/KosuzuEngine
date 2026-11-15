@@ -42,14 +42,21 @@
   line-height: var(--ke-dialog-text-line-height);
 }
 
-.dialog-content .q-btn {
+.dialog-content .dialog-continue {
   background: var(--ke-continue-btn-bg);
   color: var(--ke-continue-btn-color);
   border-radius: var(--ke-continue-btn-border-radius);
   padding: var(--ke-continue-btn-padding);
+  min-height: 44px;
+  transition: background-color 0.2s ease;
 
   &:hover {
     background: var(--ke-continue-btn-hover-bg);
+  }
+
+  &:focus-visible {
+    outline: 2px solid currentColor !important; // Quasar adds .no-outline to buttons.
+    outline-offset: 3px;
   }
 }
 

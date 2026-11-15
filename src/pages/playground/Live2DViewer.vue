@@ -101,6 +101,7 @@
 
           <AudioPrompt />
           <ScriptConsole :visible="showConsole" @close="showConsole = false" />
+          <ScriptExecutionViewer :visible="showExecution" @close="showExecution = false" />
           <SaveLoadPanel :visible="showSL" :mode="slMode" @close="showSL = false" />
           <SettingsPanel :visible="showSettings" @close="showSettings = false" />
           <AudioChannelsPanel :visible="showAudioChannels" @close="showAudioChannels = false" />
@@ -114,6 +115,7 @@
               @open-audio="showAudioChannels = !showAudioChannels"
               @open-context="ctxOpen = !ctxOpen"
               @open-console="showConsole = !showConsole"
+              @open-execution="showExecution = !showExecution"
               @open-history="showHistory = !showHistory"
               @open-save="
                 slMode = 'save';
@@ -254,6 +256,7 @@ import HistoryPanel from '../../engine/render/HistoryPanel.vue';
 import SaveLoadPanel from '../../engine/render/SaveLoadPanel.vue';
 import AudioPrompt from '../../engine/render/AudioPrompt.vue';
 import ScriptConsole from '../../engine/debug/ScriptConsole.vue';
+import ScriptExecutionViewer from '../../engine/debug/ScriptExecutionViewer.vue';
 import ModelLoader from './ModelLoader.vue';
 import ControlPanel from './ControlPanel.vue';
 import ScriptEditor from './ScriptEditor.vue';
@@ -274,6 +277,7 @@ const bgOpen = ref(false);
 const ctxOpen = ref(false);
 const showDialogBox = ref(false);
 const showConsole = ref(false);
+const showExecution = ref(false);
 const showSettings = ref(false);
 const showAudioChannels = ref(false);
 const showHistory = ref(false);

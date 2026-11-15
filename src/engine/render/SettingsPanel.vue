@@ -266,18 +266,7 @@
               keep-color
             />
           </div>
-          <div class="setting-item">
-            <div class="setting-info">
-              <div class="setting-label">跳过重放</div>
-              <div class="setting-desc">读档时直接恢复状态，不重放动作</div>
-            </div>
-            <q-toggle
-              :model-value="settingsStore.displaySettings.skipReplay"
-              @update:model-value="onSkipReplayChange"
-              color="primary"
-              keep-color
-            />
-          </div>
+
           <div class="setting-item">
             <div class="setting-info">
               <div class="setting-label">使用 IndexedDB 存档</div>
@@ -325,6 +314,18 @@
           </div>
           <div class="setting-item">
             <div class="setting-info">
+              <div class="setting-label">Live2D 后端</div>
+              <div class="setting-desc">
+                切换 Live2D 渲染引擎 (需刷新生效) / Switch Live2D backend (Requires Refresh)
+              </div>
+            </div>
+            <select v-model="live2dBackend" @change="onLive2DBackendChange" class="setting-select">
+              <option value="pixi">PixiJS (Default)</option>
+              <option value="native">Native (WebGL)</option>
+            </select>
+          </div>
+          <div class="setting-item">
+            <div class="setting-info">
               <div class="setting-label">回到开头范围</div>
               <div class="setting-desc">“回到开头”是回到当前场景还是所有剧本</div>
             </div>
@@ -333,17 +334,7 @@
               <option value="allScripts">所有剧本开头</option>
             </select>
           </div>
-          <div class="setting-item">
-            <div class="setting-info">
-              <div class="setting-label">恢复模式</div>
-              <div class="setting-desc">读档时的恢复方式 / Recovery mode when loading</div>
-            </div>
-            <select v-model="recoveryMode" @change="onRecoveryModeChange" class="setting-select">
-              <option value="full">完整重放 / Full replay</option>
-              <option value="fast">快速跳转 / Fast skip</option>
-              <option value="direct">直接恢复 / Direct restore</option>
-            </select>
-          </div>
+          <div class="setting-item"><div class="setting-info"><div class="setting-label">存档恢复</div><div class="setting-desc">从保存的执行位置继续，保留脚本变量和当前选择。</div></div></div>
         </div>
 
         <!-- 开发模式设置 -->
@@ -471,8 +462,8 @@ const uiText = computed(() => {
 const voiceEnabled = computed(() => settingsStore.voiceSettings.enabled);
 const ttsEngine = computed(() => settingsStore.voiceSettings.engine);
 const typewriterEnabled = computed(() => settingsStore.textSettings.typewriterEnabled);
-const recoveryMode = computed(() => settingsStore.displaySettings.recoveryMode);
 const restartScope = computed(() => settingsStore.displaySettings.restartScope);
+const live2dBackend = computed(() => settingsStore.displaySettings.live2dBackend);
 
 // 语音设置
 const browserVoices = ref<SpeechSynthesisVoice[]>([]);
@@ -571,9 +562,6 @@ function onShowTypewriterDebugChange(value: boolean) {
   settingsStore.setShowTypewriterDebug(value);
 }
 
-function onSkipReplayChange(value: boolean) {
-  settingsStore.setSkipReplay(value);
-}
 
 function onUseIndexedDBSavesChange(value: boolean) {
   settingsStore.setUseIndexedDBSaves(value);
@@ -595,10 +583,11 @@ function onRestartScopeChange(event: Event) {
   settingsStore.setRestartScope(scope);
 }
 
-function onRecoveryModeChange(event: Event) {
+
+function onLive2DBackendChange(event: Event) {
   const target = event.target as HTMLSelectElement;
-  const mode = target.value as 'full' | 'fast' | 'direct';
-  settingsStore.setRecoveryMode(mode);
+  const backend = target.value as 'pixi' | 'native';
+  settingsStore.setLive2DBackend(backend);
 }
 
 // 音量控制函数

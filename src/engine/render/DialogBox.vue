@@ -37,6 +37,9 @@
               <q-item clickable v-close-popup @click="$emit('open-console')">
                 <q-item-section>控制台</q-item-section>
               </q-item>
+              <q-item clickable v-close-popup @click="$emit('open-execution')">
+                <q-item-section>执行位置</q-item-section>
+              </q-item>
               <q-separator />
               <q-item clickable v-close-popup @click="$emit('back-to-title')">
                 <q-item-section>回到主屏幕</q-item-section>
@@ -67,8 +70,14 @@
       />
 
       <!-- 继续按钮 (右下角) -->
-      <div v-if="!hideContinueButton" class="absolute-bottom-right q-pa-md">
-        <q-btn label="继续" color="primary" @click.stop="onNext" />
+      <div v-if="!hideContinueButton" class="dialog-continue-row">
+        <q-btn
+          class="dialog-continue"
+          unelevated
+          label="继续"
+          icon-right="keyboard_arrow_down"
+          @click.stop="onNext"
+        />
       </div>
     </div>
   </div>
@@ -213,6 +222,7 @@ const emit = defineEmits<{
   (e: 'open-context'): void;
   (e: 'open-debug'): void;
   (e: 'open-console'): void;
+  (e: 'open-execution'): void;
   (e: 'open-history'): void;
   (e: 'open-save'): void;
   (e: 'open-load'): void;
@@ -313,6 +323,12 @@ function quickSaveWithConfirm(slotNum: number) {
   font-size: 1.1em;
   white-space: pre-wrap;
   line-height: 1.5;
+}
+
+.dialog-continue-row {
+  align-self: flex-end;
+  margin-top: auto;
+  padding-top: 8px;
 }
 
 .hover-opacity:hover {

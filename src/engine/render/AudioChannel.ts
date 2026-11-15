@@ -22,6 +22,7 @@ export interface ChannelStatus {
   channelId: string;
   type: ChannelType;
   isPlaying: boolean;
+  isLoading: boolean;
   currentTrack: string | null;
   volume: number;
   targetVolume: number;
@@ -43,6 +44,10 @@ export class AudioChannel {
   private currentVolume: number = 0.0;
   private isPlaying: boolean = false;
   private fadeInterval: ReturnType<typeof setInterval> | null = null;
+  private finishFade: ((completed: boolean) => void) | null = null;
+  private playRequestId = 0;
+  private stopping = false;
+  private pendingPlay: { url: string; promise: Promise<boolean> } | null = null;
   private channelId: string;
   private channelType: ChannelType;
   private loop: boolean = false;
@@ -212,39 +217,58 @@ export class AudioChannel {
    * @param url 音频文件 URL
    * @param fadeInMs 淡入时间（毫秒）
    */
-  async play(url: string, fadeInMs = 0): Promise<boolean> {
+  play(url: string, fadeInMs = 0): Promise<boolean> {
     console.log(`[AudioChannel:${this.channelId}] 播放音频:`, url, '淡入:', fadeInMs, '循环:', this.loop);
 
     if (!this.ensureAudioElement()) {
       console.error(`[AudioChannel:${this.channelId}] 音频元素初始化失败`);
-      return false;
+      return Promise.resolve(false);
     }
 
     if (!this.audioElement) {
       console.error(`[AudioChannel:${this.channelId}] 音频元素未初始化`);
-      return false;
+      return Promise.resolve(false);
     }
 
     // 检查是否已经在播放这首音乐
-    if (this.currentTrack === url && !this.audioElement.paused && this.audioElement.currentTime > 0) {
+    if (this.pendingPlay?.url === url) return this.pendingPlay.promise;
+    if (this.currentTrack === url && this.isPlaying && !this.stopping && !this.audioElement.paused) {
       console.log(`[AudioChannel:${this.channelId}] 该音频已在播放中，跳过`);
-      return true;
+      return Promise.resolve(true);
     }
 
+    const requestId = ++this.playRequestId;
+    this.stopping = false;
+    this.cancelFade();
+    const promise = this.startPlayback(url, fadeInMs, requestId);
+    this.pendingPlay = { url, promise };
+    const clearPending = () => {
+      if (this.pendingPlay?.promise === promise) this.pendingPlay = null;
+    };
+    void promise.then(clearPending, clearPending);
+    return promise;
+  }
+
+  private async startPlayback(url: string, fadeInMs: number, requestId: number): Promise<boolean> {
+    const audio = this.audioElement!;
     try {
-      // 设置音频源
-      this.audioElement.src = url;
-      this.audioElement.loop = this.loop;
+      // Reusing the same source must not restart a download or reset playback position.
+      if (this.currentTrack !== url) audio.src = url;
+      audio.loop = this.loop;
       this.currentTrack = url;
+      this.isPlaying = false;
 
       // 重置音量为 0（使用 gainNode）
-      this.currentVolume = 0;
+      this.currentVolume = fadeInMs > 0 ? 0 : this.targetVolume;
       if (this.gainNode) {
-        this.gainNode.gain.value = 0;
+        this.gainNode.gain.value = this.currentVolume;
+      } else {
+        audio.volume = this.currentVolume;
       }
 
       // 开始播放
-      await this.audioElement.play();
+      await audio.play();
+      if (requestId !== this.playRequestId) return false;
       this.isPlaying = true;
 
       // 恢复 AudioContext（如果被挂起）
@@ -259,13 +283,17 @@ export class AudioChannel {
 
       // 如果需要淡入
       if (fadeInMs > 0) {
-        await this.fadeTo(this.targetVolume, fadeInMs);
+        const completed = await this.fadeTo(this.targetVolume, fadeInMs);
+        if (!completed) return false;
       } else {
         this.applyVolume(this.targetVolume);
       }
 
-      return true;
+      return requestId === this.playRequestId;
     } catch (error: unknown) {
+      // A later play/stop owns the channel now; old promises cannot clear its state.
+      if (requestId !== this.playRequestId) return false;
+      this.isPlaying = false;
       const errorName = error instanceof Error ? error.name : String(error);
       if (errorName === 'NotAllowedError') {
         console.log(`[AudioChannel:${this.channelId}] 需要用户交互才能播放音频`);
@@ -273,7 +301,6 @@ export class AudioChannel {
         throw error;
       }
       console.error(`[AudioChannel:${this.channelId}] 播放失败:`, error);
-      this.isPlaying = false;
       this.currentTrack = null;
       return false;
     }
@@ -286,18 +313,25 @@ export class AudioChannel {
   async stop(fadeOutMs = 0): Promise<boolean> {
     console.log(`[AudioChannel:${this.channelId}] 停止音频, 淡出:`, fadeOutMs);
 
-    if (!this.isPlaying || !this.audioElement) {
+    const audio = this.audioElement;
+    if (!audio) {
       return true;
     }
 
+    const requestId = ++this.playRequestId;
+    this.stopping = true;
+    this.pendingPlay = null;
+    this.cancelFade();
+
     // 如果需要淡出
-    if (fadeOutMs > 0) {
-      await this.fadeTo(0, fadeOutMs);
+    if (fadeOutMs > 0 && this.isPlaying && !audio.paused) {
+      const completed = await this.fadeTo(0, fadeOutMs);
+      if (!completed || requestId !== this.playRequestId) return false;
     }
 
     try {
-      this.audioElement.pause();
-      this.audioElement.currentTime = 0;
+      audio.pause();
+      audio.currentTime = 0;
       this.isPlaying = false;
       this.currentTrack = null;
 
@@ -305,8 +339,8 @@ export class AudioChannel {
       this.stopLevelAnalysis();
 
       // 先移除 src 避免触发 error 事件，然后设置为空
-      this.audioElement.removeAttribute('src');
-      this.audioElement.load();
+      audio.removeAttribute('src');
+      audio.load();
 
       console.log(`[AudioChannel:${this.channelId}] 音频已停止`);
       return true;
@@ -370,10 +404,7 @@ export class AudioChannel {
     console.log(`[AudioChannel:${this.channelId}] 音量渐变: ${this.currentVolume} -> ${volume}, 时间: ${ms}ms`);
 
     // 清除之前的渐变
-    if (this.fadeInterval) {
-      clearInterval(this.fadeInterval);
-      this.fadeInterval = null;
-    }
+    this.cancelFade();
 
     // 限制音量范围
     this.targetVolume = Math.max(0, Math.min(1, volume));
@@ -396,6 +427,7 @@ export class AudioChannel {
     const stepSize = volumeDiff / steps;
 
     return new Promise((resolve) => {
+      this.finishFade = resolve;
       let currentStep = 0;
 
       this.fadeInterval = setInterval(() => {
@@ -425,10 +457,18 @@ export class AudioChannel {
             this.audioElement.volume = this.targetVolume;
           }
           console.log(`[AudioChannel:${this.channelId}] 音量渐变完成: ${this.targetVolume}`);
+          this.finishFade = null;
           resolve(true);
         }
       }, 16);
     });
+  }
+
+  private cancelFade(): void {
+    if (this.fadeInterval) clearInterval(this.fadeInterval);
+    this.fadeInterval = null;
+    this.finishFade?.(false);
+    this.finishFade = null;
   }
 
   /**
@@ -471,6 +511,7 @@ export class AudioChannel {
         channelId: this.channelId,
         type: this.channelType,
         isPlaying: false,
+        isLoading: false,
         currentTrack: this.currentTrack,
         volume: this.currentVolume,
         targetVolume: this.targetVolume,
@@ -484,13 +525,14 @@ export class AudioChannel {
     }
 
     // 检查 audio 元素的实际播放状态
-    const actuallyPlaying = !this.audioElement.paused && this.audioElement.currentTime > 0;
+    const actuallyPlaying = !this.audioElement.paused && !this.audioElement.ended;
     const audioReady = this.audioElement.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA;
 
     return {
       channelId: this.channelId,
       type: this.channelType,
       isPlaying: actuallyPlaying && this.isPlaying,
+      isLoading: this.pendingPlay !== null && !this.isPlaying,
       currentTrack: this.currentTrack,
       volume: this.currentVolume,
       targetVolume: this.targetVolume,
@@ -507,10 +549,11 @@ export class AudioChannel {
    * 清理资源
    */
   dispose(): void {
-    if (this.fadeInterval) {
-      clearInterval(this.fadeInterval);
-      this.fadeInterval = null;
-    }
+    ++this.playRequestId;
+    this.pendingPlay = null;
+    this.isPlaying = false;
+    this.currentTrack = null;
+    this.cancelFade();
     this.stopLevelAnalysis();
     if (this.audioElement) {
       this.audioElement.pause();

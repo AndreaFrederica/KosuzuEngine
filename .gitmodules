@@ -1,0 +1,6 @@
+[submodule "external/Live2dRender"]
+	path = external/Live2dRender
+	url = https://github.com/AndreaFrederica/Live2dRender.git
+[submodule "external/CubismWebFramework"]
+	path = external/CubismWebFramework
+	url = https://github.com/Live2D/CubismWebFramework.git

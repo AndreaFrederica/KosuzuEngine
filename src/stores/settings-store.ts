@@ -73,6 +73,8 @@ export interface DisplaySettings {
   recoveryMode: RecoveryMode;
   /** 窗口管理器快捷键（例如 '`'） */
   windowManagerHotkey: string;
+  /** Live2D 后端 ('pixi' | 'native') */
+  live2dBackend: 'pixi' | 'native';
 }
 
 /** 其他设置 */
@@ -133,6 +135,7 @@ const DEFAULT_DISPLAY_SETTINGS: DisplaySettings = {
   restartScope: 'currentScene',
   recoveryMode: 'fast',
   windowManagerHotkey: '`',
+  live2dBackend: 'pixi',
 };
 
 const DEFAULT_OTHER_SETTINGS: OtherSettings = {
@@ -176,6 +179,7 @@ const STORAGE_KEYS = {
     RESTART_SCOPE: 'engine:restartScope',
     RECOVERY_MODE: 'engine:recoveryMode',
     WINDOW_MANAGER_HOTKEY: 'engine:windowManagerHotkey',
+    LIVE2D_BACKEND: 'engine:live2dBackend',
   },
   OTHER: {
     SKIP_READ: 'game:skipRead',
@@ -269,6 +273,8 @@ export const useSettingsStore = defineStore('settings', () => {
     const recoveryModeStr = localStorage.getItem(STORAGE_KEYS.DISPLAY.RECOVERY_MODE);
     displaySettings.value.recoveryMode = (recoveryModeStr === 'full' || recoveryModeStr === 'fast' || recoveryModeStr === 'direct') ? recoveryModeStr : 'fast';
     displaySettings.value.windowManagerHotkey = localStorage.getItem(STORAGE_KEYS.DISPLAY.WINDOW_MANAGER_HOTKEY) || '`';
+    const live2dBackendStr = localStorage.getItem(STORAGE_KEYS.DISPLAY.LIVE2D_BACKEND);
+    displaySettings.value.live2dBackend = (live2dBackendStr === 'pixi' || live2dBackendStr === 'native') ? live2dBackendStr : 'pixi';
 
     // 尝试从旧格式加载
     loadFromLegacy('dialogDiffEnabled', (v) => displaySettings.value.dialogDiffEnabled = Boolean(v));
@@ -356,6 +362,7 @@ export const useSettingsStore = defineStore('settings', () => {
     localStorage.setItem(STORAGE_KEYS.DISPLAY.RESTART_SCOPE, displaySettings.value.restartScope);
     localStorage.setItem(STORAGE_KEYS.DISPLAY.RECOVERY_MODE, displaySettings.value.recoveryMode);
     localStorage.setItem(STORAGE_KEYS.DISPLAY.WINDOW_MANAGER_HOTKEY, displaySettings.value.windowManagerHotkey);
+    localStorage.setItem(STORAGE_KEYS.DISPLAY.LIVE2D_BACKEND, displaySettings.value.live2dBackend);
   }
 
   function saveOtherSettings(): void {
@@ -532,6 +539,9 @@ export const useSettingsStore = defineStore('settings', () => {
     },
     setWindowManagerHotkey(value: string) {
       displaySettings.value.windowManagerHotkey = value;
+    },
+    setLive2DBackend(value: 'pixi' | 'native') {
+      displaySettings.value.live2dBackend = value;
     },
 
     // 其他设置快捷方法

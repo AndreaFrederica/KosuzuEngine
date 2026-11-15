@@ -1,4 +1,6 @@
 import type { ActorAction, ActionResult } from './ActorAction';
+import type { ScriptController } from '../script/ScriptSession';
+import { compressSnapshot } from '../script/snapshotStorage';
 import { initialEngineState, reducer, type EngineState, type HistoryEntry, type DialogState } from './EngineContext';
 import type { BindingsRegistry, Live2DBinding, SpriteAtlasBinding, VoiceBankBinding, AudioMixerBinding, SayTargetBinding } from './bindings';
 import {
@@ -11,6 +13,21 @@ import {
 } from '../storage/indexeddb';
 
 export class Runtime {
+  private scriptController: ScriptController | undefined;
+
+  setScriptController(controller: ScriptController) {
+    this.scriptController = controller;
+  }
+
+  async restoreSave(data: SaveData) {
+    if (data.script) {
+      if (!this.scriptController) throw new Error('脚本运行时尚未初始化');
+      await this.scriptController.restore(data.script, data.state as EngineState);
+    } else {
+      this.scriptController?.stop();
+      this.hydrate(data.state as EngineState);
+    }
+  }
   state: EngineState;
   bindings: BindingsRegistry;
   private listeners: Array<(state: EngineState) => void>;
@@ -25,6 +42,9 @@ export class Runtime {
   private replayChoiceCursor: number;
   private replayHistory: HistoryEntry[] | null;
   private choiceTrail: string[];
+  private actionCursor: number;
+  private flowActiveKey: string | null;
+  private pendingOperations = 0;
   private replayPlan:
     | {
       actions: ActorAction<unknown>[];
@@ -62,6 +82,8 @@ export class Runtime {
     this.replayChoiceCursor = 0;
     this.replayHistory = null;
     this.choiceTrail = [];
+    this.actionCursor = 0;
+    this.flowActiveKey = null;
     this.replayPlan = null;
     this.sceneEntryVarsSnapshot = null;
     this.progressKey = 'kosuzu_engine_progress';
@@ -71,6 +93,7 @@ export class Runtime {
   }
 
   reset(options?: { silent?: boolean }) {
+    this.scriptController?.stop();
     if (this.latestCheckpointTimer !== null) {
       clearTimeout(this.latestCheckpointTimer);
       this.latestCheckpointTimer = null;
@@ -87,6 +110,10 @@ export class Runtime {
     this.replayPlan = null;
     this.replayHistory = null;
     this.choiceTrail = [];
+    this.actionCursor = 0;
+    this.flowActiveKey = null;
+    this.pendingOperations = 0;
+    this.state.flow = {};
     this.sceneEntryVarsSnapshot = null;
     if (!options?.silent) {
       this.emit();
@@ -167,6 +194,57 @@ export class Runtime {
     return type !== 'stage';
   }
 
+  getActionCursor() {
+    return this.actionCursor;
+  }
+
+  getChoiceTrailSnapshot() {
+    return this.choiceTrail.slice();
+  }
+
+  /** Begin one resumable OOP command. Completed commands are skipped without invoking their callback. */
+  flowStep(id: string, occurrence: number) {
+    const key = `${id}#${Math.max(0, Math.floor(occurrence))}`;
+    const completed = this.state.flow?.[key];
+    if (completed) return { skip: true, value: completed.value };
+    this.flowActiveKey = key;
+    return { skip: false };
+  }
+
+  flowComplete(id: string, occurrence: number, value: unknown) {
+    const key = `${id}#${Math.max(0, Math.floor(occurrence))}`;
+    this.state.flow = { ...(this.state.flow ?? {}), [key]: { value } };
+    if (this.flowActiveKey === key) this.flowActiveKey = null;
+    this.persistProgress(this.currentFrame());
+  }
+
+  flowAbort(id: string, occurrence: number) {
+    const key = `${id}#${Math.max(0, Math.floor(occurrence))}`;
+    if (this.flowActiveKey === key) this.flowActiveKey = null;
+  }
+
+  invalidateFlowFrom(file: string, line: number) {
+    const normalized = file.replaceAll('\\', '/');
+    const next = { ...(this.state.flow ?? {}) };
+    for (const key of Object.keys(next)) {
+      const location = key.split('#')[0] ?? '';
+      const separator = location.lastIndexOf(':');
+      const source = separator >= 0 ? location.slice(0, separator) : location;
+      const sourceLine = separator >= 0 ? Number(location.slice(separator + 1)) : 0;
+      if (source === normalized && sourceLine >= line) delete next[key];
+    }
+    this.state.flow = next;
+  }
+
+  isOperationPending() {
+    return this.pendingOperations > 0;
+  }
+
+  private trackOperation<T>(promise: Promise<T>) {
+    this.pendingOperations += 1;
+    return promise.finally(() => { this.pendingOperations = Math.max(0, this.pendingOperations - 1); });
+  }
+
   setReplayHistory(history: HistoryEntry[] | null | undefined) {
     if (!history || history.length === 0) {
       this.replayHistory = null;
@@ -182,6 +260,7 @@ export class Runtime {
   }
 
   dispatch<TResult = unknown>(action: ActorAction<unknown>): Promise<ActionResult<TResult>> {
+    this.actionCursor += 1;
     const isRecordable = this.shouldRecordAction(action.type);
     let effectiveAction = action;
     let replayIsLast = false;
@@ -254,9 +333,9 @@ export class Runtime {
       // Dev 模式下重放时跳过等待，加快恢复速度
       // Fix: 只有在重放计划依然存在时才跳过（避免重放结束后的第一个指令被错误跳过）
       const waitMs = isSkipping && this.replayPlan ? 0 : Math.max(0, Math.floor(ms));
-      return new Promise<ActionResult<TResult>>((resolve) => {
+      return this.trackOperation(new Promise<ActionResult<TResult>>((resolve) => {
         setTimeout(() => resolve({ ok: true } as ActionResult<TResult>), waitMs);
-      });
+      }));
     }
     if (effectiveAction.type === 'choice') {
       if ((this.replayPlan && !replayIsLast) || replayPreTarget) {
@@ -287,9 +366,9 @@ export class Runtime {
         this.emit();
         if (isRecordable) this.persistProgress(this.currentFrame());
       }
-      return new Promise<ActionResult<TResult>>((resolve) => {
+      return this.trackOperation(new Promise<ActionResult<TResult>>((resolve) => {
         this.pendingChoice = { resolve: resolve as unknown as (value: ActionResult<string>) => void };
-      });
+      }));
     }
     if (effectiveAction.type === 'say') {
       const sayIndex = this.state.history?.length ?? 0;
@@ -389,9 +468,9 @@ export class Runtime {
         this.replayChoiceCursor = 0;
       }
       console.log(`[say] 等待用户点击，pendingSay 已设置`);
-      return new Promise<ActionResult<TResult>>((resolve) => {
+      return this.trackOperation(new Promise<ActionResult<TResult>>((resolve) => {
         this.pendingSay = { resolve: resolve as unknown as (value: ActionResult<void>) => void };
-      });
+      }));
     }
     this.state = reducer(this.state, {
       type: effectiveAction.type,
@@ -502,6 +581,10 @@ export class Runtime {
     });
   }
 
+  waitForChoice(): Promise<ActionResult<string>> {
+    return new Promise((resolve) => { this.pendingChoice = { resolve }; });
+  }
+
   /**
    * 从存档恢复运行时状态
    * TODO: 目前的实现会在 hydrate 后调用 emit()，这会导致视觉闪烁。
@@ -536,6 +619,9 @@ export class Runtime {
     this.replayPlan = null;
     this.replayHistory = null;
     this.choiceTrail = [];
+    this.actionCursor = 0;
+    this.flowActiveKey = null;
+    this.pendingOperations = 0;
     this.sceneEntryVarsSnapshot = null;
     this.resumeCallback = null;
     if (!options?.silent) {
@@ -601,6 +687,7 @@ export class Runtime {
   }
 
   back() {
+    if (this.scriptController?.back()) return;
     const curr = JSON.parse(JSON.stringify(this.state)) as EngineState;
     if (this.past.length > 0) {
       const prev = this.past.pop() as EngineState;
@@ -662,6 +749,10 @@ export class Runtime {
       // actions: this.actionLog,
       choices: this.choiceTrail.slice(),
     };
+    const script = this.scriptController?.capture();
+    if (script) saveData.script = script;
+    saveData.state = JSON.parse(JSON.stringify(this.state)) as EngineState;
+    if (saveData.script) saveData.script.vm = await compressSnapshot(saveData.script.vm);
 
     if (this.useIndexedDB) {
       try {
@@ -680,6 +771,11 @@ export class Runtime {
   }
 
   async load(slot: string) {
+    const snapshot = await this.getSaveData(slot);
+    if (snapshot?.script) {
+      await this.restoreSave(snapshot);
+      return { ok: true } as ActionResult<void>;
+    }
     if (this.useIndexedDB) {
       try {
         const saveData = await loadFromIndexedDB(slot);
@@ -808,40 +904,14 @@ export class Runtime {
     if (this.latestCheckpointTimer !== null) clearTimeout(this.latestCheckpointTimer);
     this.latestCheckpointTimer = setTimeout(() => {
       this.latestCheckpointTimer = null;
-      void this.saveLatestCheckpoint();
+      void this.saveLatestCheckpoint().catch((error: unknown) => console.warn('自动存档失败:', error));
     }, 1500);
   }
 
   private async saveLatestCheckpoint() {
-    const scene = this.state.scene;
-    if (!scene) return;
-    const slot = '__latest__';
-    const time = Date.now();
-    const text = this.state.dialog?.text || '';
-    const entryVars: Record<string, unknown> =
-      this.sceneEntryVarsSnapshot ?? (this.state.vars ? JSON.parse(JSON.stringify(this.state.vars)) : {});
-    const stateSnapshot = JSON.parse(JSON.stringify(this.state)) as EngineState;
-    const saveData: SaveData = {
-      meta: { scene, text, time, slot, frame: this.currentFrame() },
-      state: stateSnapshot,
-      entryVars,
-      choices: this.choiceTrail.slice(),
-    };
-
-    if (this.useIndexedDB) {
-      try {
-        await saveToIndexedDB(saveData);
-        return;
-      } catch {
-        const key = this.getSaveStorageKey(slot);
-        localStorage.setItem(key, JSON.stringify(saveData));
-        return;
-      }
-    }
-
-    const key = this.getSaveStorageKey(slot);
-    localStorage.setItem(key, JSON.stringify(saveData));
+    if (this.state.scene) await this.save('__latest__');
   }
+
 }
 
 export const defaultRuntime = new Runtime();

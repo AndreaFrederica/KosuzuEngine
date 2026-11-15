@@ -19,9 +19,7 @@ import { getGameLocales, SUPPORTED_LOCALES } from '../../game/i18n';
 import { getI18nManager } from './I18nManager';
 import type { SupportedLocale } from './types';
 import type { EngineState } from '../core/EngineContext';
-import type { useEngineStore } from 'stores/engine-store';
-
-type EngineStore = ReturnType<typeof useEngineStore>;
+import type { EngineStore } from '../../stores/engine-store';
 
 let engineStoreRef: EngineStore | null = null;
 

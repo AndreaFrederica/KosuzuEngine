@@ -253,20 +253,7 @@
                 />
               </div>
             </div>
-            <div class="setting-item">
-              <div class="setting-info">
-                <div class="setting-label">跳过重放</div>
-                <div class="setting-desc">读档时直接恢复状态，不重放动作</div>
-              </div>
-              <div class="setting-control">
-                <q-toggle
-                  :model-value="skipReplay"
-                  @update:model-value="setSkipReplay"
-                  color="positive"
-                  size="md"
-                />
-              </div>
-            </div>
+
             <div class="setting-item">
               <div class="setting-info">
                 <div class="setting-label">自动播放等待</div>
@@ -303,6 +290,24 @@
             </div>
             <div class="setting-item">
               <div class="setting-info">
+                <div class="setting-label">Live2D 后端</div>
+                <div class="setting-desc">Live2D Backend (Requires Refresh)</div>
+              </div>
+              <div class="setting-control">
+                <select
+                  :value="live2dBackend"
+                  @change="
+                    (e: Event) => setLive2DBackend((e.target as HTMLSelectElement).value as any)
+                  "
+                  class="setting-select"
+                >
+                  <option value="pixi">PixiJS (Default)</option>
+                  <option value="native">Native (WebGL)</option>
+                </select>
+              </div>
+            </div>
+            <div class="setting-item">
+              <div class="setting-info">
                 <div class="setting-label">回到开头范围</div>
                 <div class="setting-desc">
                   Restart scope:
@@ -320,25 +325,7 @@
                 />
               </div>
             </div>
-            <div class="setting-item">
-              <div class="setting-info">
-                <div class="setting-label">恢复模式</div>
-                <div class="setting-desc">读档时的恢复方式 / Recovery mode</div>
-              </div>
-              <div class="setting-control">
-                <select
-                  :value="recoveryMode"
-                  @change="
-                    (e: Event) => setRecoveryMode((e.target as HTMLSelectElement).value as any)
-                  "
-                  class="setting-select"
-                >
-                  <option value="full">完整重放 / Full replay</option>
-                  <option value="fast">快速跳转 / Fast skip</option>
-                  <option value="direct">直接恢复 / Direct restore</option>
-                </select>
-              </div>
-            </div>
+            <div class="setting-item"><div class="setting-info"><div class="setting-label">存档恢复</div><div class="setting-desc">从保存的执行位置继续，保留脚本变量和当前选择。</div></div></div>
           </div>
         </div>
 
@@ -389,11 +376,10 @@ const hideContinueButton = ref(settingsStore.displaySettings.hideContinueButton)
 const continueKeyBinding = ref(settingsStore.displaySettings.continueKeyBinding);
 const isBindingKey = ref(false);
 const typewriterEnabled = ref(settingsStore.textSettings.typewriterEnabled);
-const skipReplay = ref(settingsStore.displaySettings.skipReplay);
 const autoWaitDelay = ref(settingsStore.displaySettings.autoWaitDelay);
 const autoUnloadLive2D = ref(settingsStore.displaySettings.autoUnloadLive2D);
+const live2dBackend = ref(settingsStore.displaySettings.live2dBackend);
 const restartScope = ref(settingsStore.displaySettings.restartScope);
-const recoveryMode = ref(settingsStore.displaySettings.recoveryMode);
 
 function setTypewriterEnabled(value: boolean) {
   typewriterEnabled.value = value;
@@ -468,10 +454,6 @@ function setHideContinueButton(value: boolean) {
   settingsStore.setHideContinueButton(value);
 }
 
-function setSkipReplay(value: boolean) {
-  skipReplay.value = value;
-  settingsStore.setSkipReplay(value);
-}
 
 function setAutoWaitDelay(value: number | null) {
   if (value != null) {
@@ -485,15 +467,16 @@ function setAutoUnloadLive2D(value: boolean) {
   settingsStore.setAutoUnloadLive2D(value);
 }
 
+function setLive2DBackend(value: 'pixi' | 'native') {
+  live2dBackend.value = value;
+  settingsStore.setLive2DBackend(value);
+}
+
 function setRestartScope(value: 'currentScene' | 'allScripts') {
   restartScope.value = value;
   settingsStore.setRestartScope(value);
 }
 
-function setRecoveryMode(value: 'full' | 'fast' | 'direct') {
-  recoveryMode.value = value;
-  settingsStore.setRecoveryMode(value);
-}
 
 function startKeyBinding() {
   isBindingKey.value = true;
@@ -522,11 +505,10 @@ function resetToDefaults() {
   autoContinueAfterLoad.value = false;
   hideContinueButton.value = false;
   continueKeyBinding.value = 'Enter';
-  skipReplay.value = false;
   autoWaitDelay.value = 1000;
   autoUnloadLive2D.value = true;
+  live2dBackend.value = 'pixi';
   restartScope.value = 'currentScene';
-  recoveryMode.value = 'full';
 
   // 使用 settings-store 重置所有设置
   settingsStore.setTextSpeed(50);
@@ -546,6 +528,7 @@ function resetToDefaults() {
   settingsStore.setSkipReplay(false);
   settingsStore.setAutoWaitDelay(1000);
   settingsStore.setAutoUnloadLive2D(true);
+  settingsStore.setLive2DBackend('pixi');
   settingsStore.setRestartScope('currentScene');
   settingsStore.setRecoveryMode('full');
 }
