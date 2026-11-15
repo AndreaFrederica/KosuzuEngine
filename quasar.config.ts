@@ -85,7 +85,7 @@ export default defineConfig((ctx) => {
         }
 
         // 添加 Live2D Framework 的别名映射
-        const frameworkPath = fileURLToPath(new URL('./external/Live2D/CubismSdkForWeb/Framework/src', import.meta.url));
+        const frameworkPath = fileURLToPath(new URL('./external/CubismWebFramework/src', import.meta.url));
         (viteConf.resolve.alias as Record<string, string>)['@framework'] = frameworkPath;
         const nativeBackendPath = fileURLToPath(new URL('./external/Live2dRender/src/core/native-backend.ts', import.meta.url));
         (viteConf.resolve.alias as Record<string, string>)['live2d-native-backend'] = nativeBackendPath;
